@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android 12+ backup rules. The clipboard history can contain passwords,
+  OTPs and other secrets the user copied; it must never leave the device
+  through cloud or device-to-device migration.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="file" path="clipboard_history.json" />
+        <exclude domain="file" path="swipe_user_words.txt" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="file" path="clipboard_history.json" />
+        <exclude domain="file" path="swipe_user_words.txt" />
+    </device-transfer>
+</data-extraction-rules>

@@ -22,6 +22,18 @@ import com.example.composekeyboard.input.swipe.SwipeTrace
  * is fed in production, and the failure mode is silent: no crash, just quietly
  * worse predictions. The two places that matter are the resampling (uniform in
  * *time*, via a 60 Hz intermediate) and the normalization box.
+ *
+ * MODEL ASSET: The encoder weights file `swipe_encoder.bin` must be placed in
+ * `app/src/main/assets/` before building a release. It is NOT included in this
+ * repository due to size. To generate it:
+ *
+ * 1. Train the model using the ML pipeline in `ml/` (requires Python/PyTorch)
+ * 2. Export weights using `ml/swipe/export_encoder.py` (outputs `swipe_encoder.bin`)
+ * 3. Copy the generated file to `app/src/main/assets/swipe_encoder.bin`
+ *
+ * Without the asset, the decoder gracefully falls back to the geometric path
+ * (see [SwipeController.rank]), which still provides functional swipe typing
+ * at ~73% top-1 accuracy.
  */
 class SwipeNeuralDecoder private constructor(
     private val net: SwipeNet,

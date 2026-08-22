@@ -65,7 +65,10 @@ fun Modifier.swipeTypingGestures(
             val startKey = geometry.letterAt(down.position)
             if (startKey < 0) return@awaitEachGesture
 
-            val threshold = max(viewConfiguration.touchSlop * 1.2f, geometry.keyWidth * 0.55f)
+            val threshold = max(
+                viewConfiguration.touchSlop * SwipeConstants.SWIPE_THRESHOLD_MULTIPLIER,
+                geometry.keyWidth * SwipeConstants.SWIPE_MIN_KEY_WIDTH_FRACTION
+            )
             val thresholdSquared = threshold * threshold
 
             currentHandler.onTouchDown(down.position, startKey, down.uptimeMillis)

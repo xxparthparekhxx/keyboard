@@ -128,8 +128,8 @@ class SwipeKeyGeometry {
     }
 
     companion object {
-        private const val MIN_PLACED_KEYS = 20
-        private const val HIT_SLOP_PX = 3f
+        private const val MIN_PLACED_KEYS = SwipeConstants.MIN_PLACED_KEYS
+        private const val HIT_SLOP_PX = SwipeConstants.HIT_SLOP_PX
 
         /** Letter index for a key model, or -1 for anything not a plain letter. */
         fun letterIndexOf(type: KeyType): Int {

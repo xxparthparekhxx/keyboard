@@ -10,6 +10,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -87,7 +88,11 @@ fun getKeyboardColors(
         KeyboardThemeType.DYNAMIC_DARK, KeyboardThemeType.DYNAMIC_LIGHT -> {
             val isDark = themeType == KeyboardThemeType.DYNAMIC_DARK
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                val dynamicScheme = if (isDark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+                // Building a dynamic scheme hits the system's color extraction;
+                // cache it so grid tiles and recompositions don't re-run it.
+                val dynamicScheme = remember(context, isDark) {
+                    if (isDark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+                }
                 KeyboardColors(
                     background = dynamicScheme.surfaceContainer,
                     keyBackground = dynamicScheme.surfaceContainerHigh,

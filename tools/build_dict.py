@@ -1,6 +1,6 @@
 import math, re, os
 
-MAX_WORDS = 35000
+MAX_WORDS = 150000
 ok = re.compile(r"^[a-z]+$")
 
 freq = {}

@@ -39,6 +39,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.runtime.remember
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.composekeyboard.data.ClipboardHistoryManager
@@ -211,8 +212,9 @@ private fun ClipboardItemCard(
     onDelete: () -> Unit
 ) {
     val colors = LocalKeyboardColors.current
-    val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
-    val formattedTime = timeFormat.format(Date(item.timestamp))
+    val formattedTime = remember(item.timestamp) {
+        SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(item.timestamp))
+    }
 
     Row(
         modifier = Modifier

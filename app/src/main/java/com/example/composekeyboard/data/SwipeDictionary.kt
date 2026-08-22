@@ -42,6 +42,8 @@ class SwipeDictionary private constructor(private val appContext: Context) {
     private val userBoosts = HashMap<String, Int>()
     private val lock = Any()
 
+    private var loadFailed = false
+
     @Volatile
     private var userDirty = false
 
@@ -68,6 +70,7 @@ class SwipeDictionary private constructor(private val appContext: Context) {
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to read $ASSET_NAME", e)
+                loadFailed = true
             }
 
             readUserWords()
@@ -85,7 +88,10 @@ class SwipeDictionary private constructor(private val appContext: Context) {
             }
 
             buckets = Array(ALPHABET) { staging[it] }
-            isLoaded = true
+            // A partially loaded dictionary is worse than an empty one that will
+            // retry: without this flag the keyboard would silently swipe against
+            // a fraction of the lexicon for the whole process lifetime.
+            isLoaded = !loadFailed
             Log.i(TAG, "Loaded ${byWord.size} words (${userBoosts.size} learned)")
         }
     }
@@ -101,6 +107,7 @@ class SwipeDictionary private constructor(private val appContext: Context) {
             if (!isLoaded) return
             val boost = (userBoosts[word] ?: 0) + LEARN_STEP
             userBoosts[word] = boost.coerceAtMost(MAX_BOOST)
+            evictLearnedIfNeeded()
             userDirty = true
 
             val existing = byWord[word]
@@ -143,19 +150,22 @@ class SwipeDictionary private constructor(private val appContext: Context) {
         if (firstChar !in 'a'..'z') return emptyList()
         val firstLetter = firstChar - 'a'
         val bucket = bucket(firstLetter)
-        val results = ArrayList<String>(maxCount)
 
-        // 1. If prefix matches an exact dictionary word, include it first
-        val exactEntry = byWord[prefix]
-        if (exactEntry != null) {
-            results.add(formatCased(exactEntry.word, rawPrefix))
+        // byWord is mutated under the lock; take a consistent snapshot rather
+        // than risking an unsynchronized read during a rehash.
+        val exactWord: String?
+        synchronized(lock) {
+            exactWord = byWord[prefix]?.word
+        }
+        val results = ArrayList<String>(maxCount)
+        if (exactWord != null) {
+            results.add(formatCased(exactWord, rawPrefix))
         }
 
-        // 2. Add top frequency completions starting with prefix
         for (entry in bucket) {
+            if (results.size >= maxCount) break
             if (entry.word.startsWith(prefix) && entry.word != prefix) {
                 results.add(formatCased(entry.word, rawPrefix))
-                if (results.size >= maxCount) break
             }
         }
         return results
@@ -191,8 +201,10 @@ class SwipeDictionary private constructor(private val appContext: Context) {
         val snapshot: Map<String, Int>
         synchronized(lock) {
             if (!userDirty) return
-            userDirty = false
             snapshot = HashMap(userBoosts)
+            // Cleared only after the write lands below; a crash between here and
+            // there just costs one redundant rewrite of the same data instead of
+            // silently losing everything learned since the last save.
         }
         try {
             val text = buildString {
@@ -200,11 +212,28 @@ class SwipeDictionary private constructor(private val appContext: Context) {
                     append(word).append('\t').append(boost).append('\n')
                 }
             }
-            File(appContext.filesDir, USER_FILE).writeText(text)
+            ClipboardHistoryManager.writeAtomically(File(appContext.filesDir, USER_FILE), text)
+            synchronized(lock) { userDirty = false }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to persist learned words", e)
             synchronized(lock) { userDirty = true }
         }
+    }
+
+    /**
+     * Keeps the learned-word overlay from growing without bound over the
+     * lifetime of a device: once past [MAX_LEARNED_WORDS], the weakest-boosted
+     * words (least-seen, oldest signal) are forgotten first.
+     * Caller must hold [lock].
+     */
+    private fun evictLearnedIfNeeded() {
+        if (userBoosts.size <= MAX_LEARNED_WORDS) return
+        val excess = userBoosts.size - MAX_LEARNED_WORDS
+        userBoosts.entries.asSequence()
+            .sortedBy { it.value }
+            .take(excess)
+            .toList()
+            .forEach { userBoosts.remove(it.key) }
     }
 
     private fun readUserWords() {
@@ -245,6 +274,7 @@ class SwipeDictionary private constructor(private val appContext: Context) {
         private const val USER_BASE_SCORE = 120
         private const val LEARN_STEP = 6
         private const val MAX_BOOST = 60
+        private const val MAX_LEARNED_WORDS = 5_000
 
         /** Sightings needed before an unknown word becomes gesture-reachable. */
         private const val NEW_WORD_THRESHOLD = LEARN_STEP * 2

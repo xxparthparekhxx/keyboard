@@ -4,12 +4,13 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import com.example.composekeyboard.input.swipe.SwipeConstants
 import com.example.composekeyboard.input.swipe.SwipeTrace
 
 /**
  * Paints the comet trail that follows the finger.
  *
- * Only the tail end of the path is drawn — the last [TRAIL_DURATION_MS] of it —
+ * Only the tail end of the path is drawn — the last [SwipeConstants.TRAIL_DURATION_MS] of it —
  * so a long word leaves a ribbon behind the finger instead of gradually filling
  * the keyboard with a scribble. Width and opacity ramp towards the head, which
  * reads as motion and keeps the letters under the older part legible.
@@ -28,8 +29,8 @@ fun DrawScope.drawSwipeTrail(
     val now = path.timeAt(count - 1)
     var start = count - 1
     while (start > 0 &&
-        now - path.timeAt(start - 1) <= TRAIL_DURATION_MS &&
-        count - start < MAX_TRAIL_SEGMENTS
+        now - path.timeAt(start - 1) <= SwipeConstants.TRAIL_DURATION_MS &&
+        count - start < SwipeConstants.MAX_TRAIL_SEGMENTS
     ) {
         start--
     }
@@ -50,9 +51,3 @@ fun DrawScope.drawSwipeTrail(
         )
     }
 }
-
-/** How much of the recent path stays visible behind the finger. */
-private const val TRAIL_DURATION_MS = 320L
-
-/** Hard cap so a very fast finger cannot blow up the per-frame segment count. */
-private const val MAX_TRAIL_SEGMENTS = 96

@@ -405,8 +405,10 @@ fun MainScreen(
                         } else {
                             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 clipboardItems.take(5).forEach { clip ->
-                                    val timeFormat = SimpleDateFormat("MMM d, HH:mm", Locale.getDefault())
-                                    val formattedTime = timeFormat.format(Date(clip.timestamp))
+                                    val formattedTime = remember(clip.timestamp) {
+                                        SimpleDateFormat("MMM d, HH:mm", Locale.getDefault())
+                                            .format(Date(clip.timestamp))
+                                    }
 
                                     Row(
                                         modifier = Modifier
@@ -856,6 +858,10 @@ fun SettingSwitchRow(
     }
 }
 
+/** The settings string is colon-delimited "id/subtype" entries; match whole components. */
+private fun settingContainsIme(setting: String, packageName: String): Boolean =
+    setting.split(':').any { entry -> entry.substringBefore('/') == packageName }
+
 private fun checkIsImeEnabled(context: Context): Boolean {
     val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
     val enabledList = imm?.enabledInputMethodList
@@ -867,7 +873,7 @@ private fun checkIsImeEnabled(context: Context): Boolean {
         context.contentResolver,
         Settings.Secure.ENABLED_INPUT_METHODS
     ) ?: ""
-    return enabledSetting.contains(packageName)
+    return settingContainsIme(enabledSetting, packageName)
 }
 
 private fun checkIsImeSelected(context: Context): Boolean {
@@ -875,5 +881,5 @@ private fun checkIsImeSelected(context: Context): Boolean {
         context.contentResolver,
         Settings.Secure.DEFAULT_INPUT_METHOD
     ) ?: ""
-    return currentIme.contains(context.packageName)
+    return settingContainsIme(currentIme, context.packageName)
 }

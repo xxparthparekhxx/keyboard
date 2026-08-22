@@ -174,8 +174,8 @@ class SwipeController(
     }
 
     companion object {
-        const val MAX_SUGGESTIONS = 4
+        const val MAX_SUGGESTIONS = SwipeConstants.MAX_SUGGESTIONS
 
-        private const val PREVIEW_INTERVAL_MS = 55L
+        private const val PREVIEW_INTERVAL_MS = SwipeConstants.PREVIEW_INTERVAL_MS
     }
 }

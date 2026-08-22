@@ -35,6 +35,10 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -95,9 +99,31 @@ fun KeyboardKey(
         fg.copy(alpha = 0.18f)
     }
 
+    // TalkBack announcement: what the key will type or do in the current mode.
+    val keyDescription = when (val type = key.type) {
+        is KeyType.Character -> when (mode) {
+            KeyboardMode.UPPERCASE, KeyboardMode.CAPS_LOCKED -> type.primary.uppercase()
+            else -> type.primary
+        }
+        is KeyType.Shift ->
+            if (mode == KeyboardMode.CAPS_LOCKED) "Caps lock on" else "Shift"
+        is KeyType.Backspace -> "Backspace"
+        is KeyType.Space -> "Space"
+        is KeyType.Enter -> "Action"
+        is KeyType.SymbolToggle -> "Symbols"
+        is KeyType.SymbolMoreToggle -> "More symbols"
+        is KeyType.AlphabetToggle -> "Letters"
+        is KeyType.EmojiToggle -> "Emoji"
+        is KeyType.LanguageSwitch -> "Switch language"
+    }
+
     Box(
         modifier = modifier
             .fillMaxHeight()
+            .semantics {
+                contentDescription = keyDescription
+                role = Role.Button
+            }
             .padding(horizontal = 2.dp, vertical = 3.dp)
             .scale(scale)
             .shadow(
@@ -108,15 +134,23 @@ fun KeyboardKey(
             )
             .clip(RoundedCornerShape(8.dp))
             .background(if (isPressed) pressedBg else bg)
-            .pointerInput(key.type, mode) {
+            // Keyed only on key.type: `mode` affects rendering, not gestures.
+            // Restarting the detector when a tap changes the mode (e.g. Shift
+            // into CAPS_LOCK) would cancel onPress mid-gesture and leave the
+            // key stuck in its pressed visual state forever.
+            .pointerInput(key.type) {
+                val longPressTimeout = viewConfiguration.longPressTimeoutMillis
                 detectTapGestures(
                     onPress = {
                         isPressed = true
                         triggerHaptic()
                         var repeatJob: Job? = null
                         if (key.type is KeyType.Backspace) {
+                            // Start repeating just after the long-press timeout so a
+                            // held backspace can never fire both an auto-repeat and
+                            // the detector's own tap/long-press handling for one press.
                             repeatJob = scope.launch {
-                                delay(400)
+                                delay(longPressTimeout + 50L)
                                 while (isPressed) {
                                     triggerHaptic()
                                     onKeyPress(key.type)

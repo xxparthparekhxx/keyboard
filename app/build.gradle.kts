@@ -6,12 +6,12 @@ plugins {
 
 android {
     namespace = "com.example.composekeyboard"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.example.composekeyboard"
         minSdk = 24
-        targetSdk = 34
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0.0"
 
@@ -23,11 +23,38 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+        }
+    }
+
+    // One APK per ABI plus a universal fallback. The app itself is pure Kotlin,
+    // but splitting keeps installs lean once native libs land (and lets stores
+    // deliver only what a device can run). Per-ABI version code overrides are no
+    // longer supported by AGP 8's variant API; Play multi-APK delivery handles
+    // ordering server-side.
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
+            isUniversalApk = true
+        }
+    }
+
+    applicationVariants.all {
+        outputs.all {
+            val output = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
+            val abi = output.getFilter(com.android.build.api.variant.FilterConfiguration.FilterType.ABI.name)
+            if (abi != null) {
+                output.outputFileName = "composekeyboard-${name}-${abi}.apk"
+            } else {
+                output.outputFileName = "composekeyboard-${name}-universal.apk"
+            }
         }
     }
 
@@ -67,4 +94,6 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
 
     debugImplementation(libs.androidx.compose.ui.tooling)
+
+    testImplementation(libs.junit)
 }

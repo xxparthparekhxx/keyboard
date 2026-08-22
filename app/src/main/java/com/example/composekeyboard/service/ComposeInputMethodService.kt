@@ -6,6 +6,8 @@ import android.content.Intent
 import android.inputmethodservice.InputMethodService
 import android.media.AudioManager
 import android.os.Build
+import android.text.InputType
+import android.util.Log
 import android.view.KeyEvent
 import android.view.View
 import android.view.inputmethod.EditorInfo
@@ -13,6 +15,7 @@ import android.view.inputmethod.InputMethodManager
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
@@ -31,6 +34,7 @@ import com.example.composekeyboard.MainActivity
 import com.example.composekeyboard.data.ClipboardHistoryManager
 import com.example.composekeyboard.data.KeyboardPreferences
 import com.example.composekeyboard.data.SwipeDictionary
+import com.example.composekeyboard.input.swipe.SwipeConstants
 import com.example.composekeyboard.input.swipe.nn.SwipeNeuralDecoder
 import com.example.composekeyboard.ui.keyboard.KeyboardScreen
 import kotlinx.coroutines.CoroutineScope
@@ -72,6 +76,15 @@ class ComposeInputMethodService : InputMethodService(),
     private var audioManager: AudioManager? = null
     private var currentImeAction by mutableIntStateOf(EditorInfo.IME_ACTION_UNSPECIFIED)
 
+    /**
+     * Bumped for every input session so the keyboard UI can reset per-field
+     * state (like auto-capitalization) even when the value itself is unchanged.
+     */
+    private var inputSession by mutableIntStateOf(0)
+
+    /** Whether the focused field's input type asks for sentence-style capitals. */
+    private var fieldWantsCaps by mutableStateOf(false)
+
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var dictionarySaveJob: Job? = null
 
@@ -99,7 +112,7 @@ class ComposeInputMethodService : InputMethodService(),
         swipeDictionary = SwipeDictionary.getInstance(this)
         audioManager = getSystemService(Context.AUDIO_SERVICE) as? AudioManager
 
-        // ~35k words off the main thread; gestures simply decode to nothing
+        // ~150k words off the main thread; gestures simply decode to nothing
         // until it lands, which takes a fraction of the time it takes the user
         // to focus a field and start swiping.
         serviceScope.launch {
@@ -138,6 +151,8 @@ class ComposeInputMethodService : InputMethodService(),
                 swipeDictionary = swipeDictionary,
                 neuralDecoder = neural,
                 imeAction = currentImeAction,
+                inputSession = inputSession,
+                autoCapitalizeField = fieldWantsCaps,
                 onTextInput = { text ->
                     playKeySound(AudioManager.FX_KEYPRESS_STANDARD)
                     lastSwipeCommit = null
@@ -219,7 +234,9 @@ class ComposeInputMethodService : InputMethodService(),
             } else {
                 EditorInfo.IME_ACTION_UNSPECIFIED
             }
+            fieldWantsCaps = fieldRequestsCapitalization(it)
         }
+        inputSession++
     }
 
     override fun onFinishInputView(finishingInput: Boolean) {
@@ -443,13 +460,14 @@ class ComposeInputMethodService : InputMethodService(),
             val pendingIntent = PendingIntent.getActivity(this, 0, intent, flags)
             pendingIntent.send()
         } catch (e: Exception) {
+            Log.w(TAG, "PendingIntent launch failed; falling back to startActivity", e)
             try {
                 val intent = Intent(this, MainActivity::class.java).apply {
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
                 startActivity(intent)
             } catch (e2: Exception) {
-                e2.printStackTrace()
+                Log.e(TAG, "Could not launch settings activity", e2)
             }
         }
     }
@@ -460,7 +478,30 @@ class ComposeInputMethodService : InputMethodService(),
         }
     }
 
+    /**
+     * True when the focused field's [EditorInfo.inputType] asks for capitals at
+     * the start of sentences (the usual case for prose fields). Password, URI
+     * and e-mail variations are excluded — capitalizing those is never wanted.
+     */
+    private fun fieldRequestsCapitalization(info: EditorInfo): Boolean {
+        val inputType = info.inputType
+        if (inputType and InputType.TYPE_MASK_CLASS != InputType.TYPE_CLASS_TEXT) return false
+        val variation = inputType and InputType.TYPE_MASK_VARIATION
+        if (variation == InputType.TYPE_TEXT_VARIATION_PASSWORD ||
+            variation == InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD ||
+            variation == InputType.TYPE_TEXT_VARIATION_WEB_PASSWORD ||
+            variation == InputType.TYPE_TEXT_VARIATION_URI ||
+            variation == InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS ||
+            variation == InputType.TYPE_TEXT_VARIATION_WEB_EMAIL_ADDRESS
+        ) {
+            return false
+        }
+        return inputType and InputType.TYPE_TEXT_FLAG_CAP_SENTENCES != 0 ||
+                inputType and InputType.TYPE_TEXT_FLAG_CAP_WORDS != 0
+    }
+
     private companion object {
-        const val SAVE_DEBOUNCE_MS = 4000L
+        private const val TAG = "ComposeKeyboard"
+        const val SAVE_DEBOUNCE_MS = SwipeConstants.SAVE_DEBOUNCE_MS
     }
 }

@@ -30,58 +30,33 @@ import kotlin.math.sqrt
  */
 object SwipeDecoder {
 
-    /** Points the gesture and each candidate's ideal path are resampled to. */
-    const val SAMPLES = 32
-
     // --- Gating -------------------------------------------------------------
-
-    /** Shorter than this and it was a sloppy tap, not a word. */
-    private const val MIN_TRACE_KEY_WIDTHS = 0.7f
-
-    /** How far from the touch-down point a word's first letter may sit. */
-    private const val START_RADIUS = 1.25f
-
-    /** Lift-off is usually the sloppiest part of a gesture, so allow more room. */
-    private const val END_RADIUS = 1.40f
-
-    private const val MAX_ENDPOINT_CANDIDATES = 4
-
-    /**
-     * A gesture that satisfies nothing in the dictionary is retried with the
-     * tolerances multiplied by this and the pivot rule switched off. Swallowing
-     * a swipe entirely is the worst outcome available — a wrong-but-close word
-     * the user can fix from the suggestion strip beats no word at all.
-     */
-    private const val RELAXED_SCALE = 1.55f
-    private const val RELAXED_ENDPOINT_CANDIDATES = 6
-
-    /** Corridor half-width every interior letter must fall inside. */
-    private const val CORRIDOR = 1.15f
-
-    /** A corner has to be explained by a letter this close to it. */
-    private const val PIVOT_RADIUS = 1.25f
-
-    /** Letters within this of the path cost nothing; only real drift is charged. */
-    private const val TUNNEL = 0.42f
+    private const val MIN_TRACE_KEY_WIDTHS = SwipeConstants.MIN_TRACE_KEY_WIDTHS
+    private const val START_RADIUS = SwipeConstants.START_RADIUS
+    private const val END_RADIUS = SwipeConstants.END_RADIUS
+    private const val MAX_ENDPOINT_CANDIDATES = SwipeConstants.MAX_ENDPOINT_CANDIDATES
+    private const val RELAXED_SCALE = SwipeConstants.RELAXED_SCALE
+    private const val RELAXED_ENDPOINT_CANDIDATES = SwipeConstants.RELAXED_ENDPOINT_CANDIDATES
+    private const val CORRIDOR = SwipeConstants.CORRIDOR
+    private const val PIVOT_RADIUS = SwipeConstants.PIVOT_RADIUS
+    private const val TUNNEL = SwipeConstants.TUNNEL
 
     // --- Weights ------------------------------------------------------------
-
-    private const val W_SHAPE = 1.90f
-    private const val W_LOCATION = 1.50f
-    private const val W_LENGTH = 0.35f
-    private const val W_FREQUENCY = 1.35f
-
-    /** Charged per rank when the word's first/last letter is not the nearest key. */
-    private const val START_RANK_PENALTY = 0.22f
-    private const val END_RANK_PENALTY = 0.20f
+    private const val W_SHAPE = SwipeConstants.W_SHAPE
+    private const val W_LOCATION = SwipeConstants.W_LOCATION
+    private const val W_LENGTH = SwipeConstants.W_LENGTH
+    private const val W_FREQUENCY = SwipeConstants.W_FREQUENCY
+    private const val START_RANK_PENALTY = SwipeConstants.START_RANK_PENALTY
+    private const val END_RANK_PENALTY = SwipeConstants.END_RANK_PENALTY
 
     // --- Pivot detection ----------------------------------------------------
-
-    /** Turn sharper than this counts as a deliberate corner (radians ≈ 62°). */
-    private const val PIVOT_ANGLE = 1.08f
-    private const val MAX_PIVOTS = 8
+    private const val PIVOT_ANGLE = SwipeConstants.PIVOT_ANGLE
+    private const val MAX_PIVOTS = SwipeConstants.MAX_PIVOTS
 
     private val REJECTED = Float.MAX_VALUE
+
+    /** Points the gesture and each candidate's ideal path are resampled to. */
+    const val SAMPLES = SwipeConstants.SAMPLES
 
     /**
      * Ranks dictionary words against [swipe]. Pure and thread-safe: call it from

@@ -221,8 +221,8 @@ fun ColorPickerDialog(
                                 .clip(CircleShape)
                                 .background(swatch)
                                 .border(
-                                    width = if (swatch == currentColor) 2.5.dp else 1.dp,
-                                    color = if (swatch == currentColor) MaterialTheme.colorScheme.primary else Color.Gray.copy(alpha = 0.3f),
+                                    width = if (swatch.toArgb() == currentColor.toArgb()) 2.5.dp else 1.dp,
+                                    color = if (swatch.toArgb() == currentColor.toArgb()) MaterialTheme.colorScheme.primary else Color.Gray.copy(alpha = 0.3f),
                                     shape = CircleShape
                                 )
                                 .clickable {

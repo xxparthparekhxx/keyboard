@@ -16,6 +16,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -29,12 +31,17 @@ import com.example.composekeyboard.theme.LocalKeyboardColors
  * keys never shift under the user's finger mid-gesture. While the finger is
  * still down it shows the running best guess; once it lifts, the alternates
  * appear and any of them can be tapped to swap the committed word.
+ *
+ * The live preview arrives as a lambda rather than a value: the state behind it
+ * ticks roughly every 55 ms during a gesture, and reading it here — instead of
+ * in the parent — confines that recomposition to this strip instead of the
+ * whole keyboard.
  */
 @Composable
 fun SuggestionBar(
     suggestions: List<String>,
     selectedIndex: Int,
-    previewWord: String?,
+    previewWord: () -> String?,
     isSwiping: Boolean,
     hapticEnabled: Boolean,
     onSuggestionSelected: (Int) -> Unit,
@@ -51,6 +58,7 @@ fun SuggestionBar(
         verticalAlignment = Alignment.CenterVertically
     ) {
         if (isSwiping) {
+            val preview = previewWord()
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -58,7 +66,7 @@ fun SuggestionBar(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = previewWord ?: "",
+                    text = preview ?: "",
                     color = colors.actionKeyBackground,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
@@ -103,6 +111,7 @@ private fun SuggestionCell(
     Box(
         modifier = modifier
             .fillMaxHeight()
+            .semantics { contentDescription = "Suggestion: $word" }
             .padding(vertical = 4.dp)
             .clip(RoundedCornerShape(6.dp))
             .clickable {

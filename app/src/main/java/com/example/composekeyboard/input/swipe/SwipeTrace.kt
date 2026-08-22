@@ -135,10 +135,10 @@ class SwipeTrace {
     }
 
     private companion object {
-        const val INITIAL_CAPACITY = 256
+        const val INITIAL_CAPACITY = SwipeConstants.INITIAL_CAPACITY
 
         /** Below this the sample adds nothing but noise and buffer pressure. */
-        const val MIN_POINT_SPACING_PX = 1.5f
+        const val MIN_POINT_SPACING_PX = SwipeConstants.MIN_POINT_SPACING_PX
     }
 }
 

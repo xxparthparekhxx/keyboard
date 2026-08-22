@@ -38,6 +38,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import com.example.composekeyboard.data.ClipboardHistoryManager
+import com.example.composekeyboard.data.EmojiSuggestions
 import com.example.composekeyboard.data.KeyModel
 import com.example.composekeyboard.data.KeyType
 import com.example.composekeyboard.data.KeyboardLayouts
@@ -46,6 +47,7 @@ import com.example.composekeyboard.data.KeyboardSettings
 import com.example.composekeyboard.data.KeyboardThemeType
 import com.example.composekeyboard.data.SwipeDictionary
 import com.example.composekeyboard.input.swipe.nn.SwipeNeuralDecoder
+import com.example.composekeyboard.input.swipe.SwipeConstants
 import com.example.composekeyboard.input.swipe.SwipeController
 import com.example.composekeyboard.input.swipe.SwipeKeyGeometry
 import com.example.composekeyboard.input.swipe.swipeTypingGestures
@@ -60,6 +62,8 @@ fun KeyboardScreen(
     swipeDictionary: SwipeDictionary,
     neuralDecoder: SwipeNeuralDecoder? = null,
     imeAction: Int = EditorInfo.IME_ACTION_UNSPECIFIED,
+    inputSession: Int = 0,
+    autoCapitalizeField: Boolean = false,
     onTextInput: (String) -> Unit,
     onDelete: () -> Unit,
     onAction: (Int) -> Unit,
@@ -102,10 +106,28 @@ fun KeyboardScreen(
         var typedPrefix by remember { mutableStateOf("") }
         var isSwipeResult by remember { mutableStateOf(false) }
 
+        /** Last character this keyboard committed, for sentence detection. */
+        var lastCommitted by remember { mutableStateOf(' ') }
+
         val isAlphaMode = mode == KeyboardMode.LOWERCASE ||
                 mode == KeyboardMode.UPPERCASE ||
                 mode == KeyboardMode.CAPS_LOCKED
         val swipeEnabled = settings.swipeTypingEnabled && isAlphaMode
+
+        /**
+         * Auto-capitalization: a fresh field that asks for capitals starts in
+         * shift, and shift comes back after sentence-ending punctuation. The
+         * session counter keys the reset so it also fires when the next field
+         * has the same input type as the last one.
+         */
+        LaunchedEffect(inputSession) {
+            if (!isAlphaMode) return@LaunchedEffect
+            mode = if (settings.autoCapitalization && autoCapitalizeField) {
+                KeyboardMode.UPPERCASE
+            } else {
+                KeyboardMode.LOWERCASE
+            }
+        }
 
         // Reassigned on every recomposition so the handlers always see the
         // current shift state and the current input callbacks.
@@ -145,6 +167,12 @@ fun KeyboardScreen(
             selectedSuggestion = -1
         }
 
+        /** Word completions plus matching emojis, for the suggestion strip. */
+        fun refreshSuggestions(prefix: String) {
+            suggestions = swipeDictionary.getCompletions(prefix, maxCount = 4) +
+                    EmojiSuggestions.emojisFor(prefix, maxCount = 2)
+        }
+
         /** Single entry point for every key on every row. */
         fun dispatchKey(type: KeyType) {
             if (type is KeyType.Shift) {
@@ -165,7 +193,7 @@ fun KeyboardScreen(
                         KeyboardMode.UPPERCASE, KeyboardMode.CAPS_LOCKED -> typedPrefix.uppercase()
                         else -> typedPrefix.lowercase()
                     }
-                    suggestions = swipeDictionary.getCompletions(casedPrefix, maxCount = 4)
+                    refreshSuggestions(casedPrefix)
                 }
                 return
             }
@@ -177,6 +205,7 @@ fun KeyboardScreen(
                         else -> type.primary
                     }
                     onTextInput(char)
+                    lastCommitted = char[0]
                     if (mode == KeyboardMode.UPPERCASE) {
                         mode = KeyboardMode.LOWERCASE
                     }
@@ -185,7 +214,7 @@ fun KeyboardScreen(
                         selectedSuggestion = -1
                         val next = typedPrefix + char
                         typedPrefix = next
-                        suggestions = swipeDictionary.getCompletions(next, maxCount = 4)
+                        refreshSuggestions(next)
                     } else {
                         typedPrefix = ""
                         suggestions = emptyList()
@@ -201,10 +230,10 @@ fun KeyboardScreen(
                     } else if (typedPrefix.isNotEmpty()) {
                         val next = typedPrefix.dropLast(1)
                         typedPrefix = next
-                        suggestions = if (next.isNotEmpty()) {
-                            swipeDictionary.getCompletions(next, maxCount = 4)
+                        if (next.isNotEmpty()) {
+                            refreshSuggestions(next)
                         } else {
-                            emptyList()
+                            suggestions = emptyList()
                         }
                     } else {
                         suggestions = emptyList()
@@ -215,12 +244,24 @@ fun KeyboardScreen(
                     typedPrefix = ""
                     suggestions = emptyList()
                     isSwipeResult = false
+                    // A space after . ! ? ends the sentence; the next word
+                    // starts with a capital.
+                    if (settings.autoCapitalization && isAlphaMode && lastCommitted in ".!?") {
+                        mode = KeyboardMode.UPPERCASE
+                    }
+                    lastCommitted = ' '
                 }
                 is KeyType.Enter -> {
                     onAction(imeAction)
                     typedPrefix = ""
                     suggestions = emptyList()
                     isSwipeResult = false
+                    if (settings.autoCapitalization && isAlphaMode &&
+                        (lastCommitted == '\n' || lastCommitted in ".!?")
+                    ) {
+                        mode = KeyboardMode.UPPERCASE
+                    }
+                    lastCommitted = '\n'
                 }
                 is KeyType.SymbolToggle -> {
                     mode = KeyboardMode.SYMBOLS
@@ -265,7 +306,9 @@ fun KeyboardScreen(
                 SuggestionBar(
                     suggestions = suggestions,
                     selectedIndex = selectedSuggestion,
-                    previewWord = swipeController.preview,
+                    // Lambda, not value: keeps the ~18 Hz preview updates from
+                    // recomposing the whole keyboard (see SuggestionBar doc).
+                    previewWord = { swipeController.preview },
                     isSwiping = swipeController.isSwiping,
                     hapticEnabled = settings.hapticFeedback,
                     onSuggestionSelected = { index ->
@@ -510,7 +553,7 @@ fun KeyboardScreen(
 
                             // Bottom Row (123, Emoji, Space, Period, Enter)
                             var accumulatedDrag by remember { mutableFloatStateOf(0f) }
-                            val dragThreshold = 35f
+                            val dragThreshold = SwipeConstants.DRAG_THRESHOLD_PX
 
                             Row(
                                 modifier = Modifier
@@ -600,48 +643,4 @@ private fun applyShift(word: String, mode: KeyboardMode): String = when (mode) {
     KeyboardMode.CAPS_LOCKED -> word.uppercase()
     KeyboardMode.UPPERCASE -> word.replaceFirstChar { it.uppercase() }
     else -> word
-}
-
-private fun handleKeyPress(
-    keyType: KeyType,
-    mode: KeyboardMode,
-    onModeChange: (KeyboardMode) -> Unit,
-    onTextInput: (String) -> Unit,
-    onDelete: () -> Unit,
-    onAction: () -> Unit
-) {
-    when (keyType) {
-        is KeyType.Character -> {
-            val char = when (mode) {
-                KeyboardMode.UPPERCASE, KeyboardMode.CAPS_LOCKED -> keyType.primary.uppercase()
-                else -> keyType.primary
-            }
-            onTextInput(char)
-            if (mode == KeyboardMode.UPPERCASE) {
-                onModeChange(KeyboardMode.LOWERCASE)
-            }
-        }
-        is KeyType.Backspace -> {
-            onDelete()
-        }
-        is KeyType.SymbolToggle -> {
-            onModeChange(KeyboardMode.SYMBOLS)
-        }
-        is KeyType.SymbolMoreToggle -> {
-            onModeChange(KeyboardMode.SYMBOLS_MORE)
-        }
-        is KeyType.AlphabetToggle -> {
-            onModeChange(KeyboardMode.LOWERCASE)
-        }
-        is KeyType.EmojiToggle -> {
-            onModeChange(KeyboardMode.EMOJI)
-        }
-        is KeyType.Space -> {
-            onTextInput(" ")
-        }
-        is KeyType.Enter -> {
-            onAction()
-        }
-        else -> Unit
-    }
 }

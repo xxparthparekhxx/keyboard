@@ -29,7 +29,7 @@ keyboard/
 │   └── src/main/
 │       ├── AndroidManifest.xml                      # Service declaration & permissions
 │       ├── assets/
-│       │   └── swipe_words.txt                      # ~35,000-word lexicon with log-frequency scores
+│       │   └── swipe_words.txt                      # ~150,000-word lexicon with log-frequency scores
 │       ├── java/com/example/composekeyboard/
 │       │   ├── MainActivity.kt                      # Setup Wizard, Test Sandbox & Companion App
 │       │   ├── data/
