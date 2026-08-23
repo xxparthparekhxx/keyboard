@@ -103,13 +103,6 @@ class MainActivity : ComponentActivity() {
     private val isImeEnabledState = mutableStateOf(false)
     private val isImeSelectedState = mutableStateOf(false)
 
-    private val settingsObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
-        override fun onChange(selfChange: Boolean, uri: Uri?) {
-            super.onChange(selfChange, uri)
-            refreshImeStatus()
-        }
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -117,21 +110,6 @@ class MainActivity : ComponentActivity() {
         clipboardHistoryManager = ClipboardHistoryManager.getInstance(this)
 
         refreshImeStatus()
-
-        try {
-            contentResolver.registerContentObserver(
-                Settings.Secure.getUriFor(Settings.Secure.DEFAULT_INPUT_METHOD),
-                false,
-                settingsObserver
-            )
-            contentResolver.registerContentObserver(
-                Settings.Secure.getUriFor(Settings.Secure.ENABLED_INPUT_METHODS),
-                false,
-                settingsObserver
-            )
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
 
         setContent {
             val settings by preferences.settings.collectAsState()
@@ -170,15 +148,6 @@ class MainActivity : ComponentActivity() {
         super.onWindowFocusChanged(hasFocus)
         if (hasFocus) {
             refreshImeStatus()
-        }
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        try {
-            contentResolver.unregisterContentObserver(settingsObserver)
-        } catch (e: Exception) {
-            e.printStackTrace()
         }
     }
 
@@ -1011,23 +980,28 @@ private fun settingContainsIme(setting: String, packageName: String): Boolean =
     setting.split(':').any { entry -> entry.substringBefore('/') == packageName }
 
 private fun checkIsImeEnabled(context: Context): Boolean {
-    val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
-    val enabledList = imm?.enabledInputMethodList
-    val packageName = context.packageName
-    if (enabledList?.any { it.packageName == packageName } == true) {
-        return true
+    return try {
+        val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+        val enabledList = imm?.enabledInputMethodList ?: return false
+        val packageName = context.packageName
+        enabledList.any { it.packageName == packageName }
+    } catch (e: Exception) {
+        false
     }
-    val enabledSetting = Settings.Secure.getString(
-        context.contentResolver,
-        Settings.Secure.ENABLED_INPUT_METHODS
-    ) ?: ""
-    return settingContainsIme(enabledSetting, packageName)
 }
 
 private fun checkIsImeSelected(context: Context): Boolean {
-    val currentIme = Settings.Secure.getString(
-        context.contentResolver,
-        Settings.Secure.DEFAULT_INPUT_METHOD
-    ) ?: ""
-    return settingContainsIme(currentIme, context.packageName)
+    return try {
+        val currentIme = Settings.Secure.getString(
+            context.contentResolver,
+            "default_input_method"
+        )
+        if (!currentIme.isNullOrEmpty()) {
+            settingContainsIme(currentIme, context.packageName)
+        } else {
+            false
+        }
+    } catch (e: Throwable) {
+        false
+    }
 }
