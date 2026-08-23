@@ -44,6 +44,7 @@ fun SuggestionBar(
     previewWord: () -> String?,
     isSwiping: Boolean,
     hapticEnabled: Boolean,
+    fontScale: Float = 1.0f,
     onSuggestionSelected: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -52,7 +53,7 @@ fun SuggestionBar(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .height(40.dp)
+            .height(48.dp)
             .background(colors.headerBackground)
             .padding(horizontal = 6.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -68,7 +69,7 @@ fun SuggestionBar(
                 Text(
                     text = preview ?: "",
                     color = colors.actionKeyBackground,
-                    fontSize = 15.sp,
+                    fontSize = (19.5 * fontScale).sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -82,7 +83,7 @@ fun SuggestionBar(
                 Box(
                     modifier = Modifier
                         .width(1.dp)
-                        .height(18.dp)
+                        .height(22.dp)
                         .background(colors.keyTextColor.copy(alpha = 0.15f))
                 )
             }
@@ -90,6 +91,7 @@ fun SuggestionBar(
                 word = word,
                 isSelected = index == selectedIndex,
                 hapticEnabled = hapticEnabled,
+                fontScale = fontScale,
                 onClick = { onSuggestionSelected(index) },
                 modifier = Modifier.weight(1f)
             )
@@ -102,6 +104,7 @@ private fun SuggestionCell(
     word: String,
     isSelected: Boolean,
     hapticEnabled: Boolean,
+    fontScale: Float = 1.0f,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -126,8 +129,8 @@ private fun SuggestionCell(
         Text(
             text = word,
             color = if (isSelected) colors.actionKeyBackground else colors.keyTextColor,
-            fontSize = 15.sp,
-            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+            fontSize = (18 * fontScale).sp,
+            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )

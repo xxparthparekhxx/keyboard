@@ -155,10 +155,30 @@ class ComposeInputMethodService : InputMethodService(),
                 autoCapitalizeField = fieldWantsCaps,
                 onTextInput = { text ->
                     playKeySound(AudioManager.FX_KEYPRESS_STANDARD)
-                    lastSwipeCommit = null
-                    currentInputConnection?.commitText(text, 1)
-                    selfEditsPending++
-                    trackTypedText(text)
+                    val ic = currentInputConnection
+                    if (ic != null) {
+                        val wasSwipe = lastSwipeCommit != null
+                        lastSwipeCommit = null
+                        val isPunctuation = text.length == 1 && text[0] in ".,!?:;)]}\"'-"
+                        val isSpace = text == " "
+
+                        if (wasSwipe && !isPunctuation && !isSpace) {
+                            val before = ic.getTextBeforeCursor(1, 0)
+                            val needsSpace = !before.isNullOrEmpty() && !opensAWord(before[0])
+                            if (needsSpace) {
+                                ic.beginBatchEdit()
+                                ic.commitText(" $text", 1)
+                                ic.endBatchEdit()
+                                selfEditsPending++
+                                trackTypedText(text)
+                                return@KeyboardScreen
+                            }
+                        }
+
+                        ic.commitText(text, 1)
+                        selfEditsPending++
+                        trackTypedText(text)
+                    }
                 },
                 onDelete = {
                     playKeySound(AudioManager.FX_KEYPRESS_DELETE)
@@ -203,6 +223,15 @@ class ComposeInputMethodService : InputMethodService(),
                 },
                 onSwipeTypingToggled = { enabled ->
                     preferences.setSwipeTypingEnabled(enabled)
+                },
+                onHeightMultiplierChanged = { multiplier ->
+                    preferences.setHeightMultiplier(multiplier)
+                },
+                onFontScaleChanged = { scale ->
+                    preferences.setFontScale(scale)
+                },
+                onEmojiScaleChanged = { scale ->
+                    preferences.setEmojiScale(scale)
                 },
                 onOpenFullSettings = {
                     launchSettingsActivity()

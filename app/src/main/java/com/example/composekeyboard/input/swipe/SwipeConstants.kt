@@ -115,10 +115,10 @@ object SwipeConstants {
     // --- Trail Rendering ----------------------------------------------------
 
     /** How much of the recent path stays visible behind the finger (ms). */
-    const val TRAIL_DURATION_MS = 320L
+    const val TRAIL_DURATION_MS = 360L
 
     /** Hard cap on trail segments drawn per frame. */
-    const val MAX_TRAIL_SEGMENTS = 96
+    const val MAX_TRAIL_SEGMENTS = 128
 
     // --- Dictionary ---------------------------------------------------------
 
@@ -149,10 +149,10 @@ object SwipeConstants {
     const val HIT_SLOP_PX = 3f
 
     /** Swipe recognition threshold multiplier. */
-    const val SWIPE_THRESHOLD_MULTIPLIER = 1.2f
+    const val SWIPE_THRESHOLD_MULTIPLIER = 1.0f
 
     /** Minimum swipe threshold as fraction of key width. */
-    const val SWIPE_MIN_KEY_WIDTH_FRACTION = 0.55f
+    const val SWIPE_MIN_KEY_WIDTH_FRACTION = 0.38f
 
     /** Spacebar cursor drag threshold (px). */
     const val DRAG_THRESHOLD_PX = 35f
@@ -161,7 +161,7 @@ object SwipeConstants {
     const val INITIAL_CAPACITY = 256
 
     /** Below this the sample adds nothing but noise and buffer pressure (px). */
-    const val MIN_POINT_SPACING_PX = 1.5f
+    const val MIN_POINT_SPACING_PX = 1.0f
 
     // --- Persistence --------------------------------------------------------
 

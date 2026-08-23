@@ -39,7 +39,9 @@ data class KeyboardSettings(
     val showKeyPopups: Boolean = true,
     val autoCapitalization: Boolean = true,
     val swipeTypingEnabled: Boolean = true,
-    val heightMultiplier: Float = 1.0f
+    val heightMultiplier: Float = 1.0f,
+    val fontScale: Float = 1.0f,
+    val emojiScale: Float = 1.0f
 )
 
 class KeyboardPreferences(context: Context) {
@@ -85,7 +87,9 @@ class KeyboardPreferences(context: Context) {
             showKeyPopups = prefs.getBoolean(KEY_KEY_POPUPS, true),
             autoCapitalization = prefs.getBoolean(KEY_AUTO_CAPS, true),
             swipeTypingEnabled = prefs.getBoolean(KEY_SWIPE_TYPING, true),
-            heightMultiplier = prefs.getFloat(KEY_HEIGHT, 1.0f)
+            heightMultiplier = prefs.getFloat(KEY_HEIGHT, 1.0f),
+            fontScale = prefs.getFloat(KEY_FONT_SCALE, 1.0f),
+            emojiScale = prefs.getFloat(KEY_EMOJI_SCALE, 1.0f)
         )
     }
 
@@ -134,6 +138,14 @@ class KeyboardPreferences(context: Context) {
         prefs.edit().putFloat(KEY_HEIGHT, multiplier).apply()
     }
 
+    fun setFontScale(scale: Float) {
+        prefs.edit().putFloat(KEY_FONT_SCALE, scale).apply()
+    }
+
+    fun setEmojiScale(scale: Float) {
+        prefs.edit().putFloat(KEY_EMOJI_SCALE, scale).apply()
+    }
+
     companion object {
         private const val KEY_THEME = "keyboard_theme"
         private const val KEY_CUSTOM_BG = "custom_bg"
@@ -150,6 +162,8 @@ class KeyboardPreferences(context: Context) {
         private const val KEY_AUTO_CAPS = "auto_capitalization"
         private const val KEY_SWIPE_TYPING = "swipe_typing_enabled"
         private const val KEY_HEIGHT = "height_multiplier"
+        private const val KEY_FONT_SCALE = "font_scale_multiplier"
+        private const val KEY_EMOJI_SCALE = "emoji_scale_multiplier"
 
         @Volatile
         private var INSTANCE: KeyboardPreferences? = null

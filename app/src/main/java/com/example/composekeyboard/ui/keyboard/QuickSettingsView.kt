@@ -22,6 +22,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Height
 import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.Settings
@@ -29,6 +30,8 @@ import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.Gesture
 import androidx.compose.material.icons.filled.Vibration
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -43,6 +46,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.composekeyboard.data.KeyboardSettings
 import com.example.composekeyboard.theme.LocalKeyboardColors
+import kotlin.math.abs
+import kotlin.math.roundToInt
 
 @Composable
 fun QuickSettingsView(
@@ -53,6 +58,9 @@ fun QuickSettingsView(
     onNumberRowToggled: (Boolean) -> Unit,
     onAutoCapsToggled: (Boolean) -> Unit,
     onSwipeTypingToggled: (Boolean) -> Unit,
+    onHeightMultiplierChanged: (Float) -> Unit,
+    onFontScaleChanged: (Float) -> Unit = {},
+    onEmojiScaleChanged: (Float) -> Unit = {},
     onOpenFullSettings: () -> Unit,
     onClose: () -> Unit,
     modifier: Modifier = Modifier
@@ -126,6 +134,57 @@ fun QuickSettingsView(
                 .padding(horizontal = 10.dp, vertical = 6.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
+            // Keyboard Height adjustment
+            QuickSettingScaleRow(
+                icon = Icons.Default.Height,
+                title = "Keyboard Height",
+                currentValue = settings.heightMultiplier,
+                valueRange = 0.75f..1.35f,
+                presets = listOf(
+                    "75%" to 0.75f,
+                    "85%" to 0.85f,
+                    "100%" to 1.00f,
+                    "115%" to 1.15f,
+                    "130%" to 1.30f
+                ),
+                hapticEnabled = hapticEnabled,
+                onValueChanged = onHeightMultiplierChanged
+            )
+
+            // Key Font Size adjustment
+            QuickSettingScaleRow(
+                icon = Icons.Default.TextFields,
+                title = "Key Font Size",
+                currentValue = settings.fontScale,
+                valueRange = 0.80f..1.40f,
+                presets = listOf(
+                    "85%" to 0.85f,
+                    "100%" to 1.00f,
+                    "115%" to 1.15f,
+                    "130%" to 1.30f,
+                    "140%" to 1.40f
+                ),
+                hapticEnabled = hapticEnabled,
+                onValueChanged = onFontScaleChanged
+            )
+
+            // Emoji Display Size adjustment
+            QuickSettingScaleRow(
+                icon = Icons.Default.Check,
+                title = "Emoji Display Size",
+                currentValue = settings.emojiScale,
+                valueRange = 0.80f..1.40f,
+                presets = listOf(
+                    "85%" to 0.85f,
+                    "100%" to 1.00f,
+                    "115%" to 1.15f,
+                    "130%" to 1.30f,
+                    "140%" to 1.40f
+                ),
+                hapticEnabled = hapticEnabled,
+                onValueChanged = onEmojiScaleChanged
+            )
+
             // Glide (swipe) typing toggle
             QuickSettingToggleRow(
                 icon = Icons.Default.Gesture,
@@ -213,6 +272,100 @@ fun QuickSettingsView(
                         color = colors.actionKeyBackground,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 13.sp
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun QuickSettingScaleRow(
+    icon: ImageVector,
+    title: String,
+    currentValue: Float,
+    valueRange: ClosedFloatingPointRange<Float>,
+    presets: List<Pair<String, Float>>,
+    hapticEnabled: Boolean,
+    onValueChanged: (Float) -> Unit
+) {
+    val colors = LocalKeyboardColors.current
+    val view = LocalView.current
+
+    fun triggerHaptic() {
+        if (hapticEnabled) {
+            view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+        }
+    }
+
+    val percent = (currentValue * 100).roundToInt()
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(colors.keyBackground)
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = colors.accentKeyTextColor,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = title,
+                    color = colors.keyTextColor,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+            Text(
+                text = "$percent%",
+                color = colors.actionKeyBackground,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        // Preset Chips
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            presets.forEach { (label, value) ->
+                val isSelected = abs(currentValue - value) < 0.035f
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(
+                            if (isSelected) colors.actionKeyBackground else colors.accentKeyBackground
+                        )
+                        .clickable {
+                            triggerHaptic()
+                            onValueChanged(value)
+                        }
+                        .padding(vertical = 5.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = label,
+                        color = if (isSelected) colors.actionKeyTextColor else colors.accentKeyTextColor,
+                        fontSize = 11.sp,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                     )
                 }
             }

@@ -29,6 +29,7 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
@@ -77,6 +78,9 @@ fun KeyboardScreen(
     onNumberRowToggled: (Boolean) -> Unit,
     onAutoCapsToggled: (Boolean) -> Unit,
     onSwipeTypingToggled: (Boolean) -> Unit,
+    onHeightMultiplierChanged: (Float) -> Unit = {},
+    onFontScaleChanged: (Float) -> Unit = {},
+    onEmojiScaleChanged: (Float) -> Unit = {},
     onOpenFullSettings: () -> Unit,
     onSwitchIme: () -> Unit,
     modifier: Modifier = Modifier
@@ -87,7 +91,7 @@ fun KeyboardScreen(
     ) {
         val colors = LocalKeyboardColors.current
         val view = LocalView.current
-        var mode by remember { mutableStateOf(KeyboardMode.LOWERCASE) }
+        var mode by rememberSaveable { mutableStateOf(KeyboardMode.LOWERCASE) }
         var lastShiftTapTime by remember { mutableLongStateOf(0L) }
 
         // Keyboard height scale
@@ -311,6 +315,7 @@ fun KeyboardScreen(
                     previewWord = { swipeController.preview },
                     isSwiping = swipeController.isSwiping,
                     hapticEnabled = settings.hapticFeedback,
+                    fontScale = settings.fontScale,
                     onSuggestionSelected = { index ->
                         val word = suggestions.getOrNull(index) ?: return@SuggestionBar
                         if (isSwipeResult) {
@@ -340,7 +345,9 @@ fun KeyboardScreen(
                         mode = if (mode == KeyboardMode.THEMES) KeyboardMode.LOWERCASE else KeyboardMode.THEMES
                     },
                     onSwitchImeClick = onSwitchIme,
-                    onSettingsClick = onOpenFullSettings
+                    onSettingsClick = {
+                        mode = if (mode == KeyboardMode.SETTINGS) KeyboardMode.LOWERCASE else KeyboardMode.SETTINGS
+                    }
                 )
             }
 
@@ -348,6 +355,7 @@ fun KeyboardScreen(
                 KeyboardMode.EMOJI -> {
                     EmojiPicker(
                         hapticEnabled = settings.hapticFeedback,
+                        emojiScale = settings.emojiScale,
                         onEmojiSelected = { emoji ->
                             onTextInput(emoji)
                         },
@@ -394,6 +402,9 @@ fun KeyboardScreen(
                         onNumberRowToggled = onNumberRowToggled,
                         onAutoCapsToggled = onAutoCapsToggled,
                         onSwipeTypingToggled = onSwipeTypingToggled,
+                        onHeightMultiplierChanged = onHeightMultiplierChanged,
+                        onFontScaleChanged = onFontScaleChanged,
+                        onEmojiScaleChanged = onEmojiScaleChanged,
                         onOpenFullSettings = onOpenFullSettings,
                         onClose = {
                             mode = KeyboardMode.LOWERCASE
@@ -450,6 +461,7 @@ fun KeyboardScreen(
                                             mode = mode,
                                             imeAction = imeAction,
                                             hapticEnabled = settings.hapticFeedback,
+                                            fontScale = settings.fontScale,
                                             onKeyPress = { type -> dispatchKey(type) },
                                             modifier = Modifier.weight(key.weight)
                                         )
@@ -493,6 +505,7 @@ fun KeyboardScreen(
                                         mode = mode,
                                         imeAction = imeAction,
                                         hapticEnabled = settings.hapticFeedback,
+                                        fontScale = settings.fontScale,
                                         onKeyPress = { type -> dispatchKey(type) },
                                         modifier = Modifier
                                             .weight(key.weight)
@@ -518,6 +531,7 @@ fun KeyboardScreen(
                                         mode = mode,
                                         imeAction = imeAction,
                                         hapticEnabled = settings.hapticFeedback,
+                                        fontScale = settings.fontScale,
                                         onKeyPress = { type -> dispatchKey(type) },
                                         modifier = Modifier
                                             .weight(key.weight)
@@ -543,6 +557,7 @@ fun KeyboardScreen(
                                         mode = mode,
                                         imeAction = imeAction,
                                         hapticEnabled = settings.hapticFeedback,
+                                        fontScale = settings.fontScale,
                                         onKeyPress = { type -> dispatchKey(type) },
                                         modifier = Modifier
                                             .weight(key.weight)
@@ -588,6 +603,7 @@ fun KeyboardScreen(
                                                 mode = mode,
                                                 imeAction = imeAction,
                                                 hapticEnabled = settings.hapticFeedback,
+                                                fontScale = settings.fontScale,
                                                 onKeyPress = { dispatchKey(KeyType.Space) },
                                                 modifier = Modifier.fillMaxSize()
                                             )
@@ -598,6 +614,7 @@ fun KeyboardScreen(
                                             mode = mode,
                                             imeAction = imeAction,
                                             hapticEnabled = settings.hapticFeedback,
+                                            fontScale = settings.fontScale,
                                             onKeyPress = { type -> dispatchKey(type) },
                                             modifier = Modifier.weight(key.weight)
                                         )

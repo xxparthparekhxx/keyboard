@@ -296,4 +296,37 @@ object EmojiSuggestions {
         }
         return results
     }
+
+    /**
+     * Searches all emojis matching the query string across keywords and aliases.
+     */
+    fun searchAll(rawQuery: String, maxCount: Int = 64): List<String> {
+        val query = rawQuery.trim().lowercase()
+        if (query.isEmpty()) return emptyList()
+
+        val results = LinkedHashSet<String>()
+
+        // 1. Exact match
+        keywords[query]?.let { results.addAll(it) }
+
+        // 2. Prefix match
+        for ((word, emojis) in keywords) {
+            if (results.size >= maxCount) break
+            if (word.startsWith(query)) {
+                results.addAll(emojis)
+            }
+        }
+
+        // 3. Substring match
+        if (results.size < maxCount && query.length >= 2) {
+            for ((word, emojis) in keywords) {
+                if (results.size >= maxCount) break
+                if (word.contains(query)) {
+                    results.addAll(emojis)
+                }
+            }
+        }
+
+        return results.take(maxCount)
+    }
 }

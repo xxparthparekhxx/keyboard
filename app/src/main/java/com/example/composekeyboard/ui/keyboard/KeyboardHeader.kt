@@ -43,7 +43,7 @@ fun KeyboardHeader(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .height(40.dp)
+            .height(44.dp)
             .background(colors.headerBackground)
             .padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -56,7 +56,7 @@ fun KeyboardHeader(
                     imageVector = Icons.Default.SentimentSatisfiedAlt,
                     contentDescription = "Emoji",
                     tint = if (currentMode == KeyboardMode.EMOJI) colors.actionKeyBackground else colors.headerIconColor,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(22.dp)
                 )
             },
             onClick = onEmojiClick
@@ -69,7 +69,7 @@ fun KeyboardHeader(
                     imageVector = Icons.Default.ContentPaste,
                     contentDescription = "Clipboard History",
                     tint = if (currentMode == KeyboardMode.CLIPBOARD) colors.actionKeyBackground else colors.headerIconColor,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(22.dp)
                 )
             },
             onClick = onClipboardClick
@@ -82,7 +82,7 @@ fun KeyboardHeader(
                     imageVector = Icons.Default.Palette,
                     contentDescription = "Choose Theme",
                     tint = if (currentMode == KeyboardMode.THEMES) colors.actionKeyBackground else colors.headerIconColor,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(22.dp)
                 )
             },
             onClick = onThemeClick
@@ -95,7 +95,7 @@ fun KeyboardHeader(
                     imageVector = Icons.Default.Language,
                     contentDescription = "Switch Keyboard",
                     tint = colors.headerIconColor,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(22.dp)
                 )
             },
             onClick = onSwitchImeClick
@@ -108,7 +108,7 @@ fun KeyboardHeader(
                     imageVector = Icons.Default.Settings,
                     contentDescription = "Settings",
                     tint = if (currentMode == KeyboardMode.SETTINGS) colors.actionKeyBackground else colors.headerIconColor,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(22.dp)
                 )
             },
             onClick = onSettingsClick
@@ -124,7 +124,7 @@ private fun HeaderIconButton(
 ) {
     Box(
         modifier = modifier
-            .size(34.dp)
+            .size(38.dp)
             .clip(CircleShape)
             .clickable { onClick() },
         contentAlignment = Alignment.Center

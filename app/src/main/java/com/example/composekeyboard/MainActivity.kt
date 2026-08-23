@@ -58,6 +58,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -566,11 +567,24 @@ fun MainScreen(
                         Spacer(modifier = Modifier.height(16.dp))
 
                         // Keyboard Height Scale
-                        Text(
-                            text = "Keyboard Height Scale",
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 14.sp
-                        )
+                        val heightPercent = (settings.heightMultiplier * 100).toInt()
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "Keyboard Height Scale",
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 14.sp
+                            )
+                            Text(
+                                text = "$heightPercent%",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = "Adjust the vertical scale of the keyboard keys and panels.",
@@ -578,21 +592,155 @@ fun MainScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Spacer(modifier = Modifier.height(8.dp))
+                        Slider(
+                            value = settings.heightMultiplier,
+                            onValueChange = { value ->
+                                val rounded = kotlin.math.round(value * 100) / 100f
+                                onUpdateSettings { it.setHeightMultiplier(rounded) }
+                            },
+                            valueRange = 0.70f..1.40f,
+                            steps = 13,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
                         LazyRow(
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             val options = listOf(
+                                "Extra Short (75%)" to 0.75f,
                                 "Compact (85%)" to 0.85f,
                                 "Standard (100%)" to 1.0f,
                                 "Tall (115%)" to 1.15f,
                                 "Extra Tall (130%)" to 1.30f
                             )
                             items(options) { (label, multiplier) ->
-                                val isSelected = settings.heightMultiplier == multiplier
+                                val isSelected = kotlin.math.abs(settings.heightMultiplier - multiplier) < 0.04f
                                 FilterChip(
                                     selected = isSelected,
                                     onClick = {
                                         onUpdateSettings { it.setHeightMultiplier(multiplier) }
+                                    },
+                                    label = { Text(label, maxLines = 1) }
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Key Text Font Size Scale
+                        val fontPercent = (settings.fontScale * 100).toInt()
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "Key Text Font Size",
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 14.sp
+                            )
+                            Text(
+                                text = "$fontPercent%",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Adjust the font size of letters, numbers, and symbols displayed on keys.",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Slider(
+                            value = settings.fontScale,
+                            onValueChange = { value ->
+                                val rounded = kotlin.math.round(value * 100) / 100f
+                                onUpdateSettings { it.setFontScale(rounded) }
+                            },
+                            valueRange = 0.75f..1.40f,
+                            steps = 12,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            val options = listOf(
+                                "Small (85%)" to 0.85f,
+                                "Normal (100%)" to 1.00f,
+                                "Large (115%)" to 1.15f,
+                                "Extra Large (130%)" to 1.30f,
+                                "Huge (140%)" to 1.40f
+                            )
+                            items(options) { (label, scale) ->
+                                val isSelected = kotlin.math.abs(settings.fontScale - scale) < 0.035f
+                                FilterChip(
+                                    selected = isSelected,
+                                    onClick = {
+                                        onUpdateSettings { it.setFontScale(scale) }
+                                    },
+                                    label = { Text(label, maxLines = 1) }
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Emoji Display Size Scale
+                        val emojiPercent = (settings.emojiScale * 100).toInt()
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "Emoji Display Size",
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 14.sp
+                            )
+                            Text(
+                                text = "$emojiPercent%",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Adjust the size of emojis in the categorized emoji picker grid.",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Slider(
+                            value = settings.emojiScale,
+                            onValueChange = { value ->
+                                val rounded = kotlin.math.round(value * 100) / 100f
+                                onUpdateSettings { it.setEmojiScale(rounded) }
+                            },
+                            valueRange = 0.75f..1.40f,
+                            steps = 12,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            val options = listOf(
+                                "Small (85%)" to 0.85f,
+                                "Normal (100%)" to 1.00f,
+                                "Large (115%)" to 1.15f,
+                                "Extra Large (130%)" to 1.30f,
+                                "Huge (140%)" to 1.40f
+                            )
+                            items(options) { (label, scale) ->
+                                val isSelected = kotlin.math.abs(settings.emojiScale - scale) < 0.035f
+                                FilterChip(
+                                    selected = isSelected,
+                                    onClick = {
+                                        onUpdateSettings { it.setEmojiScale(scale) }
                                     },
                                     label = { Text(label, maxLines = 1) }
                                 )

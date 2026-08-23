@@ -9,6 +9,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -56,9 +57,10 @@ fun KeyboardKey(
     mode: KeyboardMode,
     imeAction: Int,
     hapticEnabled: Boolean,
+    fontScale: Float = 1.0f,
     onKeyPress: (KeyType) -> Unit,
-    modifier: Modifier = Modifier,
-    onKeyLongPress: (KeyType) -> Unit = {}
+    onKeyLongPress: (KeyType) -> Unit = {},
+    modifier: Modifier = Modifier
 ) {
     val colors = LocalKeyboardColors.current
     val view = LocalView.current
@@ -67,8 +69,8 @@ fun KeyboardKey(
 
     val scale by animateFloatAsState(
         targetValue = if (isPressed) 0.92f else 1.0f,
-        animationSpec = tween(durationMillis = 50),
-        label = "keyScale"
+        animationSpec = tween(durationMillis = 60),
+        label = "key_scale"
     )
 
     fun triggerHaptic() {
@@ -116,6 +118,8 @@ fun KeyboardKey(
         is KeyType.EmojiToggle -> "Emoji"
         is KeyType.LanguageSwitch -> "Switch language"
     }
+
+    val iconSize = (24 * fontScale.coerceIn(0.85f, 1.25f)).dp
 
     Box(
         modifier = modifier
@@ -184,8 +188,8 @@ fun KeyboardKey(
                 Text(
                     text = displayText,
                     color = fg,
-                    fontSize = 19.sp,
-                    fontWeight = FontWeight.Medium
+                    fontSize = (23 * fontScale).sp,
+                    fontWeight = FontWeight.SemiBold
                 )
             }
             is KeyType.Shift -> {
@@ -196,14 +200,16 @@ fun KeyboardKey(
                 Icon(
                     imageVector = icon,
                     contentDescription = "Shift",
-                    tint = fg
+                    tint = fg,
+                    modifier = Modifier.size(iconSize)
                 )
             }
             is KeyType.Backspace -> {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.Backspace,
                     contentDescription = "Backspace",
-                    tint = fg
+                    tint = fg,
+                    modifier = Modifier.size(iconSize)
                 )
             }
             is KeyType.Enter -> {
@@ -218,53 +224,55 @@ fun KeyboardKey(
                 Icon(
                     imageVector = icon,
                     contentDescription = "Action",
-                    tint = fg
+                    tint = fg,
+                    modifier = Modifier.size(iconSize)
                 )
             }
             is KeyType.Space -> {
                 Text(
                     text = "Space",
                     color = colors.spaceBarText,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Normal
+                    fontSize = (14.5 * fontScale).sp,
+                    fontWeight = FontWeight.Medium
                 )
             }
             is KeyType.SymbolToggle -> {
                 Text(
                     text = "?123",
                     color = fg,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium
+                    fontSize = (15.5 * fontScale).sp,
+                    fontWeight = FontWeight.Bold
                 )
             }
             is KeyType.SymbolMoreToggle -> {
                 Text(
                     text = "=\\<",
                     color = fg,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium
+                    fontSize = (15.5 * fontScale).sp,
+                    fontWeight = FontWeight.Bold
                 )
             }
             is KeyType.AlphabetToggle -> {
                 Text(
                     text = "ABC",
                     color = fg,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium
+                    fontSize = (15.5 * fontScale).sp,
+                    fontWeight = FontWeight.Bold
                 )
             }
             is KeyType.EmojiToggle -> {
                 Icon(
                     imageVector = Icons.Default.SentimentSatisfiedAlt,
                     contentDescription = "Emoji",
-                    tint = fg
+                    tint = fg,
+                    modifier = Modifier.size(iconSize)
                 )
             }
             is KeyType.LanguageSwitch -> {
                 Text(
                     text = "EN",
                     color = fg,
-                    fontSize = 13.sp,
+                    fontSize = (14.5 * fontScale).sp,
                     fontWeight = FontWeight.Bold
                 )
             }
