@@ -1,5 +1,6 @@
 package com.example.composekeyboard.ui.keyboard
 
+import android.os.Build
 import android.view.HapticFeedbackConstants
 import android.view.inputmethod.EditorInfo
 import androidx.compose.animation.AnimatedVisibility
@@ -14,10 +15,15 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -626,8 +632,30 @@ fun KeyboardScreen(
                 }
             }
 
-            // Bottom spacing for system navigation bar
-            Spacer(modifier = Modifier.height(4.dp))
+            // Dynamic bottom safe area spacing for system navigation bar (3-button or gesture pill)
+            val navBarsBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+            val safeDrawingBottom = WindowInsets.safeDrawing.asPaddingValues().calculateBottomPadding()
+            val systemBarsBottom = WindowInsets.systemBars.asPaddingValues().calculateBottomPadding()
+
+            val viewRootInsets = view.rootWindowInsets
+            val viewNavBottomPx = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                viewRootInsets?.getInsets(android.view.WindowInsets.Type.navigationBars())?.bottom ?: 0
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                @Suppress("DEPRECATION")
+                viewRootInsets?.stableInsetBottom ?: 0
+            } else {
+                0
+            }
+            val viewNavBottomDp = with(LocalDensity.current) { viewNavBottomPx.toDp() }
+
+            val bottomPadding = maxOf(
+                navBarsBottom,
+                safeDrawingBottom,
+                systemBarsBottom,
+                viewNavBottomDp,
+                6.dp
+            )
+            Spacer(modifier = Modifier.height(bottomPadding))
         }
     }
 }
