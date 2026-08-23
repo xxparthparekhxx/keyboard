@@ -1,9 +1,160 @@
+<?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+
+    <!-- Keyboard Body Card Shadow -->
     <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M24,32h60c4.4,0 8,3.6 8,8v28c0,4.4 -3.6,8 -8,8H24c-4.4,0 -8,-3.6 -8,-8V40C16,35.6 19.6,32 24,32zM32,44h6v6h-6V44zM44,44h6v6h-6V44zM56,44h6v6h-6V44zM68,44h8v6h-8V44zM32,54h6v6h-6V54zM42,54h24v6H42V54zM70,54h6v6h-6V54z" />
+        android:pathData="M24,34 h60 c4.4,0 8,3.6 8,8 v34 c0,4.4 -3.6,8 -8,8 h-60 c-4.4,0 -8,-3.6 -8,-8 v-34 c0,-4.4 3.6,-8 8,-8 Z"
+        android:fillColor="#40000000" />
+
+    <!-- Keyboard Body Surface Deck -->
+    <path
+        android:pathData="M24,32 h60 c4.4,0 8,3.6 8,8 v34 c0,4.4 -3.6,8 -8,8 h-60 c-4.4,0 -8,-3.6 -8,-8 v-34 c0,-4.4 3.6,-8 8,-8 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="24"
+                android:startY="32"
+                android:endX="84"
+                android:endY="82"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#2A2A40" />
+                <item android:offset="1.0" android:color="#1B1B2C" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Keyboard Outer Border Highlight -->
+    <path
+        android:pathData="M24,32 h60 c4.4,0 8,3.6 8,8 v34 c0,4.4 -3.6,8 -8,8 h-60 c-4.4,0 -8,-3.6 -8,-8 v-34 c0,-4.4 3.6,-8 8,-8 Z"
+        android:strokeWidth="1"
+        android:strokeColor="#30FFFFFF" />
+
+    <!-- Row 1: Keycaps -->
+    <!-- Key 1 -->
+    <path
+        android:pathData="M21,37 h8 c1.5,0 2.5,1 2.5,2.5 v5 c0,1.5 -1,2.5 -2.5,2.5 h-8 c-1.5,0 -2.5,-1 -2.5,-2.5 v-5 c0,-1.5 1,-2.5 2.5,-2.5 Z"
+        android:fillColor="#3D3D58" />
+    <!-- Key 2 -->
+    <path
+        android:pathData="M34,37 h8 c1.5,0 2.5,1 2.5,2.5 v5 c0,1.5 -1,2.5 -2.5,2.5 h-8 c-1.5,0 -2.5,-1 -2.5,-2.5 v-5 c0,-1.5 1,-2.5 2.5,-2.5 Z"
+        android:fillColor="#3D3D58" />
+    <!-- Key 3 -->
+    <path
+        android:pathData="M47,37 h8 c1.5,0 2.5,1 2.5,2.5 v5 c0,1.5 -1,2.5 -2.5,2.5 h-8 c-1.5,0 -2.5,-1 -2.5,-2.5 v-5 c0,-1.5 1,-2.5 2.5,-2.5 Z"
+        android:fillColor="#3D3D58" />
+    <!-- Key 4 -->
+    <path
+        android:pathData="M60,37 h8 c1.5,0 2.5,1 2.5,2.5 v5 c0,1.5 -1,2.5 -2.5,2.5 h-8 c-1.5,0 -2.5,-1 -2.5,-2.5 v-5 c0,-1.5 1,-2.5 2.5,-2.5 Z"
+        android:fillColor="#3D3D58" />
+    <!-- Key 5 (Accent Backspace) -->
+    <path
+        android:pathData="M73,37 h13 c1.5,0 2.5,1 2.5,2.5 v5 c0,1.5 -1,2.5 -2.5,2.5 h-13 c-1.5,0 -2.5,-1 -2.5,-2.5 v-5 c0,-1.5 1,-2.5 2.5,-2.5 Z"
+        android:fillColor="#4F46E5" />
+
+    <!-- Row 2: Keycaps -->
+    <!-- Key 2-1 -->
+    <path
+        android:pathData="M23,49 h8 c1.5,0 2.5,1 2.5,2.5 v5 c0,1.5 -1,2.5 -2.5,2.5 h-8 c-1.5,0 -2.5,-1 -2.5,-2.5 v-5 c0,-1.5 1,-2.5 2.5,-2.5 Z"
+        android:fillColor="#3D3D58" />
+    <!-- Key 2-2 -->
+    <path
+        android:pathData="M36,49 h8 c1.5,0 2.5,1 2.5,2.5 v5 c0,1.5 -1,2.5 -2.5,2.5 h-8 c-1.5,0 -2.5,-1 -2.5,-2.5 v-5 c0,-1.5 1,-2.5 2.5,-2.5 Z"
+        android:fillColor="#3D3D58" />
+    <!-- Key 2-3 -->
+    <path
+        android:pathData="M49,49 h8 c1.5,0 2.5,1 2.5,2.5 v5 c0,1.5 -1,2.5 -2.5,2.5 h-8 c-1.5,0 -2.5,-1 -2.5,-2.5 v-5 c0,-1.5 1,-2.5 2.5,-2.5 Z"
+        android:fillColor="#3D3D58" />
+    <!-- Key 2-4 -->
+    <path
+        android:pathData="M62,49 h8 c1.5,0 2.5,1 2.5,2.5 v5 c0,1.5 -1,2.5 -2.5,2.5 h-8 c-1.5,0 -2.5,-1 -2.5,-2.5 v-5 c0,-1.5 1,-2.5 2.5,-2.5 Z"
+        android:fillColor="#3D3D58" />
+    <!-- Key 2-5 -->
+    <path
+        android:pathData="M75,49 h10 c1.5,0 2.5,1 2.5,2.5 v5 c0,1.5 -1,2.5 -2.5,2.5 h-10 c-1.5,0 -2.5,-1 -2.5,-2.5 v-5 c0,-1.5 1,-2.5 2.5,-2.5 Z"
+        android:fillColor="#3D3D58" />
+
+    <!-- Row 3: Bottom Row (123, Spacebar, Enter) -->
+    <!-- 123 Key -->
+    <path
+        android:pathData="M21,61 h11 c1.5,0 2.5,1 2.5,2.5 v5 c0,1.5 -1,2.5 -2.5,2.5 h-11 c-1.5,0 -2.5,-1 -2.5,-2.5 v-5 c0,-1.5 1,-2.5 2.5,-2.5 Z"
+        android:fillColor="#474766" />
+    <!-- Spacebar (Long Keycap) -->
+    <path
+        android:pathData="M37,61 h33 c1.5,0 2.5,1 2.5,2.5 v5 c0,1.5 -1,2.5 -2.5,2.5 h-33 c-1.5,0 -2.5,-1 -2.5,-2.5 v-5 c0,-1.5 1,-2.5 2.5,-2.5 Z"
+        android:fillColor="#3D3D58" />
+    <!-- Enter Action Key (Cyan/Violet Vibrant Gradient) -->
+    <path
+        android:pathData="M75,61 h12 c1.5,0 2.5,1 2.5,2.5 v5 c0,1.5 -1,2.5 -2.5,2.5 h-12 c-1.5,0 -2.5,-1 -2.5,-2.5 v-5 c0,-1.5 1,-2.5 2.5,-2.5 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="75"
+                android:startY="61"
+                android:endX="87"
+                android:endY="71"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#6366F1" />
+                <item android:offset="1.0" android:color="#8B5CF6" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Keycap top highlight glints -->
+    <path
+        android:pathData="M22,38 h6 M35,38 h6 M48,38 h6 M61,38 h6 M24,50 h6 M37,50 h6 M50,50 h6 M63,50 h6 M38,62 h31"
+        android:strokeWidth="0.8"
+        android:strokeColor="#25FFFFFF"
+        android:strokeLineCap="round" />
+
+    <!-- Glowing Neural Swipe Gesture Trail (Shadow / Outer Glow) -->
+    <path
+        android:pathData="M25,42 C32,38 35,53 45,52 C55,51 58,40 68,43 C74,45 77,53 82,51"
+        android:strokeWidth="5"
+        android:strokeColor="#5038BDF8"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+
+    <!-- Glowing Neural Swipe Gesture Trail (Primary Beam) -->
+    <path
+        android:pathData="M25,42 C32,38 35,53 45,52 C55,51 58,40 68,43 C74,45 77,53 82,51"
+        android:strokeWidth="2.8"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round">
+        <aapt:attr name="android:strokeColor">
+            <gradient
+                android:startX="25"
+                android:startY="42"
+                android:endX="82"
+                android:endY="51"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#38BDF8" />
+                <item android:offset="0.5" android:color="#818CF8" />
+                <item android:offset="1.0" android:color="#C084FC" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Swipe Path Center Core Spark -->
+    <path
+        android:pathData="M25,42 C32,38 35,53 45,52 C55,51 58,40 68,43 C74,45 77,53 82,51"
+        android:strokeWidth="1.2"
+        android:strokeColor="#E0F2FE"
+        android:strokeLineCap="round" />
+
+    <!-- Trajectory Glowing Touch Points / Nodes -->
+    <path
+        android:pathData="M25,42 m-2,0 a2,2 0 1,0 4,0 a2,2 0 1,0 -4,0"
+        android:fillColor="#38BDF8" />
+    <path
+        android:pathData="M45,52 m-1.6,0 a1.6,1.6 0 1,0 3.2,0 a1.6,1.6 0 1,0 -3.2,0"
+        android:fillColor="#818CF8" />
+    <path
+        android:pathData="M68,43 m-1.6,0 a1.6,1.6 0 1,0 3.2,0 a1.6,1.6 0 1,0 -3.2,0"
+        android:fillColor="#A78BFA" />
+    <path
+        android:pathData="M82,51 m-2.2,0 a2.2,2.2 0 1,0 4.4,0 a2.2,2.2 0 1,0 -4.4,0"
+        android:fillColor="#F472B6" />
 </vector>

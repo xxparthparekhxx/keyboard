@@ -35,6 +35,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Backspace
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -83,17 +84,18 @@ fun EmojiPicker(
     val scope = rememberCoroutineScope()
 
     val recentManager = remember(context) { RecentEmojiManager.getInstance(context) }
-    val recents by recentManager.recentEmojis.collectAsState()
+    // Initialize session recents stably so tapping emojis to insert them doesn't jerk the active scroll grid
+    val sessionRecents = remember { recentManager.recentEmojis.value }
 
     var isSearching by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
 
-    val allCategories = remember(recents) {
+    val allCategories = remember(sessionRecents) {
         listOf(
             EmojiCategory(
                 name = "Recent",
                 icon = "🕒",
-                emojis = recents
+                emojis = sessionRecents
             )
         ) + EmojiData.categories
     }
@@ -252,10 +254,19 @@ fun EmojiPicker(
                             .padding(horizontal = 10.dp, vertical = 5.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = cat.icon,
-                            fontSize = 24.sp
-                        )
+                        if (index == 0) {
+                            Icon(
+                                imageVector = Icons.Default.History,
+                                contentDescription = "Recent",
+                                tint = if (isSelected) colors.actionKeyTextColor else colors.accentKeyTextColor,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        } else {
+                            Text(
+                                text = cat.icon,
+                                fontSize = 19.sp
+                            )
+                        }
                     }
                 }
             }
@@ -368,15 +379,35 @@ fun EmojiPicker(
                 allCategories.forEach { category ->
                     // Section Header (spans all columns)
                     item(span = { GridItemSpan(maxLineSpan) }) {
-                        Text(
-                            text = "${category.icon}  ${category.name}",
-                            color = colors.accentKeyTextColor,
-                            fontSize = 13.5.sp,
-                            fontWeight = FontWeight.Bold,
+                        Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(start = 6.dp, top = 8.dp, bottom = 4.dp)
-                        )
+                                .padding(start = 8.dp, end = 8.dp, top = 10.dp, bottom = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (category.name == "Recent") {
+                                Icon(
+                                    imageVector = Icons.Default.History,
+                                    contentDescription = null,
+                                    tint = colors.accentKeyTextColor,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Recently Used",
+                                    color = colors.accentKeyTextColor,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            } else {
+                                Text(
+                                    text = "${category.icon}  ${category.name}",
+                                    color = colors.accentKeyTextColor,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
                     }
 
                     // Emojis under this category
