@@ -9,11 +9,16 @@
     public static final android.os.Parcelable$Creator *;
 }
 
-# Preserve enum valueOf/values methods
+# Preserve enum values, valueOf, and enum constant fields
 -keepclassmembers enum * {
     public static **[] values();
     public static ** valueOf(java.lang.String);
+    public static final ** *;
 }
+
+# Keep project data models and enums
+-keep enum com.example.composekeyboard.** { *; }
+-keep class com.example.composekeyboard.data.** { *; }
 
 # Suppress warnings for missing optional dependencies
 -dontwarn com.google.android.gms.**
