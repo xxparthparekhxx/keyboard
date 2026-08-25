@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ClipDescription
 import android.content.ClipboardManager
 import android.content.Context
+import android.os.Build
 import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -60,8 +61,12 @@ class ClipboardHistoryManager(private val context: Context) {
     fun captureCurrentClip() {
         try {
             val cm = clipboardManager ?: return
+            val desc = cm.primaryClipDescription ?: return
+            if (isSensitiveClip(desc)) {
+                return
+            }
             if (cm.hasPrimaryClip() &&
-                cm.primaryClipDescription?.hasMimeType(ClipDescription.MIMETYPE_TEXT_PLAIN) == true
+                desc.hasMimeType(ClipDescription.MIMETYPE_TEXT_PLAIN)
             ) {
                 val clip = cm.primaryClip
                 if (clip != null && clip.itemCount > 0) {
@@ -240,12 +245,27 @@ class ClipboardHistoryManager(private val context: Context) {
          */
         fun writeAtomically(target: File, text: String) {
             val tmp = File(target.parentFile, target.name + ".tmp")
-            tmp.writeText(text)
-            if (!tmp.renameTo(target)) {
-                // Rename across the same directory only fails on exotic filesystems;
-                // fall back to a plain copy rather than losing the data.
-                target.writeText(text)
-                tmp.delete()
+            try {
+                tmp.writeText(text)
+                if (!tmp.renameTo(target)) {
+                    // Rename across the same directory only fails on exotic filesystems;
+                    // fall back to a plain copy rather than losing the data.
+                    target.writeText(text)
+                    tmp.delete()
+                }
+            } finally {
+                if (tmp.exists()) {
+                    tmp.delete()
+                }
+            }
+        }
+
+        fun isSensitiveClip(description: ClipDescription): Boolean {
+            val extras = description.extras ?: return false
+            return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                extras.getBoolean(ClipDescription.EXTRA_IS_SENSITIVE, false)
+            } else {
+                extras.getBoolean("android.content.extra.IS_SENSITIVE", false)
             }
         }
 

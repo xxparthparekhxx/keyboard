@@ -23,22 +23,42 @@ import com.example.composekeyboard.input.swipe.SwipeTrace
  * worse predictions. The two places that matter are the resampling (uniform in
  * *time*, via a 60 Hz intermediate) and the normalization box.
  *
- * MODEL ASSET: The encoder weights file `swipe_encoder.bin` must be placed in
- * `app/src/main/assets/` before building a release. It is NOT included in this
- * repository due to size. To generate it:
+ * MODEL ASSET: The encoder weights file `swipe_encoder.bin` is located in
+ * `app/src/main/assets/swipe_encoder.bin`. To re-train or export updated weights:
  *
  * 1. Train the model using the ML pipeline in `ml/` (requires Python/PyTorch)
- * 2. Export weights using `ml/swipe/export_encoder.py` (outputs `swipe_encoder.bin`)
+ * 2. Export weights using `ml/tools/export_weights.py` (outputs `swipe_encoder.bin`)
  * 3. Copy the generated file to `app/src/main/assets/swipe_encoder.bin`
  *
- * Without the asset, the decoder gracefully falls back to the geometric path
- * (see [SwipeController.rank]), which still provides functional swipe typing
+ * If the asset is ever missing or fails to load, the decoder gracefully falls back to the geometric path
+ * (see [SwipeController.rank]), which provides functional swipe typing
  * at ~73% top-1 accuracy.
  */
 class SwipeNeuralDecoder private constructor(
     private val net: SwipeNet,
-    private val beam: SwipeBeam
+    @Volatile private var beam: SwipeBeam,
+    @Volatile private var beamVersion: Int = 0
 ) {
+
+    /**
+     * Rebuilds the search beam's lexicon trie when the dictionary has gained
+     * words since the trie was last built. Safe to call concurrently from
+     * background threads.
+     *
+     * Gated on [SwipeDictionary.lexiconVersion] rather than the learned-word
+     * counter: a rebuild walks ~150k words and allocates ~70 MB, so it is worth
+     * doing when the user teaches a genuinely new word and not for the score
+     * boost that every ordinary typed word produces.
+     */
+    fun updateBeam(dictionary: SwipeDictionary) {
+        val currentVersion = dictionary.lexiconVersion
+        if (currentVersion == beamVersion) return
+        val (words, scores) = dictionary.allWords()
+        val newBeam = SwipeBeam.build(words, scores)
+        this.beam = newBeam
+        this.beamVersion = currentVersion
+        Log.i(TAG, "rebuilt trie (version $currentVersion) over ${words.size} words")
+    }
 
     private val xy = FloatArray(SwipeNet.T_IN * 2)
     private val keyX = FloatArray(SwipeDictionary.ALPHABET)
@@ -180,10 +200,11 @@ class SwipeNeuralDecoder private constructor(
         fun load(context: Context, dictionary: SwipeDictionary): SwipeNeuralDecoder? {
             return try {
                 val net = context.assets.open(ASSET_MODEL).use { SwipeNet.load(it) }
+                val initialVersion = dictionary.lexiconVersion
                 val words = dictionary.allWords()
                 val beam = SwipeBeam.build(words.first, words.second)
                 Log.i(TAG, "encoder loaded; trie over ${words.first.size} words")
-                SwipeNeuralDecoder(net, beam)
+                SwipeNeuralDecoder(net, beam, initialVersion)
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to load neural decoder; falling back to geometric", e)
                 null

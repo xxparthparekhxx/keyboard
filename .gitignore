@@ -16,3 +16,6 @@ ml/data/
 ml/.venv/
 ml/runs/
 __pycache__/
+
+# Session dumps & scratch
+context

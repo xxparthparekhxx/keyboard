@@ -105,4 +105,20 @@ class ClipboardHistoryManagerTest {
 
         assertTrue(trimmed.isEmpty())
     }
+
+    @Test
+    fun writeAtomically_writesContentAndLeavesNoTmp() {
+        val tempDir = java.io.File(System.getProperty("java.io.tmpdir"), "clipboard_test_${System.currentTimeMillis()}")
+        tempDir.mkdirs()
+        try {
+            val target = java.io.File(tempDir, "history.json")
+            ClipboardHistoryManager.writeAtomically(target, "{\"test\": 1}")
+            assertTrue(target.exists())
+            assertEquals("{\"test\": 1}", target.readText())
+            val tmp = java.io.File(tempDir, "history.json.tmp")
+            org.junit.Assert.assertFalse(tmp.exists())
+        } finally {
+            tempDir.deleteRecursively()
+        }
+    }
 }

@@ -292,13 +292,13 @@ curl -L https://huggingface.co/xxparthparekhxx/compose-keyboard-swipe-encoder/re
   -o app/src/main/assets/swipe_words.txt
 ```
 
-#### Option 2: Using `huggingface-cli`
+#### Option 2: Using `hf` CLI
 
 ```bash
 pip install huggingface_hub
 
 # Download both files at once
-huggingface-cli download xxparthparekhxx/compose-keyboard-swipe-encoder \
+hf download xxparthparekhxx/compose-keyboard-swipe-encoder \
   --local-dir app/src/main/assets/ \
   --include "swipe_encoder.bin" "swipe_words.txt"
 ```
@@ -322,23 +322,23 @@ If you retrain the model (see [Training](#-training-the-model)), you can upload 
 
 ```bash
 pip install huggingface_hub
-huggingface-cli login
+hf auth login
 
 # Create the repo (first time only)
-huggingface-cli repo create compose-keyboard-swipe-encoder --type model
+hf repo create compose-keyboard-swipe-encoder --type model
 
 # Upload the exported weights
-huggingface-cli upload xxparthparekhxx/compose-keyboard-swipe-encoder \
+hf upload xxparthparekhxx/compose-keyboard-swipe-encoder \
   app/src/main/assets/swipe_encoder.bin swipe_encoder.bin
 
 # Upload the lexicon
-huggingface-cli upload xxparthparekhxx/compose-keyboard-swipe-encoder \
+hf upload xxparthparekhxx/compose-keyboard-swipe-encoder \
   app/src/main/assets/swipe_words.txt swipe_words.txt
 ```
 
 ### Binary Format Specification
 
-The `swipe_encoder.bin` file uses a custom flat binary format optimized for direct memory mapping:
+The `swipe_encoder.bin` file uses a custom flat binary format parsed directly into memory:
 
 ```
 Header:
@@ -432,7 +432,7 @@ python tools/export_weights.py --ckpt runs/encoder/best.pt --out ../app/src/main
 ### 7. Upload to Hugging Face
 
 ```bash
-huggingface-cli upload xxparthparekhxx/compose-keyboard-swipe-encoder \
+hf upload xxparthparekhxx/compose-keyboard-swipe-encoder \
   ../app/src/main/assets/swipe_encoder.bin swipe_encoder.bin
 ```
 

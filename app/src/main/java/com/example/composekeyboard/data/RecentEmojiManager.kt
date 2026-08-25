@@ -25,11 +25,14 @@ class RecentEmojiManager private constructor(context: Context) {
 
     fun recordEmoji(emoji: String) {
         if (emoji.isBlank()) return
-        val current = _recentEmojis.value.toMutableList()
-        current.remove(emoji)
-        current.add(0, emoji)
-        val trimmed = current.take(MAX_RECENTS)
-        _recentEmojis.value = trimmed
+        val trimmed = synchronized(this) {
+            val current = _recentEmojis.value.toMutableList()
+            current.remove(emoji)
+            current.add(0, emoji)
+            val list = current.take(MAX_RECENTS)
+            _recentEmojis.value = list
+            list
+        }
         prefs.edit().putString(KEY_RECENTS, trimmed.joinToString(",")).apply()
     }
 

@@ -90,4 +90,69 @@ class SwipeDictionaryTest {
         val result = SwipeDictionary.keySequenceOf(longWord)
         assertNull(result)
     }
+
+    @Test
+    fun getCompletions_returnsMatchingWordsAndHandlesCasing() {
+        val dict = createTestDictionary()
+        // Learn words 3 times so they pass NEW_WORD_THRESHOLD (12)
+        repeat(3) {
+            dict.learn("help")
+            dict.learn("hello")
+            dict.learn("hero")
+            dict.learn("world")
+        }
+
+        val completions = dict.getCompletions("he")
+        assertTrue(completions.contains("help"))
+        assertTrue(completions.contains("hello"))
+        assertTrue(completions.contains("hero"))
+        assertFalse(completions.contains("world"))
+
+        // Exact match comes first
+        val exactMatchCompletions = dict.getCompletions("help")
+        assertEquals("help", exactMatchCompletions.first())
+
+        // Capitalized prefix
+        val capCompletions = dict.getCompletions("He")
+        assertTrue(capCompletions.contains("Help"))
+        assertTrue(capCompletions.contains("Hello"))
+
+        // Uppercase prefix
+        val upperCompletions = dict.getCompletions("HE")
+        assertTrue(upperCompletions.contains("HELP"))
+        assertTrue(upperCompletions.contains("HELLO"))
+    }
+
+    @Test
+    fun getCompletions_emptyWhenUnloadedOrInvalid() {
+        val dict = createTestDictionary()
+        // Unloaded dictionary returns empty
+        val isLoadedField = SwipeDictionary::class.java.getDeclaredField("isLoaded")
+        isLoadedField.isAccessible = true
+        isLoadedField.set(dict, false)
+
+        assertTrue(dict.getCompletions("he").isEmpty())
+        assertTrue(dict.getCompletions("").isEmpty())
+        assertTrue(dict.getCompletions("123").isEmpty())
+    }
+
+    private class DummyContext : android.content.ContextWrapper(null) {
+        override fun getApplicationContext(): android.content.Context = this
+        override fun getFilesDir(): File = File(System.getProperty("java.io.tmpdir") ?: "/tmp")
+    }
+
+    companion object {
+        fun createTestDictionary(): SwipeDictionary {
+            val dummyContext = DummyContext()
+            val constructor = SwipeDictionary::class.java.getDeclaredConstructor(android.content.Context::class.java)
+            constructor.isAccessible = true
+            val dict = constructor.newInstance(dummyContext)
+
+            val isLoadedField = SwipeDictionary::class.java.getDeclaredField("isLoaded")
+            isLoadedField.isAccessible = true
+            isLoadedField.set(dict, true)
+
+            return dict
+        }
+    }
 }

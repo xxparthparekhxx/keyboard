@@ -1,5 +1,5 @@
 #!/bin/bash
-cd /home/xxpp/code/xxpp/keyboard/ml
+cd "$(dirname "$0")"
 # wait for the encoder run to exit
 while pgrep -f "swipe.train" > /dev/null; do sleep 20; done
 echo "=== TRAINING DONE ==="

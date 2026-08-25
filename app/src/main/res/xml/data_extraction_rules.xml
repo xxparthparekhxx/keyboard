@@ -7,10 +7,14 @@
 <data-extraction-rules>
     <cloud-backup>
         <exclude domain="file" path="clipboard_history.json" />
+        <exclude domain="file" path="clipboard_history.json.tmp" />
         <exclude domain="file" path="swipe_user_words.txt" />
+        <exclude domain="file" path="swipe_user_words.txt.tmp" />
     </cloud-backup>
     <device-transfer>
         <exclude domain="file" path="clipboard_history.json" />
+        <exclude domain="file" path="clipboard_history.json.tmp" />
         <exclude domain="file" path="swipe_user_words.txt" />
+        <exclude domain="file" path="swipe_user_words.txt.tmp" />
     </device-transfer>
 </data-extraction-rules>

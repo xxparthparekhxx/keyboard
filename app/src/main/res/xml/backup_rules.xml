@@ -2,5 +2,7 @@
 <!-- Pre-Android-12 backup rules; see data_extraction_rules.xml. -->
 <full-backup-content>
     <exclude domain="file" path="clipboard_history.json" />
+    <exclude domain="file" path="clipboard_history.json.tmp" />
     <exclude domain="file" path="swipe_user_words.txt" />
+    <exclude domain="file" path="swipe_user_words.txt.tmp" />
 </full-backup-content>

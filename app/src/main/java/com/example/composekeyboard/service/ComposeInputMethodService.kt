@@ -361,9 +361,11 @@ class ComposeInputMethodService : InputMethodService(),
         lastSwipeCommit = previous.copy(word = word)
 
         // The user overruled the decoder, which is the strongest signal we get
-        // about what they meant. Weight it straight away.
-        swipeDictionary.learn(word)
-        scheduleLearnedWordSave()
+        // about what they meant. Weight it straight away if the field allows learning.
+        if (shouldLearnFromField(currentInputEditorInfo)) {
+            swipeDictionary.learn(word)
+            scheduleLearnedWordSave()
+        }
     }
 
     /**
@@ -382,8 +384,10 @@ class ComposeInputMethodService : InputMethodService(),
         ic.endBatchEdit()
         selfEditsPending++
 
-        swipeDictionary.learn(word)
-        scheduleLearnedWordSave()
+        if (shouldLearnFromField(currentInputEditorInfo)) {
+            swipeDictionary.learn(word)
+            scheduleLearnedWordSave()
+        }
         typedWord.setLength(0)
     }
 
@@ -419,6 +423,10 @@ class ComposeInputMethodService : InputMethodService(),
         c.isWhitespace() || c in "([{<\"'“‘–—-/@#*"
 
     private fun trackTypedText(text: String) {
+        if (!shouldLearnFromField(currentInputEditorInfo)) {
+            if (typedWord.isNotEmpty()) typedWord.setLength(0)
+            return
+        }
         if (text.length == 1) {
             val c = text[0]
             if (c.isLetter() || c == '\'') {
@@ -439,6 +447,7 @@ class ComposeInputMethodService : InputMethodService(),
         if (typedWord.isEmpty()) return
         val word = typedWord.toString()
         typedWord.setLength(0)
+        if (!shouldLearnFromField(currentInputEditorInfo)) return
         if (SwipeDictionary.normalize(word) == null) return
         swipeDictionary.learn(word)
         scheduleLearnedWordSave()
@@ -448,7 +457,10 @@ class ComposeInputMethodService : InputMethodService(),
         dictionarySaveJob?.cancel()
         dictionarySaveJob = serviceScope.launch {
             delay(SAVE_DEBOUNCE_MS)
-            withContext(Dispatchers.IO) { swipeDictionary.persistLearnedWords() }
+            withContext(Dispatchers.IO) {
+                swipeDictionary.persistLearnedWords()
+                neuralDecoder.value?.updateBeam(swipeDictionary)
+            }
         }
     }
 
@@ -456,7 +468,10 @@ class ComposeInputMethodService : InputMethodService(),
         dictionarySaveJob?.cancel()
         dictionarySaveJob = null
         serviceScope.launch {
-            withContext(Dispatchers.IO) { swipeDictionary.persistLearnedWords() }
+            withContext(Dispatchers.IO) {
+                swipeDictionary.persistLearnedWords()
+                neuralDecoder.value?.updateBeam(swipeDictionary)
+            }
         }
     }
 
@@ -520,6 +535,35 @@ class ComposeInputMethodService : InputMethodService(),
         if (preferences.settings.value.soundFeedback) {
             audioManager?.playSoundEffect(effectType, 1.0f)
         }
+    }
+
+    /**
+     * True when the focused field allows personalized dictionary learning.
+     * Returns false for password fields, fields requesting [EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING],
+     * or when [info] is null.
+     */
+    private fun shouldLearnFromField(info: EditorInfo?): Boolean {
+        if (info == null) return false
+        if (info.imeOptions and EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING != 0) {
+            return false
+        }
+        val inputType = info.inputType
+        val inputClass = inputType and InputType.TYPE_MASK_CLASS
+        if (inputClass == InputType.TYPE_CLASS_TEXT) {
+            val variation = inputType and InputType.TYPE_MASK_VARIATION
+            if (variation == InputType.TYPE_TEXT_VARIATION_PASSWORD ||
+                variation == InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD ||
+                variation == InputType.TYPE_TEXT_VARIATION_WEB_PASSWORD
+            ) {
+                return false
+            }
+        } else if (inputClass == InputType.TYPE_CLASS_NUMBER) {
+            val variation = inputType and InputType.TYPE_MASK_VARIATION
+            if (variation == InputType.TYPE_NUMBER_VARIATION_PASSWORD) {
+                return false
+            }
+        }
+        return true
     }
 
     /**

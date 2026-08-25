@@ -42,10 +42,24 @@ class SwipeDictionary private constructor(private val appContext: Context) {
     private val userBoosts = HashMap<String, Int>()
     private val lock = Any()
 
-    private var loadFailed = false
+    private var userVersion = 0
+    private var savedVersion = 0
 
-    @Volatile
-    private var userDirty = false
+    /**
+     * Bumped only when [byWord] gains an entry — the one change that alters what
+     * [allWords] returns in substance, and so the only one worth rebuilding the
+     * neural decoder's trie for.
+     *
+     * Deliberately not moved by a score-only boost. A boost shifts a word's
+     * ranking term by `LEARN_STEP * LAMBDA_FREQ` ~= 0.2 against a frequency
+     * term spanning ~0..9, which is not worth the ~70 MB a rebuild allocates.
+     * Those bumps ride along on the next word that does move this counter.
+     */
+    private var lexiconRevision = 0
+
+    /** See [lexiconRevision]. Reflects lexicon membership, not learned weight. */
+    val lexiconVersion: Int
+        get() = synchronized(lock) { lexiconRevision }
 
     fun bucket(firstLetter: Int): List<Entry> {
         val b = buckets
@@ -54,44 +68,50 @@ class SwipeDictionary private constructor(private val appContext: Context) {
 
     /** Blocking; call from a background dispatcher. Safe to call more than once. */
     fun load() {
+        if (isLoaded) return
+        val staging = Array(ALPHABET) { ArrayList<Entry>(2048) }
+        val stagingByWord = HashMap<String, Entry>(48_000)
+        var loadFailed = false
+        try {
+            appContext.assets.open(ASSET_NAME).bufferedReader().useLines { lines ->
+                for (line in lines) {
+                    if (line.isEmpty() || line[0] == '#') continue
+                    val tab = line.indexOf('\t')
+                    if (tab <= 0) continue
+                    val word = line.substring(0, tab)
+                    val score = line.substring(tab + 1).trim().toIntOrNull() ?: continue
+                    addStaging(staging, stagingByWord, word, score)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to read $ASSET_NAME", e)
+            loadFailed = true
+        }
+
+        if (loadFailed) return
+
+        val loadedUserWords = readUserWords()
+        for ((word, boost) in loadedUserWords) {
+            val existing = stagingByWord[word]
+            if (existing != null) {
+                existing.score = (existing.score + boost).coerceAtMost(MAX_SCORE)
+            } else if (boost >= NEW_WORD_THRESHOLD) {
+                addStaging(staging, stagingByWord, word, (USER_BASE_SCORE + boost).coerceAtMost(MAX_SCORE))
+            }
+        }
+
+        for (i in staging.indices) {
+            staging[i].sortByDescending { it.score }
+        }
+
         synchronized(lock) {
             if (isLoaded) return
-            val staging = Array(ALPHABET) { ArrayList<Entry>(2048) }
-            try {
-                appContext.assets.open(ASSET_NAME).bufferedReader().useLines { lines ->
-                    for (line in lines) {
-                        if (line.isEmpty() || line[0] == '#') continue
-                        val tab = line.indexOf('\t')
-                        if (tab <= 0) continue
-                        val word = line.substring(0, tab)
-                        val score = line.substring(tab + 1).trim().toIntOrNull() ?: continue
-                        addLocked(staging, word, score)
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to read $ASSET_NAME", e)
-                loadFailed = true
-            }
-
-            readUserWords()
-            for ((word, boost) in userBoosts) {
-                val existing = byWord[word]
-                if (existing != null) {
-                    existing.score = (existing.score + boost).coerceAtMost(MAX_SCORE)
-                } else if (boost >= NEW_WORD_THRESHOLD) {
-                    addLocked(staging, word, (USER_BASE_SCORE + boost).coerceAtMost(MAX_SCORE))
-                }
-            }
-
-            for (i in staging.indices) {
-                staging[i].sortByDescending { it.score }
-            }
-
+            byWord.clear()
+            byWord.putAll(stagingByWord)
+            userBoosts.clear()
+            userBoosts.putAll(loadedUserWords)
             buckets = Array(ALPHABET) { staging[it] }
-            // A partially loaded dictionary is worse than an empty one that will
-            // retry: without this flag the keyboard would silently swipe against
-            // a fraction of the lexicon for the whole process lifetime.
-            isLoaded = !loadFailed
+            isLoaded = true
             Log.i(TAG, "Loaded ${byWord.size} words (${userBoosts.size} learned)")
         }
     }
@@ -108,7 +128,7 @@ class SwipeDictionary private constructor(private val appContext: Context) {
             val boost = (userBoosts[word] ?: 0) + LEARN_STEP
             userBoosts[word] = boost.coerceAtMost(MAX_BOOST)
             evictLearnedIfNeeded()
-            userDirty = true
+            userVersion++
 
             val existing = byWord[word]
             if (existing != null) {
@@ -131,6 +151,7 @@ class SwipeDictionary private constructor(private val appContext: Context) {
             val first = keys[0].toInt()
             val entry = Entry(word, keys, USER_BASE_SCORE)
             byWord[word] = entry
+            lexiconRevision++
             // Copy-on-write: only the one bucket is rebuilt, and the new array is
             // published atomically so an in-flight decode never sees a torn list.
             val next = buckets.copyOf()
@@ -199,12 +220,11 @@ class SwipeDictionary private constructor(private val appContext: Context) {
     /** Blocking; call from a background dispatcher. No-op when nothing changed. */
     fun persistLearnedWords() {
         val snapshot: Map<String, Int>
+        val snapshotVersion: Int
         synchronized(lock) {
-            if (!userDirty) return
+            if (userVersion == savedVersion) return
+            snapshotVersion = userVersion
             snapshot = HashMap(userBoosts)
-            // Cleared only after the write lands below; a crash between here and
-            // there just costs one redundant rewrite of the same data instead of
-            // silently losing everything learned since the last save.
         }
         try {
             val text = buildString {
@@ -213,10 +233,11 @@ class SwipeDictionary private constructor(private val appContext: Context) {
                 }
             }
             ClipboardHistoryManager.writeAtomically(File(appContext.filesDir, USER_FILE), text)
-            synchronized(lock) { userDirty = false }
+            synchronized(lock) {
+                savedVersion = maxOf(savedVersion, snapshotVersion)
+            }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to persist learned words", e)
-            synchronized(lock) { userDirty = true }
         }
     }
 
@@ -236,27 +257,34 @@ class SwipeDictionary private constructor(private val appContext: Context) {
             .forEach { userBoosts.remove(it.key) }
     }
 
-    private fun readUserWords() {
+    private fun readUserWords(): Map<String, Int> {
         val file = File(appContext.filesDir, USER_FILE)
-        if (!file.exists()) return
+        if (!file.exists()) return emptyMap()
+        val loaded = HashMap<String, Int>()
         try {
             file.forEachLine { line ->
                 val tab = line.indexOf('\t')
                 if (tab <= 0) return@forEachLine
                 val word = line.substring(0, tab)
                 val boost = line.substring(tab + 1).trim().toIntOrNull() ?: return@forEachLine
-                userBoosts[word] = boost.coerceIn(0, MAX_BOOST)
+                loaded[word] = boost.coerceIn(0, MAX_BOOST)
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to read learned words", e)
         }
+        return loaded
     }
 
-    private fun addLocked(staging: Array<ArrayList<Entry>>, word: String, score: Int) {
-        if (byWord.containsKey(word)) return
+    private fun addStaging(
+        staging: Array<ArrayList<Entry>>,
+        stagingByWord: HashMap<String, Entry>,
+        word: String,
+        score: Int
+    ) {
+        if (stagingByWord.containsKey(word)) return
         val keys = keySequenceOf(word) ?: return
         val entry = Entry(word, keys, score.coerceIn(1, MAX_SCORE))
-        byWord[word] = entry
+        stagingByWord[word] = entry
         staging[keys[0].toInt()].add(entry)
     }
 

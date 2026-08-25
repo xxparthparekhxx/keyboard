@@ -28,6 +28,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -67,6 +68,19 @@ fun KeyboardKey(
     val scope = rememberCoroutineScope()
     var isPressed by remember { mutableStateOf(false) }
 
+    // The gesture detector below is keyed on `key.type`, which never changes for
+    // a given key, so its node is never restarted and it keeps invoking whatever
+    // it captured on the composition that created it. KeyboardScreen rebuilds
+    // `suggestions`, `typedPrefix` and `mode` on every input session
+    // (`remember(inputSession)`), so a captured handler would go on writing to
+    // the previous session's orphaned MutableStates and taps would stop having
+    // any visible effect. Routing through rememberUpdatedState keeps the
+    // detector pointed at the current handlers, the same way
+    // [swipeTypingGestures] does for its own long-lived pointerInput.
+    val currentOnKeyPress by rememberUpdatedState(onKeyPress)
+    val currentOnKeyLongPress by rememberUpdatedState(onKeyLongPress)
+    val currentHapticEnabled by rememberUpdatedState(hapticEnabled)
+
     val scale by animateFloatAsState(
         targetValue = if (isPressed) 0.92f else 1.0f,
         animationSpec = tween(durationMillis = 60),
@@ -74,7 +88,7 @@ fun KeyboardKey(
     )
 
     fun triggerHaptic() {
-        if (hapticEnabled) {
+        if (currentHapticEnabled) {
             view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
         }
     }
@@ -159,7 +173,7 @@ fun KeyboardKey(
                                 delay(longPressTimeout + 50L)
                                 while (isPressed) {
                                     triggerHaptic()
-                                    onKeyPress(key.type)
+                                    currentOnKeyPress(key.type)
                                     delay(50)
                                 }
                             }
@@ -169,12 +183,12 @@ fun KeyboardKey(
                         isPressed = false
                     },
                     onTap = {
-                        onKeyPress(key.type)
+                        currentOnKeyPress(key.type)
                     },
                     onLongPress = {
                         if (key.type !is KeyType.Backspace) {
                             triggerHaptic()
-                            onKeyLongPress(key.type)
+                            currentOnKeyLongPress(key.type)
                         }
                     }
                 )

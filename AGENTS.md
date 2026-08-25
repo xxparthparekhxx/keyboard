@@ -11,7 +11,7 @@ This document provides AI coding agents and developers with essential context, a
 ### Technical Specifications
 - **Application ID / Namespace**: `com.example.composekeyboard`
 - **Minimum SDK**: 24 (Android 7.0 Nougat)
-- **Target / Compile SDK**: 34 (Android 14)
+- **Target / Compile SDK**: 35 (Android 15)
 - **Kotlin Version**: 2.0.0 (with Kotlin Compose Compiler Plugin)
 - **Android Gradle Plugin (AGP)**: 8.4.2
 - **Gradle Version**: 8.7
@@ -102,7 +102,7 @@ keyboard/
 ### C. Data Persistence & State Management
 - **`KeyboardPreferences.kt`**: Thread-safe `SharedPreferences` wrapper exposing reactive `StateFlow<KeyboardSettings>`. Supports themes, custom HSV palettes, haptics, audio, number row, and scale multiplier.
 - **`ClipboardHistoryManager.kt`**: Captures clipboard copies across apps, storing up to 50 items in `clipboard_history.json` with item pinning.
-- **`SwipeDictionary.kt`**: Memory-efficient bucketed word storage indexed by starting character. Dynamically learns new typed/selected words and saves to `learned_words.txt`.
+- **`SwipeDictionary.kt`**: Memory-efficient bucketed word storage indexed by starting character. Dynamically learns new typed/selected words and saves to `swipe_user_words.txt`.
 
 ### D. Theming & UI Hierarchy
 - **Preset Themes**: Material Dark/Light, Pitch Black AMOLED, Dynamic Material You (Dark/Light), Nordic Frost, Sunset Glow, Cyber Neon.
