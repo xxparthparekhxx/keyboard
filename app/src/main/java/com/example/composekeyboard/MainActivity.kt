@@ -801,7 +801,7 @@ fun MainScreen(
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            text = "Compose Keyboard v1.0.0",
+                            text = "Compose Keyboard v1.1.0",
                             fontWeight = FontWeight.Bold,
                             fontSize = 14.sp
                         )
