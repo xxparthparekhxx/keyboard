@@ -85,6 +85,9 @@ class ComposeInputMethodService : InputMethodService(),
     /** Whether the focused field's input type asks for sentence-style capitals. */
     private var fieldWantsCaps by mutableStateOf(false)
 
+    /** Whether the focused field is numeric / phone / datetime, requiring numpad mode. */
+    private var isNumericField by mutableStateOf(false)
+
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var dictionarySaveJob: Job? = null
 
@@ -153,6 +156,7 @@ class ComposeInputMethodService : InputMethodService(),
                 imeAction = currentImeAction,
                 inputSession = inputSession,
                 autoCapitalizeField = fieldWantsCaps,
+                isNumericField = isNumericField,
                 onTextInput = { text ->
                     playKeySound(AudioManager.FX_KEYPRESS_STANDARD)
                     val ic = currentInputConnection
@@ -264,6 +268,10 @@ class ComposeInputMethodService : InputMethodService(),
                 EditorInfo.IME_ACTION_UNSPECIFIED
             }
             fieldWantsCaps = fieldRequestsCapitalization(it)
+            isNumericField = fieldRequestsNumeric(it)
+        } ?: run {
+            fieldWantsCaps = false
+            isNumericField = false
         }
         inputSession++
     }
@@ -275,6 +283,13 @@ class ComposeInputMethodService : InputMethodService(),
         saveLearnedWordsNow()
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_PAUSE)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_STOP)
+    }
+
+    override fun onWindowHidden() {
+        super.onWindowHidden()
+        flushTypedWord()
+        resetInputState()
+        saveLearnedWordsNow()
     }
 
     override fun onUpdateSelection(
@@ -527,6 +542,17 @@ class ComposeInputMethodService : InputMethodService(),
         }
         return inputType and InputType.TYPE_TEXT_FLAG_CAP_SENTENCES != 0 ||
                 inputType and InputType.TYPE_TEXT_FLAG_CAP_WORDS != 0
+    }
+
+    /**
+     * True when the focused field's [EditorInfo.inputType] indicates a number, phone,
+     * or date/time field where a numpad-only keyboard should be shown automatically.
+     */
+    private fun fieldRequestsNumeric(info: EditorInfo): Boolean {
+        val inputClass = info.inputType and InputType.TYPE_MASK_CLASS
+        return inputClass == InputType.TYPE_CLASS_NUMBER ||
+                inputClass == InputType.TYPE_CLASS_PHONE ||
+                inputClass == InputType.TYPE_CLASS_DATETIME
     }
 
     private companion object {

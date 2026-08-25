@@ -90,6 +90,7 @@ fun KeyboardKey(
         is KeyType.SymbolToggle,
         is KeyType.SymbolMoreToggle,
         is KeyType.AlphabetToggle,
+        is KeyType.NumpadToggle,
         is KeyType.EmojiToggle,
         is KeyType.LanguageSwitch -> colors.accentKeyBackground to colors.accentKeyTextColor
         else -> colors.keyBackground to colors.keyTextColor
@@ -115,6 +116,7 @@ fun KeyboardKey(
         is KeyType.SymbolToggle -> "Symbols"
         is KeyType.SymbolMoreToggle -> "More symbols"
         is KeyType.AlphabetToggle -> "Letters"
+        is KeyType.NumpadToggle -> "Number pad"
         is KeyType.EmojiToggle -> "Emoji"
         is KeyType.LanguageSwitch -> "Switch language"
     }
@@ -255,6 +257,14 @@ fun KeyboardKey(
             is KeyType.AlphabetToggle -> {
                 Text(
                     text = "ABC",
+                    color = fg,
+                    fontSize = (15.5 * fontScale).sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            is KeyType.NumpadToggle -> {
+                Text(
+                    text = "1234",
                     color = fg,
                     fontSize = (15.5 * fontScale).sp,
                     fontWeight = FontWeight.Bold

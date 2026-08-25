@@ -6,6 +6,7 @@ enum class KeyboardMode {
     CAPS_LOCKED,
     SYMBOLS,
     SYMBOLS_MORE,
+    NUMPAD,
     EMOJI,
     CLIPBOARD,
     THEMES,
@@ -19,6 +20,7 @@ sealed class KeyType {
     object SymbolToggle : KeyType()
     object SymbolMoreToggle : KeyType()
     object AlphabetToggle : KeyType()
+    object NumpadToggle : KeyType()
     object EmojiToggle : KeyType()
     object Space : KeyType()
     object Enter : KeyType()
@@ -88,12 +90,12 @@ object KeyboardLayouts {
     )
 
     val symbolsBottomRow: List<KeyModel> = listOf(
-        KeyModel(KeyType.AlphabetToggle, weight = 1.3f, isAccent = true),
-        KeyModel(KeyType.EmojiToggle, weight = 1.0f, isAccent = true),
-        KeyModel(KeyType.Character(","), weight = 0.9f),
-        KeyModel(KeyType.Space, weight = 4.0f),
-        KeyModel(KeyType.Character("."), weight = 0.9f),
-        KeyModel(KeyType.Enter, weight = 1.5f, isAccent = true)
+        KeyModel(KeyType.AlphabetToggle, weight = 1.2f, isAccent = true),
+        KeyModel(KeyType.NumpadToggle, weight = 1.1f, isAccent = true),
+        KeyModel(KeyType.EmojiToggle, weight = 0.9f, isAccent = true),
+        KeyModel(KeyType.Space, weight = 3.6f),
+        KeyModel(KeyType.Character("."), weight = 0.8f),
+        KeyModel(KeyType.Enter, weight = 1.4f, isAccent = true)
     )
 
     // Symbols Page 2 (More symbols)
@@ -118,12 +120,45 @@ object KeyboardLayouts {
     )
 
     val moreSymbolsBottomRow: List<KeyModel> = listOf(
-        KeyModel(KeyType.AlphabetToggle, weight = 1.3f, isAccent = true),
-        KeyModel(KeyType.Character("<"), weight = 1.0f),
-        KeyModel(KeyType.Character(">"), weight = 1.0f),
-        KeyModel(KeyType.Space, weight = 3.5f),
-        KeyModel(KeyType.Character("="), weight = 1.0f),
-        KeyModel(KeyType.Enter, weight = 1.5f, isAccent = true)
+        KeyModel(KeyType.AlphabetToggle, weight = 1.2f, isAccent = true),
+        KeyModel(KeyType.NumpadToggle, weight = 1.1f, isAccent = true),
+        KeyModel(KeyType.Character("<"), weight = 0.9f),
+        KeyModel(KeyType.Space, weight = 3.2f),
+        KeyModel(KeyType.Character(">"), weight = 0.9f),
+        KeyModel(KeyType.Enter, weight = 1.4f, isAccent = true)
+    )
+
+    // Dedicated Numpad Layout
+    val numpadRow1: List<KeyModel> = listOf(
+        KeyModel(KeyType.Character("1", listOf("!")), weight = 1.15f),
+        KeyModel(KeyType.Character("2", listOf("@")), weight = 1.15f),
+        KeyModel(KeyType.Character("3", listOf("#")), weight = 1.15f),
+        KeyModel(KeyType.Character("(", listOf("[", "{", "<")), weight = 0.9f),
+        KeyModel(KeyType.Character(")", listOf("]", "}", ">")), weight = 0.9f)
+    )
+
+    val numpadRow2: List<KeyModel> = listOf(
+        KeyModel(KeyType.Character("4", listOf("$")), weight = 1.15f),
+        KeyModel(KeyType.Character("5", listOf("%")), weight = 1.15f),
+        KeyModel(KeyType.Character("6", listOf("^")), weight = 1.15f),
+        KeyModel(KeyType.Character("+", listOf("±", "=", "%")), weight = 0.9f),
+        KeyModel(KeyType.Character("-", listOf("_", "—", "~")), weight = 0.9f)
+    )
+
+    val numpadRow3: List<KeyModel> = listOf(
+        KeyModel(KeyType.Character("7", listOf("&")), weight = 1.15f),
+        KeyModel(KeyType.Character("8", listOf("*")), weight = 1.15f),
+        KeyModel(KeyType.Character("9", listOf("`")), weight = 1.15f),
+        KeyModel(KeyType.Character("*", listOf("×", "°", "•")), weight = 0.9f),
+        KeyModel(KeyType.Character("/", listOf("÷", "\\", "|")), weight = 0.9f)
+    )
+
+    val numpadBottomRow: List<KeyModel> = listOf(
+        KeyModel(KeyType.AlphabetToggle, weight = 1.15f, isAccent = true),
+        KeyModel(KeyType.Character("0", listOf("+", "°")), weight = 1.15f),
+        KeyModel(KeyType.Character(".", listOf(",", ":", ";", "=", "#")), weight = 1.15f),
+        KeyModel(KeyType.Backspace, weight = 0.9f, isAccent = true),
+        KeyModel(KeyType.Enter, weight = 0.9f, isAccent = true)
     )
 }
 

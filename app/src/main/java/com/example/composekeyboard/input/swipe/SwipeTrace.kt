@@ -45,7 +45,7 @@ class SwipeTrace {
             val dx = x - xs[size - 1]
             val dy = y - ys[size - 1]
             val d = sqrt(dx * dx + dy * dy)
-            if (d < MIN_POINT_SPACING_PX) return false
+            if (d <= MIN_POINT_SPACING_PX) return false
             length += d
         }
         if (size == xs.size) grow()

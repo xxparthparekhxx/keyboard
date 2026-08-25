@@ -71,6 +71,7 @@ fun KeyboardScreen(
     imeAction: Int = EditorInfo.IME_ACTION_UNSPECIFIED,
     inputSession: Int = 0,
     autoCapitalizeField: Boolean = false,
+    isNumericField: Boolean = false,
     onTextInput: (String) -> Unit,
     onDelete: () -> Unit,
     onAction: (Int) -> Unit,
@@ -97,7 +98,13 @@ fun KeyboardScreen(
     ) {
         val colors = LocalKeyboardColors.current
         val view = LocalView.current
-        var mode by rememberSaveable { mutableStateOf(KeyboardMode.LOWERCASE) }
+        var mode by remember(inputSession) {
+            mutableStateOf(
+                if (isNumericField) KeyboardMode.NUMPAD
+                else if (settings.autoCapitalization && autoCapitalizeField) KeyboardMode.UPPERCASE
+                else KeyboardMode.LOWERCASE
+            )
+        }
         var lastShiftTapTime by remember { mutableLongStateOf(0L) }
 
         // Keyboard height scale
@@ -111,13 +118,13 @@ fun KeyboardScreen(
         val swipeController = remember(geometry, swipeDictionary) {
             SwipeController(geometry, swipeDictionary, scope)
         }
-        var suggestions by remember { mutableStateOf(emptyList<String>()) }
-        var selectedSuggestion by remember { mutableIntStateOf(-1) }
-        var typedPrefix by remember { mutableStateOf("") }
-        var isSwipeResult by remember { mutableStateOf(false) }
+        var suggestions by remember(inputSession) { mutableStateOf(emptyList<String>()) }
+        var selectedSuggestion by remember(inputSession) { mutableIntStateOf(-1) }
+        var typedPrefix by remember(inputSession) { mutableStateOf("") }
+        var isSwipeResult by remember(inputSession) { mutableStateOf(false) }
 
         /** Last character this keyboard committed, for sentence detection. */
-        var lastCommitted by remember { mutableStateOf(' ') }
+        var lastCommitted by remember(inputSession) { mutableStateOf(' ') }
 
         val isAlphaMode = mode == KeyboardMode.LOWERCASE ||
                 mode == KeyboardMode.UPPERCASE ||
@@ -131,8 +138,9 @@ fun KeyboardScreen(
          * has the same input type as the last one.
          */
         LaunchedEffect(inputSession) {
-            if (!isAlphaMode) return@LaunchedEffect
-            mode = if (settings.autoCapitalization && autoCapitalizeField) {
+            mode = if (isNumericField) {
+                KeyboardMode.NUMPAD
+            } else if (settings.autoCapitalization && autoCapitalizeField) {
                 KeyboardMode.UPPERCASE
             } else {
                 KeyboardMode.LOWERCASE
@@ -291,6 +299,12 @@ fun KeyboardScreen(
                     suggestions = emptyList()
                     isSwipeResult = false
                 }
+                is KeyType.NumpadToggle -> {
+                    mode = KeyboardMode.NUMPAD
+                    typedPrefix = ""
+                    suggestions = emptyList()
+                    isSwipeResult = false
+                }
                 is KeyType.EmojiToggle -> {
                     mode = KeyboardMode.EMOJI
                     typedPrefix = ""
@@ -341,6 +355,9 @@ fun KeyboardScreen(
             } else {
                 KeyboardHeader(
                     currentMode = mode,
+                    onNumpadClick = {
+                        mode = if (mode == KeyboardMode.NUMPAD) KeyboardMode.LOWERCASE else KeyboardMode.NUMPAD
+                    },
                     onEmojiClick = {
                         mode = if (mode == KeyboardMode.EMOJI) KeyboardMode.LOWERCASE else KeyboardMode.EMOJI
                     },
@@ -477,6 +494,12 @@ fun KeyboardScreen(
 
                             // Main keyboard rows based on current mode
                             val (row1, row2, row3, bottomRow) = when (mode) {
+                                KeyboardMode.NUMPAD -> listOf(
+                                    KeyboardLayouts.numpadRow1,
+                                    KeyboardLayouts.numpadRow2,
+                                    KeyboardLayouts.numpadRow3,
+                                    KeyboardLayouts.numpadBottomRow
+                                )
                                 KeyboardMode.SYMBOLS -> listOf(
                                     KeyboardLayouts.symbolsRow1,
                                     KeyboardLayouts.symbolsRow2,
@@ -513,6 +536,11 @@ fun KeyboardScreen(
                                         hapticEnabled = settings.hapticFeedback,
                                         fontScale = settings.fontScale,
                                         onKeyPress = { type -> dispatchKey(type) },
+                                        onKeyLongPress = { type ->
+                                            if (type is KeyType.Character && type.popup.isNotEmpty()) {
+                                                onTextInput(type.popup.first())
+                                            }
+                                        },
                                         modifier = Modifier
                                             .weight(key.weight)
                                             .trackLetterKey(key, geometry)
@@ -539,6 +567,11 @@ fun KeyboardScreen(
                                         hapticEnabled = settings.hapticFeedback,
                                         fontScale = settings.fontScale,
                                         onKeyPress = { type -> dispatchKey(type) },
+                                        onKeyLongPress = { type ->
+                                            if (type is KeyType.Character && type.popup.isNotEmpty()) {
+                                                onTextInput(type.popup.first())
+                                            }
+                                        },
                                         modifier = Modifier
                                             .weight(key.weight)
                                             .trackLetterKey(key, geometry)
@@ -565,6 +598,11 @@ fun KeyboardScreen(
                                         hapticEnabled = settings.hapticFeedback,
                                         fontScale = settings.fontScale,
                                         onKeyPress = { type -> dispatchKey(type) },
+                                        onKeyLongPress = { type ->
+                                            if (type is KeyType.Character && type.popup.isNotEmpty()) {
+                                                onTextInput(type.popup.first())
+                                            }
+                                        },
                                         modifier = Modifier
                                             .weight(key.weight)
                                             .trackLetterKey(key, geometry)
@@ -622,6 +660,11 @@ fun KeyboardScreen(
                                             hapticEnabled = settings.hapticFeedback,
                                             fontScale = settings.fontScale,
                                             onKeyPress = { type -> dispatchKey(type) },
+                                            onKeyLongPress = { type ->
+                                                if (type is KeyType.Character && type.popup.isNotEmpty()) {
+                                                    onTextInput(type.popup.first())
+                                                }
+                                            },
                                             modifier = Modifier.weight(key.weight)
                                         )
                                     }

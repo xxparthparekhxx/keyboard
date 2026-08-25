@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentPaste
+import androidx.compose.material.icons.filled.Dialpad
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.SentimentSatisfiedAlt
@@ -33,6 +34,7 @@ fun KeyboardHeader(
     currentMode: KeyboardMode,
     onEmojiClick: () -> Unit,
     onClipboardClick: () -> Unit,
+    onNumpadClick: () -> Unit = {},
     onThemeClick: () -> Unit,
     onSwitchImeClick: () -> Unit,
     onSettingsClick: () -> Unit,
@@ -45,10 +47,23 @@ fun KeyboardHeader(
             .fillMaxWidth()
             .height(44.dp)
             .background(colors.headerBackground)
-            .padding(horizontal = 12.dp),
+            .padding(horizontal = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
+        // Quick Numpad button
+        HeaderIconButton(
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.Dialpad,
+                    contentDescription = "Number Pad",
+                    tint = if (currentMode == KeyboardMode.NUMPAD) colors.actionKeyBackground else colors.headerIconColor,
+                    modifier = Modifier.size(22.dp)
+                )
+            },
+            onClick = onNumpadClick
+        )
+
         // Quick Emoji button
         HeaderIconButton(
             icon = {

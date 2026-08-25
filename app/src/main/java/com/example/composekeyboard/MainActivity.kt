@@ -32,7 +32,9 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
@@ -174,6 +176,9 @@ fun MainScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var testText by remember { mutableStateOf("") }
+    var testNumber by remember { mutableStateOf("") }
+    var testPhone by remember { mutableStateOf("") }
+    var testDecimal by remember { mutableStateOf("") }
 
     Scaffold(
         topBar = {
@@ -257,15 +262,81 @@ fun MainScreen(
                         }
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            text = "Tap the field below to test typing, cursor gestures, custom themes, and clipboard history!",
+                            text = "Tap any field below to test standard QWERTY typing, dedicated Numpad automatic switching, themes, and clipboard history!",
                             fontSize = 13.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Spacer(modifier = Modifier.height(12.dp))
+
+                        // Text Field (General / QWERTY)
+                        Text(
+                            text = "Standard Text (QWERTY)",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
                         OutlinedTextField(
                             value = testText,
                             onValueChange = { testText = it },
-                            placeholder = { Text("Type something here...") },
+                            placeholder = { Text("Type letters or words here...") },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Number / PIN Field (Triggers Numpad automatically)
+                        Text(
+                            text = "Number & PIN (Auto Numpad)",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        OutlinedTextField(
+                            value = testNumber,
+                            onValueChange = { testNumber = it },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            placeholder = { Text("Enter numbers or PIN...") },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Phone Number Field (Triggers Numpad automatically)
+                        Text(
+                            text = "Phone Number (Auto Numpad)",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        OutlinedTextField(
+                            value = testPhone,
+                            onValueChange = { testPhone = it },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                            placeholder = { Text("Enter phone number...") },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Decimal / Math Field (Triggers Numpad automatically)
+                        Text(
+                            text = "Decimal / Math (Auto Numpad)",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        OutlinedTextField(
+                            value = testDecimal,
+                            onValueChange = { testDecimal = it },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            placeholder = { Text("Enter decimal or calculation...") },
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp)
                         )
