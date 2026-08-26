@@ -53,7 +53,7 @@ fun SuggestionBar(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .height(48.dp)
+            .height(44.dp)
             .background(colors.headerBackground)
             .padding(horizontal = 6.dp),
         verticalAlignment = Alignment.CenterVertically

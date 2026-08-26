@@ -1,6 +1,5 @@
 package com.example.composekeyboard.ui.keyboard
 
-import android.os.Build
 import android.view.HapticFeedbackConstants
 import android.view.inputmethod.EditorInfo
 import androidx.compose.animation.AnimatedVisibility
@@ -22,8 +21,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -675,27 +672,13 @@ fun KeyboardScreen(
                 }
             }
 
-            // Dynamic bottom safe area spacing for system navigation bar (3-button or gesture pill)
-            val navBarsBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-            val safeDrawingBottom = WindowInsets.safeDrawing.asPaddingValues().calculateBottomPadding()
-            val systemBarsBottom = WindowInsets.systemBars.asPaddingValues().calculateBottomPadding()
-
-            val viewRootInsets = view.rootWindowInsets
-            val viewNavBottomPx = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                viewRootInsets?.getInsets(android.view.WindowInsets.Type.navigationBars())?.bottom ?: 0
-            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                @Suppress("DEPRECATION")
-                viewRootInsets?.stableInsetBottom ?: 0
-            } else {
-                0
-            }
-            val viewNavBottomDp = with(LocalDensity.current) { viewNavBottomPx.toDp() }
-
+            // Dynamic bottom safe area spacing for system navigation bar (3-button or gesture pill).
+            // NOTE: do NOT add insets read from view.rootWindowInsets here — those are
+            // measured against the whole screen rather than this IME window, so on
+            // devices where the system already positions the keyboard above the nav
+            // bar they double-count and leave a large dead strip under the keys.
             val bottomPadding = maxOf(
-                navBarsBottom,
-                safeDrawingBottom,
-                systemBarsBottom,
-                viewNavBottomDp,
+                WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
                 6.dp
             )
             Spacer(modifier = Modifier.height(bottomPadding))
