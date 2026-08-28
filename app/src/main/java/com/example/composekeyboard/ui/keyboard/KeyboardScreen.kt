@@ -1,5 +1,6 @@
 package com.example.composekeyboard.ui.keyboard
 
+import android.os.Build
 import android.view.HapticFeedbackConstants
 import android.view.inputmethod.EditorInfo
 import androidx.compose.animation.AnimatedVisibility
@@ -23,8 +24,12 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
+import androidx.core.view.OnApplyWindowInsetsListener
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -672,16 +677,58 @@ fun KeyboardScreen(
                 }
             }
 
-            // Dynamic bottom safe area spacing for system navigation bar (3-button or gesture pill).
-            // NOTE: do NOT add insets read from view.rootWindowInsets here — those are
-            // measured against the whole screen rather than this IME window, so on
-            // devices where the system already positions the keyboard above the nav
-            // bar they double-count and leave a large dead strip under the keys.
-            val bottomPadding = maxOf(
-                WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
-                6.dp
-            )
-            Spacer(modifier = Modifier.height(bottomPadding))
+            // Safe area bottom spacing for system navigation bars:
+            //  • On Android 15+ (API 35+) / Android 16 (API 36+), edge-to-edge is enforced
+            //    for IME windows, causing the window to extend behind the navigation bar.
+            //    We reactively listen for WindowInsetsCompat.Type.navigationBars() and pad
+            //    the keyboard so keys sit above the gesture pill / 3-button navigation bar.
+            //  • On older devices (API < 35), the OS WindowManager already docks the IME window
+            //    above the navigation bar. Adding navigation bar insets would double-count the space
+            //    and cause excessive dead bottom padding, so we use a clean standard 6.dp margin.
+            var navInsetPx by remember {
+                mutableIntStateOf(
+                    if (Build.VERSION.SDK_INT >= 35) {
+                        val root = ViewCompat.getRootWindowInsets(view)
+                            ?: view.rootWindowInsets?.let { WindowInsetsCompat.toWindowInsetsCompat(it, view) }
+                        root?.getInsets(WindowInsetsCompat.Type.navigationBars())?.bottom ?: 0
+                    } else {
+                        0
+                    }
+                )
+            }
+
+            if (Build.VERSION.SDK_INT >= 35) {
+                DisposableEffect(view) {
+                    val listener = OnApplyWindowInsetsListener { _, insets ->
+                        navInsetPx = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom
+                        insets
+                    }
+                    ViewCompat.setOnApplyWindowInsetsListener(view, listener)
+                    val initialRoot = ViewCompat.getRootWindowInsets(view)
+                    if (initialRoot != null) {
+                        val nav = initialRoot.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom
+                        if (nav > 0) {
+                            navInsetPx = nav
+                        }
+                    }
+                    ViewCompat.requestApplyInsets(view)
+                    onDispose {
+                        ViewCompat.setOnApplyWindowInsetsListener(view, null)
+                    }
+                }
+            }
+
+            val density = LocalDensity.current
+            val navInsetDp = with(density) { navInsetPx.toDp() }
+            val bottomPadding = if (Build.VERSION.SDK_INT >= 35) {
+                navInsetDp + 12.dp
+            } else {
+                2.dp
+            }
+
+            if (bottomPadding > 0.dp) {
+                Spacer(modifier = Modifier.height(bottomPadding))
+            }
         }
     }
 }
