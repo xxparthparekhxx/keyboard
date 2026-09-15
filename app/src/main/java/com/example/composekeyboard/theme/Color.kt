@@ -11,13 +11,13 @@ val LightAccentKeyText = Color(0xFF334155)
 val LightActionKeyBg = Color(0xFF2563EB)
 val LightActionKeyText = Color(0xFFFFFFFF)
 
-// Dark Slate Palette
-val DarkBg = Color(0xFF1E1E2E)
-val DarkKeyBg = Color(0xFF2E2E3E)
-val DarkKeyText = Color(0xFFECEFF4)
-val DarkAccentKeyBg = Color(0xFF262636)
-val DarkAccentKeyText = Color(0xFFB0B8C8)
-val DarkActionKeyBg = Color(0xFF6366F1)
+// Dark Slate Palette (Authentic Gboard Dark Theme Palette)
+val DarkBg = Color(0xFF161722)
+val DarkKeyBg = Color(0xFF282B3A)
+val DarkKeyText = Color(0xFFEFF1F8)
+val DarkAccentKeyBg = Color(0xFF383C53)
+val DarkAccentKeyText = Color(0xFFD2D6E8)
+val DarkActionKeyBg = Color(0xFF383C53)
 val DarkActionKeyText = Color(0xFFFFFFFF)
 
 // Pitch Black AMOLED Palette

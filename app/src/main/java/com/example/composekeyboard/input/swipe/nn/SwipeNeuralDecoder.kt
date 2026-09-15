@@ -60,6 +60,19 @@ class SwipeNeuralDecoder private constructor(
         Log.i(TAG, "rebuilt trie (version $currentVersion) over ${words.size} words")
     }
 
+    /**
+     * Pushes a reused word's new frequency score straight into the live beam.
+     *
+     * Call this on every [SwipeDictionary.learn] that returns a non-null
+     * score, right on the calling thread — it is an O(1) map lookup plus an
+     * array write, nothing like the ~70 MB trie rebuild [updateBeam] does, so
+     * there is no reason to let it wait behind that debounce. Without it, a
+     * word the user reuses often only ever wins its ranking boost once
+     * another, genuinely new word happens to trigger the next rebuild.
+     */
+    @Synchronized
+    fun bumpScore(word: String, score: Int): Boolean = beam.bumpScore(word, score)
+
     private val xy = FloatArray(SwipeNet.T_IN * 2)
     private val keyX = FloatArray(SwipeDictionary.ALPHABET)
     private val keyY = FloatArray(SwipeDictionary.ALPHABET)

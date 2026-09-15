@@ -39,6 +39,18 @@ class SwipeBeam(
 
     private val nodeCount = nodeWord.size
 
+    /**
+     * Built lazily (and only on the rare caller that reuses a word already in
+     * this beam via [bumpScore]) rather than at construction time, since a
+     * fresh trie is built on every dictionary load and most of those loads
+     * never need a reverse lookup.
+     */
+    private val wordIndex: Map<String, Int> by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        HashMap<String, Int>(words.size).apply {
+            for (i in words.indices) put(words[i], i)
+        }
+    }
+
     // Open-addressed map from node id to slot in the frontier being built.
     private var capacity = 1 shl 14
     private var mapKey = IntArray(capacity) { -1 }
@@ -115,6 +127,25 @@ class SwipeBeam(
         }
 
         return collect(out, outScore, gammaScore, lambdaFreq, betaLen)
+    }
+
+    /**
+     * Updates a word already in this trie to a new frequency score, in place.
+     *
+     * The score only ever feeds [collect]'s `lambdaFreq * wordScore[wi]` term
+     * at read time, so writing the array directly is enough — no node, child,
+     * or word-selection state depends on it after [build] has run. That is
+     * what makes this safe (and cheap) without rebuilding the trie: a reused
+     * word's learning boost can reach the beam the same session it happens,
+     * rather than waiting for the next full rebuild.
+     *
+     * Returns false when [word] is not part of this beam (not yet promoted
+     * into the lexicon, or the beam predates it) — a normal, silent no-op.
+     */
+    fun bumpScore(word: String, newScore: Int): Boolean {
+        val i = wordIndex[word] ?: return false
+        wordScore[i] = newScore
+        return true
     }
 
     private fun push(node: Int, pb: Float, pnb: Float) {

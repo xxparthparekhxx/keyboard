@@ -20,7 +20,8 @@
 -keep enum com.example.composekeyboard.** { *; }
 -keep class com.example.composekeyboard.data.** { *; }
 
-# Suppress warnings for missing optional dependencies
+# Keep whisper.cpp JNI bindings
+-keep class dev.ffmpegkit.whisper.** { *; }
 -dontwarn com.google.android.gms.**
 -dontwarn org.jetbrains.kotlinx.**
 

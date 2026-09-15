@@ -31,13 +31,16 @@ keyboard/
 │       ├── assets/
 │       │   └── swipe_words.txt                      # ~150,000-word lexicon with log-frequency scores
 │       ├── java/com/example/composekeyboard/
-│       │   ├── MainActivity.kt                      # Setup Wizard, Test Sandbox & Companion App
+│       │   ├── MainActivity.kt                      # Companion app host (setup, themes, clipboard, settings)
 │       │   ├── data/
+│       │   │   ├── Capitalization.kt                # Cursor-derived auto-shift from InputConnection
 │       │   │   ├── ClipboardHistoryManager.kt       # Persistent JSON-backed clipboard storage
+│       │   │   ├── FieldInputKind.kt                # InputType class/variation → keyboard layout
 │       │   │   ├── KeyboardData.kt                  # Key layouts, symbols, emoji matrices, KeyType
 │       │   │   ├── KeyboardPreferences.kt           # SharedPreferences + StateFlow settings
 │       │   │   └── SwipeDictionary.kt               # Bucketed word lexicon & user-learning engine
 │       │   ├── input/swipe/
+│       │   ├── input/voice/                         # Whisper Tiny on-device dictation (download-on-first-use)
 │       │   │   ├── SwipeController.kt               # Gesture state coordinator & decode dispatcher
 │       │   │   ├── SwipeDecoder.kt                  # 4-signal spatial beam-search gesture decoder
 │       │   │   ├── SwipeGestureDetector.kt          # PointerInputScope touch event recognizer
@@ -50,6 +53,7 @@ keyboard/
 │       │   │   ├── Color.kt                         # Theme color palette presets
 │       │   │   └── Theme.kt                         # CompositionLocal theme provider
 │       │   └── ui/
+│       │       ├── app/                             # Companion app screens (Home, Themes, Clipboard, Settings)
 │       │       ├── keyboard/
 │       │       │   ├── ClipboardView.kt             # In-keyboard clipboard history panel
 │       │       │   ├── EmojiPicker.kt               # Categorized emoji grid panel
@@ -108,6 +112,12 @@ keyboard/
 - **Preset Themes**: Material Dark/Light, Pitch Black AMOLED, Dynamic Material You (Dark/Light), Nordic Frost, Sunset Glow, Cyber Neon.
 - **Custom Theme Creator**: HSV spectrum slider, hex input, saturation/brightness canvas, and live interactive preview.
 - **Header & Suggestion Strip**: The `SuggestionBar` dynamically replaces `KeyboardHeader` during active swipe or when suggestions are available, preventing keyboard height jumps.
+- **Companion App**: Bottom-nav host in `ui/app` with Home (setup + typing playground), Themes, Clipboard, and Settings. App chrome uses `CompanionTheme` so it does not inherit the keyboard palette.
+
+### E. Field Types & IME Actions
+- **`FieldInputKind`**: Maps every `InputType.TYPE_MASK_CLASS` (text, number, phone, datetime) and the text/number variations Android defines. Email and URL get dedicated QWERTY bottom rows (`@` / `.com`, `/` / `.`); phone gets a dialer (`*`, `#`, `+`); datetime gets `/` and `:`; password and PIN disable swipe and suggestions.
+- **ASCII-capable subtype**: `res/xml/method.xml` sets `android:isAsciiCapable="true"` so the system can offer this keyboard on ASCII, email, URI, and password fields. Language subtypes are still English (US) only.
+- **Enter key**: `EditorInfo.IME_MASK_ACTION` is forwarded to the Enter key (search, send, done, go, next, previous). The setup playground has chips for field types and those actions.
 
 ---
 
@@ -177,9 +187,10 @@ python3 build_dict.py
 ### 3. Layout & Geometry Updates
 - If adding keys to alphanumeric layouts (`KeyboardLayouts.qwertyRow*`), ensure letter keys have `.trackLetterKey(key, geometry)` attached.
 - When adding new special keys, extend `KeyType` sealed class and handle both click dispatching in `KeyboardScreen.kt` and rendering in `KeyboardKey.kt`.
+- New field layouts go through `FieldInputKind` plus `KeyboardLayouts.qwertyBottomRowFor` / `numpadRowsFor`. Do not branch on raw `InputType` in the UI.
 
 ### 4. Code Style & Documentation
 - Preserve existing comments and docstrings.
 - Adhere to Kotlin standard style and Material 3 design guidelines.
 - Use explicit type annotations on public API boundaries.
-- Keep components modular and localized to their respective subpackages (`input/swipe`, `ui/keyboard`, `data`, `theme`).
+- Keep components modular and localized to their respective subpackages (`input/swipe`, `input/voice`, `ui/keyboard`, `ui/app`, `data`, `theme`).

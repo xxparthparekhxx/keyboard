@@ -120,11 +120,18 @@ class SwipeDictionary private constructor(private val appContext: Context) {
      * Records that the user really did mean this word — either they typed it out
      * by hand or picked it out of the suggestion strip over the decoder's own
      * first choice. Cheap enough to call on the main thread.
+     *
+     * Returns the word's new score when it was already part of the lexicon (so
+     * a caller can push that bump into the neural decoder's beam immediately,
+     * via [com.example.composekeyboard.input.swipe.nn.SwipeNeuralDecoder.bumpScore],
+     * instead of waiting for the next full trie rebuild), or null when the word
+     * is brand new to the lexicon (or not yet promoted into it) — that case is
+     * only reflected once [lexiconVersion] moves and the trie is rebuilt.
      */
-    fun learn(rawWord: String) {
-        val word = normalize(rawWord) ?: return
+    fun learn(rawWord: String): Int? {
+        val word = normalize(rawWord) ?: return null
         synchronized(lock) {
-            if (!isLoaded) return
+            if (!isLoaded) return null
             val boost = (userBoosts[word] ?: 0) + LEARN_STEP
             userBoosts[word] = boost.coerceAtMost(MAX_BOOST)
             evictLearnedIfNeeded()
@@ -139,15 +146,15 @@ class SwipeDictionary private constructor(private val appContext: Context) {
                     next[first] = buckets[first].sortedByDescending { it.score }
                     buckets = next
                 }
-                return
+                return existing.score
             }
             // A word the shipped list has never heard of is as likely to be a
             // typo as a real one, so it has to be seen more than once before it
             // can win a gesture. Picking it out of the suggestion strip is not
             // affected — those words are already in the dictionary.
-            if (boost < NEW_WORD_THRESHOLD) return
+            if (boost < NEW_WORD_THRESHOLD) return null
 
-            val keys = keySequenceOf(word) ?: return
+            val keys = keySequenceOf(word) ?: return null
             val first = keys[0].toInt()
             val entry = Entry(word, keys, USER_BASE_SCORE)
             byWord[word] = entry
@@ -157,6 +164,7 @@ class SwipeDictionary private constructor(private val appContext: Context) {
             val next = buckets.copyOf()
             next[first] = (buckets[first] + entry).sortedByDescending { it.score }
             buckets = next
+            return null
         }
     }
 

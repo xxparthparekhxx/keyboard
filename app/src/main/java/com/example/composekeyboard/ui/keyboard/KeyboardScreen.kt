@@ -46,7 +46,10 @@ import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
+import com.example.composekeyboard.data.Capitalization
 import com.example.composekeyboard.data.ClipboardHistoryManager
+import com.example.composekeyboard.data.FieldInputKind
+import com.example.composekeyboard.data.GraphemeClusters
 import com.example.composekeyboard.data.EmojiSuggestions
 import com.example.composekeyboard.data.KeyModel
 import com.example.composekeyboard.data.KeyType
@@ -72,8 +75,8 @@ fun KeyboardScreen(
     neuralDecoder: SwipeNeuralDecoder? = null,
     imeAction: Int = EditorInfo.IME_ACTION_UNSPECIFIED,
     inputSession: Int = 0,
-    autoCapitalizeField: Boolean = false,
-    isNumericField: Boolean = false,
+    cursorWantsShift: Boolean = false,
+    fieldInputKind: FieldInputKind = FieldInputKind.TEXT,
     onTextInput: (String) -> Unit,
     onDelete: () -> Unit,
     onAction: (Int) -> Unit,
@@ -91,7 +94,7 @@ fun KeyboardScreen(
     onFontScaleChanged: (Float) -> Unit = {},
     onEmojiScaleChanged: (Float) -> Unit = {},
     onOpenFullSettings: () -> Unit,
-    onSwitchIme: () -> Unit,
+    onRequestMicPermission: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     ComposeKeyboardTheme(
@@ -101,16 +104,15 @@ fun KeyboardScreen(
         val colors = LocalKeyboardColors.current
         val view = LocalView.current
         var mode by remember(inputSession) {
-            mutableStateOf(
-                if (isNumericField) KeyboardMode.NUMPAD
-                else if (settings.autoCapitalization && autoCapitalizeField) KeyboardMode.UPPERCASE
-                else KeyboardMode.LOWERCASE
-            )
+            mutableStateOf(Capitalization.initialMode(fieldInputKind.opensAsNumpad, cursorWantsShift))
         }
         var lastShiftTapTime by remember { mutableLongStateOf(0L) }
+        var lastSpaceTapTime by remember(inputSession) { mutableLongStateOf(0L) }
+        var lastNonSpaceChar by remember(inputSession) { mutableStateOf(' ') }
 
         // Keyboard height scale
-        val rowHeight = (48 * settings.heightMultiplier).dp
+        val rowHeight = if (mode == KeyboardMode.NUMPAD) (56 * settings.heightMultiplier).dp else (48 * settings.heightMultiplier).dp
+        val keyRowHorizontalPadding = if (mode == KeyboardMode.NUMPAD) 8.dp else 2.dp
         val numberRowHeight = (40 * settings.heightMultiplier).dp
         val panelHeight = (250 * settings.heightMultiplier).dp
 
@@ -124,29 +126,35 @@ fun KeyboardScreen(
         var selectedSuggestion by remember(inputSession) { mutableIntStateOf(-1) }
         var typedPrefix by remember(inputSession) { mutableStateOf("") }
         var isSwipeResult by remember(inputSession) { mutableStateOf(false) }
+        var emojiSearching by remember(inputSession) { mutableStateOf(false) }
+        var emojiSearchQuery by remember(inputSession) { mutableStateOf("") }
 
-        /** Last character this keyboard committed, for sentence detection. */
+        /** Last character this keyboard committed, for the double-space period shortcut. */
         var lastCommitted by remember(inputSession) { mutableStateOf(' ') }
 
         val isAlphaMode = mode == KeyboardMode.LOWERCASE ||
                 mode == KeyboardMode.UPPERCASE ||
                 mode == KeyboardMode.CAPS_LOCKED
-        val swipeEnabled = settings.swipeTypingEnabled && isAlphaMode
+        val swipeEnabled = settings.swipeTypingEnabled && isAlphaMode && fieldInputKind.allowsSwipe
+
+        fun lettersMode(): KeyboardMode = Capitalization.lettersMode(cursorWantsShift)
 
         /**
-         * Auto-capitalization: a fresh field that asks for capitals starts in
-         * shift, and shift comes back after sentence-ending punctuation. The
-         * session counter keys the reset so it also fires when the next field
-         * has the same input type as the last one.
+         * Auto-capitalization follows the editor caret, not a one-shot "this
+         * field wants capitals" flag. Re-evaluating on [cursorWantsShift] is
+         * what keeps shift correct after dismiss, backspace, and tapping into
+         * the middle of a sentence. Caps-lock and symbol/emoji layouts are
+         * left alone.
          */
-        LaunchedEffect(inputSession) {
-            mode = if (isNumericField) {
-                KeyboardMode.NUMPAD
-            } else if (settings.autoCapitalization && autoCapitalizeField) {
-                KeyboardMode.UPPERCASE
+        LaunchedEffect(inputSession, fieldInputKind) {
+            if (fieldInputKind.opensAsNumpad) {
+                mode = KeyboardMode.NUMPAD
             } else {
-                KeyboardMode.LOWERCASE
+                mode = Capitalization.applyCursorShift(mode, cursorWantsShift)
             }
+        }
+        LaunchedEffect(cursorWantsShift) {
+            mode = Capitalization.applyCursorShift(mode, cursorWantsShift)
         }
 
         // Reassigned on every recomposition so the handlers always see the
@@ -165,6 +173,9 @@ fun KeyboardScreen(
                 selectedSuggestion = 0
                 typedPrefix = ""
                 onSwipeWord(cased.first())
+                lastCommitted = 'a'
+                lastNonSpaceChar = 'a'
+                lastSpaceTapTime = 0L
                 if (mode == KeyboardMode.UPPERCASE) mode = KeyboardMode.LOWERCASE
             }
         }
@@ -189,12 +200,59 @@ fun KeyboardScreen(
 
         /** Word completions plus matching emojis, for the suggestion strip. */
         fun refreshSuggestions(prefix: String) {
+            if (!fieldInputKind.allowsSuggestions) {
+                suggestions = emptyList()
+                return
+            }
             suggestions = swipeDictionary.getCompletions(prefix, maxCount = 4) +
                     EmojiSuggestions.emojisFor(prefix, maxCount = 2)
         }
 
+        fun dispatchLongPress(type: KeyType) {
+            if (mode == KeyboardMode.EMOJI && emojiSearching) {
+                if (type is KeyType.Character && type.popup.isNotEmpty()) {
+                    emojiSearchQuery += type.popup.first()
+                }
+                return
+            }
+            if (type is KeyType.Character && type.popup.isNotEmpty()) {
+                val alt = type.popup.first()
+                onTextInput(alt)
+                lastCommitted = alt[0]
+                lastNonSpaceChar = alt[0]
+                lastSpaceTapTime = 0L
+                typedPrefix = ""
+                suggestions = emptyList()
+                isSwipeResult = false
+                if (settings.autoCapitalization && isAlphaMode && mode == KeyboardMode.UPPERCASE) {
+                    mode = KeyboardMode.LOWERCASE
+                }
+            }
+        }
+
         /** Single entry point for every key on every row. */
         fun dispatchKey(type: KeyType) {
+            if (mode == KeyboardMode.EMOJI && emojiSearching) {
+                when (type) {
+                    is KeyType.Character -> emojiSearchQuery += type.primary
+                    is KeyType.Space -> emojiSearchQuery += " "
+                    is KeyType.Backspace -> {
+                        val drop = GraphemeClusters.utf16LengthOfLastCluster(emojiSearchQuery)
+                        if (drop > 0) emojiSearchQuery = emojiSearchQuery.dropLast(drop)
+                    }
+                    is KeyType.EmojiToggle -> {
+                        emojiSearching = false
+                        emojiSearchQuery = ""
+                    }
+                    is KeyType.AlphabetToggle -> {
+                        emojiSearching = false
+                        emojiSearchQuery = ""
+                        mode = lettersMode()
+                    }
+                    else -> { }
+                }
+                return
+            }
             if (type is KeyType.Shift) {
                 val now = System.currentTimeMillis()
                 mode = if (now - lastShiftTapTime < 350) {
@@ -226,6 +284,8 @@ fun KeyboardScreen(
                     }
                     onTextInput(char)
                     lastCommitted = char[0]
+                    lastNonSpaceChar = char[0]
+                    lastSpaceTapTime = 0L
                     if (mode == KeyboardMode.UPPERCASE) {
                         mode = KeyboardMode.LOWERCASE
                     }
@@ -243,6 +303,7 @@ fun KeyboardScreen(
                 }
                 is KeyType.Backspace -> {
                     onDelete()
+                    lastSpaceTapTime = 0L
                     if (isSwipeResult) {
                         isSwipeResult = false
                         suggestions = emptyList()
@@ -260,63 +321,80 @@ fun KeyboardScreen(
                     }
                 }
                 is KeyType.Space -> {
-                    onTextInput(" ")
+                    val now = System.currentTimeMillis()
+                    if (now - lastSpaceTapTime < 350L && lastCommitted == ' ' && lastNonSpaceChar !in ".!?\n\t") {
+                        // Double-tap spacebar shortcut: replace trailing space with ". "
+                        onDelete()
+                        onTextInput(". ")
+                        lastCommitted = '.'
+                        lastNonSpaceChar = '.'
+                        if (settings.autoCapitalization && isAlphaMode) {
+                            mode = KeyboardMode.UPPERCASE
+                        }
+                        lastSpaceTapTime = 0L
+                    } else {
+                        onTextInput(" ")
+                        // A space after . ! ? ends the sentence; the next word
+                        // starts with a capital.
+                        if (settings.autoCapitalization && isAlphaMode && lastCommitted in ".!?") {
+                            mode = KeyboardMode.UPPERCASE
+                        }
+                        lastCommitted = ' '
+                        lastSpaceTapTime = now
+                    }
                     typedPrefix = ""
                     suggestions = emptyList()
                     isSwipeResult = false
-                    // A space after . ! ? ends the sentence; the next word
-                    // starts with a capital.
-                    if (settings.autoCapitalization && isAlphaMode && lastCommitted in ".!?") {
-                        mode = KeyboardMode.UPPERCASE
-                    }
-                    lastCommitted = ' '
                 }
                 is KeyType.Enter -> {
                     onAction(imeAction)
                     typedPrefix = ""
                     suggestions = emptyList()
                     isSwipeResult = false
-                    if (settings.autoCapitalization && isAlphaMode &&
-                        (lastCommitted == '\n' || lastCommitted in ".!?")
-                    ) {
-                        mode = KeyboardMode.UPPERCASE
-                    }
+                    lastSpaceTapTime = 0L
                     lastCommitted = '\n'
+                    lastNonSpaceChar = '\n'
                 }
                 is KeyType.SymbolToggle -> {
                     mode = KeyboardMode.SYMBOLS
                     typedPrefix = ""
                     suggestions = emptyList()
                     isSwipeResult = false
+                    lastSpaceTapTime = 0L
                 }
                 is KeyType.SymbolMoreToggle -> {
                     mode = KeyboardMode.SYMBOLS_MORE
                     typedPrefix = ""
                     suggestions = emptyList()
                     isSwipeResult = false
+                    lastSpaceTapTime = 0L
                 }
                 is KeyType.AlphabetToggle -> {
-                    mode = KeyboardMode.LOWERCASE
+                    mode = lettersMode()
                     typedPrefix = ""
                     suggestions = emptyList()
                     isSwipeResult = false
+                    lastSpaceTapTime = 0L
                 }
                 is KeyType.NumpadToggle -> {
                     mode = KeyboardMode.NUMPAD
                     typedPrefix = ""
                     suggestions = emptyList()
                     isSwipeResult = false
+                    lastSpaceTapTime = 0L
                 }
                 is KeyType.EmojiToggle -> {
                     mode = KeyboardMode.EMOJI
                     typedPrefix = ""
                     suggestions = emptyList()
                     isSwipeResult = false
+                    lastSpaceTapTime = 0L
                 }
                 else -> {
                     typedPrefix = ""
                     suggestions = emptyList()
                     isSwipeResult = false
+                    lastSpaceTapTime = 0L
                 }
             }
         }
@@ -358,38 +436,70 @@ fun KeyboardScreen(
                 KeyboardHeader(
                     currentMode = mode,
                     onNumpadClick = {
-                        mode = if (mode == KeyboardMode.NUMPAD) KeyboardMode.LOWERCASE else KeyboardMode.NUMPAD
+                        mode = if (mode == KeyboardMode.NUMPAD) lettersMode() else KeyboardMode.NUMPAD
                     },
                     onEmojiClick = {
-                        mode = if (mode == KeyboardMode.EMOJI) KeyboardMode.LOWERCASE else KeyboardMode.EMOJI
+                        if (mode == KeyboardMode.EMOJI) {
+                            emojiSearching = false
+                            emojiSearchQuery = ""
+                            mode = lettersMode()
+                        } else {
+                            mode = KeyboardMode.EMOJI
+                        }
                     },
                     onClipboardClick = {
-                        mode = if (mode == KeyboardMode.CLIPBOARD) KeyboardMode.LOWERCASE else KeyboardMode.CLIPBOARD
+                        mode = if (mode == KeyboardMode.CLIPBOARD) lettersMode() else KeyboardMode.CLIPBOARD
+                    },
+                    onVoiceClick = {
+                        mode = if (mode == KeyboardMode.VOICE) lettersMode() else KeyboardMode.VOICE
                     },
                     onThemeClick = {
-                        mode = if (mode == KeyboardMode.THEMES) KeyboardMode.LOWERCASE else KeyboardMode.THEMES
+                        mode = if (mode == KeyboardMode.THEMES) lettersMode() else KeyboardMode.THEMES
                     },
-                    onSwitchImeClick = onSwitchIme,
                     onSettingsClick = {
-                        mode = if (mode == KeyboardMode.SETTINGS) KeyboardMode.LOWERCASE else KeyboardMode.SETTINGS
+                        mode = if (mode == KeyboardMode.SETTINGS) lettersMode() else KeyboardMode.SETTINGS
                     }
                 )
             }
 
             when (mode) {
                 KeyboardMode.EMOJI -> {
-                    EmojiPicker(
-                        hapticEnabled = settings.hapticFeedback,
-                        emojiScale = settings.emojiScale,
-                        onEmojiSelected = { emoji ->
-                            onTextInput(emoji)
-                        },
-                        onDelete = onDelete,
-                        onSwitchToKeyboard = {
-                            mode = KeyboardMode.LOWERCASE
-                        },
-                        modifier = Modifier.height(panelHeight)
-                    )
+                    val searchPanelHeight = (46 + (50 * settings.emojiScale * 2f) + 20).dp
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        EmojiPicker(
+                            hapticEnabled = settings.hapticFeedback,
+                            emojiScale = settings.emojiScale,
+                            isSearching = emojiSearching,
+                            searchQuery = emojiSearchQuery,
+                            onSearchingChange = { searching ->
+                                emojiSearching = searching
+                                if (!searching) emojiSearchQuery = ""
+                            },
+                            onSearchQueryChange = { emojiSearchQuery = it },
+                            hideBottomBar = emojiSearching,
+                            onEmojiSelected = { emoji ->
+                                onTextInput(emoji)
+                            },
+                            onDelete = onDelete,
+                            onSwitchToKeyboard = {
+                                emojiSearching = false
+                                emojiSearchQuery = ""
+                                mode = lettersMode()
+                            },
+                            modifier = Modifier.height(
+                                if (emojiSearching) searchPanelHeight else panelHeight
+                            )
+                        )
+                        if (emojiSearching) {
+                            EmojiSearchKeyboard(
+                                settings = settings,
+                                imeAction = imeAction,
+                                rowHeight = rowHeight,
+                                onKeyPress = { type -> dispatchKey(type) },
+                                onKeyLongPress = { type -> dispatchLongPress(type) }
+                            )
+                        }
+                    }
                 }
                 KeyboardMode.CLIPBOARD -> {
                     ClipboardView(
@@ -399,7 +509,20 @@ fun KeyboardScreen(
                             onTextInput(text)
                         },
                         onClose = {
-                            mode = KeyboardMode.LOWERCASE
+                            mode = lettersMode()
+                        },
+                        modifier = Modifier.height(panelHeight)
+                    )
+                }
+                KeyboardMode.VOICE -> {
+                    VoiceInputView(
+                        hapticEnabled = settings.hapticFeedback,
+                        onTextCommitted = { text ->
+                            onTextInput(text)
+                        },
+                        onRequestMicPermission = onRequestMicPermission,
+                        onClose = {
+                            mode = lettersMode()
                         },
                         modifier = Modifier.height(panelHeight)
                     )
@@ -413,7 +536,7 @@ fun KeyboardScreen(
                             onThemeChanged(theme)
                         },
                         onClose = {
-                            mode = KeyboardMode.LOWERCASE
+                            mode = lettersMode()
                         },
                         modifier = Modifier.height(panelHeight)
                     )
@@ -432,7 +555,7 @@ fun KeyboardScreen(
                         onEmojiScaleChanged = onEmojiScaleChanged,
                         onOpenFullSettings = onOpenFullSettings,
                         onClose = {
-                            mode = KeyboardMode.LOWERCASE
+                            mode = lettersMode()
                         },
                         modifier = Modifier.height(panelHeight)
                     )
@@ -487,7 +610,9 @@ fun KeyboardScreen(
                                             imeAction = imeAction,
                                             hapticEnabled = settings.hapticFeedback,
                                             fontScale = settings.fontScale,
+                                            showKeyPopups = settings.showKeyPopups,
                                             onKeyPress = { type -> dispatchKey(type) },
+                                            onKeyLongPress = { type -> dispatchLongPress(type) },
                                             modifier = Modifier.weight(key.weight)
                                         )
                                     }
@@ -496,12 +621,7 @@ fun KeyboardScreen(
 
                             // Main keyboard rows based on current mode
                             val (row1, row2, row3, bottomRow) = when (mode) {
-                                KeyboardMode.NUMPAD -> listOf(
-                                    KeyboardLayouts.numpadRow1,
-                                    KeyboardLayouts.numpadRow2,
-                                    KeyboardLayouts.numpadRow3,
-                                    KeyboardLayouts.numpadBottomRow
-                                )
+                                KeyboardMode.NUMPAD -> KeyboardLayouts.numpadRowsFor(fieldInputKind)
                                 KeyboardMode.SYMBOLS -> listOf(
                                     KeyboardLayouts.symbolsRow1,
                                     KeyboardLayouts.symbolsRow2,
@@ -515,10 +635,10 @@ fun KeyboardScreen(
                                     KeyboardLayouts.moreSymbolsBottomRow
                                 )
                                 else -> listOf(
-                                    KeyboardLayouts.qwertyRow1,
+                                    KeyboardLayouts.getQwertyRow1(settings.showNumberRow),
                                     KeyboardLayouts.qwertyRow2,
                                     KeyboardLayouts.qwertyRow3,
-                                    KeyboardLayouts.qwertyBottomRow
+                                    KeyboardLayouts.qwertyBottomRowFor(fieldInputKind)
                                 )
                             }
 
@@ -527,7 +647,7 @@ fun KeyboardScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(rowHeight)
-                                    .padding(horizontal = 2.dp, vertical = 1.dp),
+                                    .padding(horizontal = keyRowHorizontalPadding, vertical = 1.dp),
                                 horizontalArrangement = Arrangement.Center
                             ) {
                                 row1.forEach { key ->
@@ -537,12 +657,9 @@ fun KeyboardScreen(
                                         imeAction = imeAction,
                                         hapticEnabled = settings.hapticFeedback,
                                         fontScale = settings.fontScale,
+                                        showKeyPopups = settings.showKeyPopups,
                                         onKeyPress = { type -> dispatchKey(type) },
-                                        onKeyLongPress = { type ->
-                                            if (type is KeyType.Character && type.popup.isNotEmpty()) {
-                                                onTextInput(type.popup.first())
-                                            }
-                                        },
+                                        onKeyLongPress = { type -> dispatchLongPress(type) },
                                         modifier = Modifier
                                             .weight(key.weight)
                                             .trackLetterKey(key, geometry)
@@ -555,7 +672,7 @@ fun KeyboardScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(rowHeight)
-                                    .padding(horizontal = 2.dp, vertical = 1.dp),
+                                    .padding(horizontal = keyRowHorizontalPadding, vertical = 1.dp),
                                 horizontalArrangement = Arrangement.Center
                             ) {
                                 if (isAlphaMode) {
@@ -568,12 +685,9 @@ fun KeyboardScreen(
                                         imeAction = imeAction,
                                         hapticEnabled = settings.hapticFeedback,
                                         fontScale = settings.fontScale,
+                                        showKeyPopups = settings.showKeyPopups,
                                         onKeyPress = { type -> dispatchKey(type) },
-                                        onKeyLongPress = { type ->
-                                            if (type is KeyType.Character && type.popup.isNotEmpty()) {
-                                                onTextInput(type.popup.first())
-                                            }
-                                        },
+                                        onKeyLongPress = { type -> dispatchLongPress(type) },
                                         modifier = Modifier
                                             .weight(key.weight)
                                             .trackLetterKey(key, geometry)
@@ -589,7 +703,7 @@ fun KeyboardScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(rowHeight)
-                                    .padding(horizontal = 2.dp, vertical = 1.dp),
+                                    .padding(horizontal = keyRowHorizontalPadding, vertical = 1.dp),
                                 horizontalArrangement = Arrangement.Center
                             ) {
                                 row3.forEach { key ->
@@ -599,12 +713,9 @@ fun KeyboardScreen(
                                         imeAction = imeAction,
                                         hapticEnabled = settings.hapticFeedback,
                                         fontScale = settings.fontScale,
+                                        showKeyPopups = settings.showKeyPopups,
                                         onKeyPress = { type -> dispatchKey(type) },
-                                        onKeyLongPress = { type ->
-                                            if (type is KeyType.Character && type.popup.isNotEmpty()) {
-                                                onTextInput(type.popup.first())
-                                            }
-                                        },
+                                        onKeyLongPress = { type -> dispatchLongPress(type) },
                                         modifier = Modifier
                                             .weight(key.weight)
                                             .trackLetterKey(key, geometry)
@@ -620,7 +731,7 @@ fun KeyboardScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(rowHeight)
-                                    .padding(horizontal = 2.dp, vertical = 1.dp),
+                                    .padding(horizontal = keyRowHorizontalPadding, vertical = 1.dp),
                                 horizontalArrangement = Arrangement.Center
                             ) {
                                 bottomRow.forEach { key ->
@@ -650,6 +761,7 @@ fun KeyboardScreen(
                                                 imeAction = imeAction,
                                                 hapticEnabled = settings.hapticFeedback,
                                                 fontScale = settings.fontScale,
+                                                showKeyPopups = settings.showKeyPopups,
                                                 onKeyPress = { dispatchKey(KeyType.Space) },
                                                 modifier = Modifier.fillMaxSize()
                                             )
@@ -661,12 +773,9 @@ fun KeyboardScreen(
                                             imeAction = imeAction,
                                             hapticEnabled = settings.hapticFeedback,
                                             fontScale = settings.fontScale,
+                                            showKeyPopups = settings.showKeyPopups,
                                             onKeyPress = { type -> dispatchKey(type) },
-                                            onKeyLongPress = { type ->
-                                                if (type is KeyType.Character && type.popup.isNotEmpty()) {
-                                                    onTextInput(type.popup.first())
-                                                }
-                                            },
+                                            onKeyLongPress = { type -> dispatchLongPress(type) },
                                             modifier = Modifier.weight(key.weight)
                                         )
                                     }
@@ -728,6 +837,53 @@ fun KeyboardScreen(
 
             if (bottomPadding > 0.dp) {
                 Spacer(modifier = Modifier.height(bottomPadding))
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmojiSearchKeyboard(
+    settings: KeyboardSettings,
+    imeAction: Int,
+    rowHeight: androidx.compose.ui.unit.Dp,
+    onKeyPress: (KeyType) -> Unit,
+    onKeyLongPress: (KeyType) -> Unit
+) {
+    val rows = listOf(
+        KeyboardLayouts.getQwertyRow1(showNumberRow = true),
+        KeyboardLayouts.qwertyRow2,
+        KeyboardLayouts.qwertyRow3,
+        KeyboardLayouts.emojiSearchBottomRow
+    )
+    Column(modifier = Modifier.fillMaxWidth()) {
+        rows.forEachIndexed { index, row ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(rowHeight)
+                    .padding(horizontal = 2.dp, vertical = 1.dp),
+                horizontalArrangement = Arrangement.Center
+            ) {
+                if (index == 1) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
+                row.forEach { key ->
+                    KeyboardKey(
+                        key = key,
+                        mode = KeyboardMode.LOWERCASE,
+                        imeAction = imeAction,
+                        hapticEnabled = settings.hapticFeedback,
+                        fontScale = settings.fontScale,
+                        showKeyPopups = settings.showKeyPopups,
+                        onKeyPress = onKeyPress,
+                        onKeyLongPress = onKeyLongPress,
+                        modifier = Modifier.weight(key.weight)
+                    )
+                }
+                if (index == 1) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
             }
         }
     }

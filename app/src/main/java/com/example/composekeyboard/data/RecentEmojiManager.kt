@@ -26,10 +26,7 @@ class RecentEmojiManager private constructor(context: Context) {
     fun recordEmoji(emoji: String) {
         if (emoji.isBlank()) return
         val trimmed = synchronized(this) {
-            val current = _recentEmojis.value.toMutableList()
-            current.remove(emoji)
-            current.add(0, emoji)
-            val list = current.take(MAX_RECENTS)
+            val list = updateRecents(_recentEmojis.value, emoji, MAX_RECENTS)
             _recentEmojis.value = list
             list
         }
@@ -37,8 +34,16 @@ class RecentEmojiManager private constructor(context: Context) {
     }
 
     companion object {
-        private const val KEY_RECENTS = "recent_emoji_list"
-        private const val MAX_RECENTS = 42
+        const val KEY_RECENTS = "recent_emoji_list"
+        const val MAX_RECENTS = 42
+
+        fun updateRecents(current: List<String>, emoji: String, maxCount: Int = MAX_RECENTS): List<String> {
+            if (emoji.isBlank()) return current
+            val updated = current.toMutableList()
+            updated.remove(emoji)
+            updated.add(0, emoji)
+            return updated.take(maxCount)
+        }
 
         val DEFAULT_RECENTS = listOf(
             "😂", "❤️", "🔥", "👍", "😊", "✨", "🙏", "😍",

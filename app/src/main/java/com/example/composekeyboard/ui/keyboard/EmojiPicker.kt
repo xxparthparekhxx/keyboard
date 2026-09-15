@@ -31,7 +31,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Backspace
 import androidx.compose.material.icons.filled.Close
@@ -52,17 +51,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.composekeyboard.data.EmojiCatalog
 import com.example.composekeyboard.data.EmojiCategory
-import com.example.composekeyboard.data.EmojiData
-import com.example.composekeyboard.data.EmojiSuggestions
 import com.example.composekeyboard.data.RecentEmojiManager
 import com.example.composekeyboard.theme.LocalKeyboardColors
 import kotlinx.coroutines.Job
@@ -73,6 +69,11 @@ import kotlinx.coroutines.launch
 fun EmojiPicker(
     hapticEnabled: Boolean,
     emojiScale: Float = 1.0f,
+    isSearching: Boolean = false,
+    searchQuery: String = "",
+    onSearchingChange: (Boolean) -> Unit = {},
+    onSearchQueryChange: (String) -> Unit = {},
+    hideBottomBar: Boolean = false,
     onEmojiSelected: (String) -> Unit,
     onDelete: () -> Unit,
     onSwitchToKeyboard: () -> Unit,
@@ -84,20 +85,18 @@ fun EmojiPicker(
     val scope = rememberCoroutineScope()
 
     val recentManager = remember(context) { RecentEmojiManager.getInstance(context) }
+    val catalog = remember(context) { EmojiCatalog.get(context) }
     // Initialize session recents stably so tapping emojis to insert them doesn't jerk the active scroll grid
     val sessionRecents = remember { recentManager.recentEmojis.value }
 
-    var isSearching by remember { mutableStateOf(false) }
-    var searchQuery by remember { mutableStateOf("") }
-
-    val allCategories = remember(sessionRecents) {
+    val allCategories = remember(sessionRecents, catalog) {
         listOf(
             EmojiCategory(
                 name = "Recent",
                 icon = "🕒",
                 emojis = sessionRecents
             )
-        ) + EmojiData.categories
+        ) + catalog.categories
     }
 
     val gridState = rememberLazyGridState()
@@ -131,9 +130,9 @@ fun EmojiPicker(
 
     val activeCategory = allCategories.getOrElse(activeCategoryIndex) { allCategories.first() }
 
-    val searchResults = remember(searchQuery) {
+    val searchResults = remember(searchQuery, catalog) {
         if (searchQuery.isBlank()) emptyList()
-        else EmojiSuggestions.searchAll(searchQuery)
+        else EmojiCatalog.search(catalog, searchQuery)
     }
 
     fun triggerHaptic() {
@@ -157,40 +156,48 @@ fun EmojiPicker(
                     .padding(horizontal = 8.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = Icons.Default.Search,
-                    contentDescription = "Search",
-                    tint = colors.actionKeyBackground,
-                    modifier = Modifier.size(20.dp)
-                )
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(colors.accentKeyBackground)
+                        .clickable {
+                            triggerHaptic()
+                            onSwitchToKeyboard()
+                        }
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "ABC",
+                        color = colors.accentKeyTextColor,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp
+                    )
+                }
                 Spacer(modifier = Modifier.width(8.dp))
                 Box(modifier = Modifier.weight(1f)) {
                     if (searchQuery.isEmpty()) {
                         Text(
-                            text = "Search emojis (e.g. smile, fire, love)...",
+                            text = "Type to search emojis...",
                             color = colors.keyTextColor.copy(alpha = 0.45f),
                             fontSize = 13.sp
                         )
-                    }
-                    BasicTextField(
-                        value = searchQuery,
-                        onValueChange = { searchQuery = it },
-                        textStyle = TextStyle(
+                    } else {
+                        Text(
+                            text = searchQuery,
                             color = colors.keyTextColor,
                             fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium
-                        ),
-                        cursorBrush = SolidColor(colors.actionKeyBackground),
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1
+                        )
+                    }
                 }
 
                 if (searchQuery.isNotEmpty()) {
                     Box(
                         modifier = Modifier
                             .clip(CircleShape)
-                            .clickable { searchQuery = "" }
+                            .clickable { onSearchQueryChange("") }
                             .padding(4.dp),
                         contentAlignment = Alignment.Center
                     ) {
@@ -211,8 +218,8 @@ fun EmojiPicker(
                         .background(colors.accentKeyBackground)
                         .clickable {
                             triggerHaptic()
-                            isSearching = false
-                            searchQuery = ""
+                            onSearchingChange(false)
+                            onSearchQueryChange("")
                         }
                         .padding(horizontal = 8.dp, vertical = 4.dp),
                     contentAlignment = Alignment.Center
@@ -297,7 +304,7 @@ fun EmojiPicker(
                                 .background(colors.accentKeyBackground)
                                 .clickable {
                                     triggerHaptic()
-                                    searchQuery = tag
+                                    onSearchQueryChange(tag)
                                 }
                                 .padding(horizontal = 12.dp, vertical = 6.dp)
                         ) {
@@ -433,6 +440,7 @@ fun EmojiPicker(
             }
         }
 
+        if (!hideBottomBar) {
         // --- Bottom Navigation Bar ---
         Row(
             modifier = Modifier
@@ -470,8 +478,8 @@ fun EmojiPicker(
                     .background(if (isSearching) colors.actionKeyBackground else colors.accentKeyBackground)
                     .clickable {
                         triggerHaptic()
-                        isSearching = !isSearching
-                        if (!isSearching) searchQuery = ""
+                        onSearchingChange(!isSearching)
+                        if (isSearching) onSearchQueryChange("")
                     }
                     .padding(horizontal = 12.dp, vertical = 6.dp),
                 contentAlignment = Alignment.Center
@@ -553,6 +561,7 @@ fun EmojiPicker(
                     modifier = Modifier.size(21.dp)
                 )
             }
+        }
         }
     }
 }

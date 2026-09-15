@@ -5,11 +5,17 @@ import android.view.inputmethod.EditorInfo
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -36,14 +42,19 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
 import com.example.composekeyboard.data.KeyModel
 import com.example.composekeyboard.data.KeyType
 import com.example.composekeyboard.data.KeyboardMode
@@ -59,6 +70,8 @@ fun KeyboardKey(
     imeAction: Int,
     hapticEnabled: Boolean,
     fontScale: Float = 1.0f,
+    showKeyPopups: Boolean = true,
+    showSecondaryHints: Boolean = true,
     onKeyPress: (KeyType) -> Unit,
     onKeyLongPress: (KeyType) -> Unit = {},
     modifier: Modifier = Modifier
@@ -67,6 +80,7 @@ fun KeyboardKey(
     val view = LocalView.current
     val scope = rememberCoroutineScope()
     var isPressed by remember { mutableStateOf(false) }
+    var isLongPressed by remember { mutableStateOf(false) }
 
     // The gesture detector below is keyed on `key.type`, which never changes for
     // a given key, so its node is never restarted and it keeps invoking whatever
@@ -82,8 +96,8 @@ fun KeyboardKey(
     val currentHapticEnabled by rememberUpdatedState(hapticEnabled)
 
     val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.92f else 1.0f,
-        animationSpec = tween(durationMillis = 60),
+        targetValue = if (isPressed) 0.94f else 1.0f,
+        animationSpec = tween(durationMillis = 50),
         label = "key_scale"
     )
 
@@ -107,7 +121,11 @@ fun KeyboardKey(
         is KeyType.NumpadToggle,
         is KeyType.EmojiToggle,
         is KeyType.LanguageSwitch -> colors.accentKeyBackground to colors.accentKeyTextColor
-        else -> colors.keyBackground to colors.keyTextColor
+        else -> if (key.isAccent) {
+            colors.accentKeyBackground to colors.accentKeyTextColor
+        } else {
+            colors.keyBackground to colors.keyTextColor
+        }
     }
 
     val pressedBg = if (key.type is KeyType.Enter) {
@@ -140,73 +158,167 @@ fun KeyboardKey(
     Box(
         modifier = modifier
             .fillMaxHeight()
+            .zIndex(if (isPressed) 99f else 0f)
             .semantics {
                 contentDescription = keyDescription
                 role = Role.Button
             }
-            .padding(horizontal = 2.dp, vertical = 3.dp)
-            .scale(scale)
-            .shadow(
-                elevation = if (isPressed) 1.dp else 2.dp,
-                shape = RoundedCornerShape(8.dp),
-                spotColor = colors.keyShadow,
-                ambientColor = colors.keyShadow
-            )
-            .clip(RoundedCornerShape(8.dp))
-            .background(if (isPressed) pressedBg else bg)
-            // Keyed only on key.type: `mode` affects rendering, not gestures.
-            // Restarting the detector when a tap changes the mode (e.g. Shift
-            // into CAPS_LOCK) would cancel onPress mid-gesture and leave the
-            // key stuck in its pressed visual state forever.
-            .pointerInput(key.type) {
-                val longPressTimeout = viewConfiguration.longPressTimeoutMillis
-                detectTapGestures(
-                    onPress = {
-                        isPressed = true
-                        triggerHaptic()
-                        var repeatJob: Job? = null
-                        if (key.type is KeyType.Backspace) {
-                            // Start repeating just after the long-press timeout so a
-                            // held backspace can never fire both an auto-repeat and
-                            // the detector's own tap/long-press handling for one press.
-                            repeatJob = scope.launch {
-                                delay(longPressTimeout + 50L)
-                                while (isPressed) {
-                                    triggerHaptic()
-                                    currentOnKeyPress(key.type)
-                                    delay(50)
-                                }
-                            }
-                        }
-                        tryAwaitRelease()
-                        repeatJob?.cancel()
-                        isPressed = false
-                    },
-                    onTap = {
-                        currentOnKeyPress(key.type)
-                    },
-                    onLongPress = {
-                        if (key.type !is KeyType.Backspace) {
-                            triggerHaptic()
-                            currentOnKeyLongPress(key.type)
-                        }
-                    }
-                )
-            },
+            .padding(
+                horizontal = if (mode == KeyboardMode.NUMPAD) 6.dp else 2.dp,
+                vertical = if (mode == KeyboardMode.NUMPAD) 5.dp else 3.dp
+            ),
         contentAlignment = Alignment.Center
     ) {
-        when (val type = key.type) {
+        // Floating Magnifier Bubble above the key (Gboard style) - 100% aligned with key
+        if (showKeyPopups && isPressed && key.type is KeyType.Character) {
+            val popupText = if (isLongPressed && key.type.popup.isNotEmpty()) {
+                key.type.popup.first()
+            } else {
+                when (mode) {
+                    KeyboardMode.UPPERCASE, KeyboardMode.CAPS_LOCKED -> key.type.primary.uppercase()
+                    else -> key.type.primary
+                }
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp)
+                    .offset(y = (-48).dp)
+                    .shadow(
+                        elevation = 8.dp,
+                        shape = RoundedCornerShape(10.dp),
+                        spotColor = colors.keyShadow,
+                        ambientColor = colors.keyShadow
+                    )
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(colors.keyBackground)
+                    .border(
+                        width = 1.5.dp,
+                        color = if (isLongPressed) colors.actionKeyBackground else colors.accentKeyBackground.copy(alpha = 0.8f),
+                        shape = RoundedCornerShape(10.dp)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = popupText,
+                    color = if (isLongPressed && key.type.popup.isNotEmpty()) colors.actionKeyBackground else colors.keyTextColor,
+                    fontSize = (26 * fontScale).sp,
+                    fontWeight = FontWeight.Bold
+                )
+                if (key.type.popup.isNotEmpty() && !isLongPressed) {
+                    Text(
+                        text = key.type.popup.first(),
+                        color = colors.actionKeyBackground,
+                        fontSize = (10 * fontScale).sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(top = 2.dp, end = 3.dp)
+                    )
+                }
+            }
+        }
+
+        val keyCornerRadius = if (mode == KeyboardMode.NUMPAD) 14.dp else 8.dp
+
+        // Main key surface
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .scale(scale)
+                .shadow(
+                    elevation = if (isPressed) 1.dp else 2.dp,
+                    shape = RoundedCornerShape(keyCornerRadius),
+                    spotColor = colors.keyShadow,
+                    ambientColor = colors.keyShadow
+                )
+                .clip(RoundedCornerShape(keyCornerRadius))
+                .background(if (isPressed) pressedBg else bg)
+                // Keyed only on key.type: `mode` affects rendering, not gestures.
+                // Restarting the detector when a tap changes the mode (e.g. Shift
+                // into CAPS_LOCK) would cancel onPress mid-gesture and leave the
+                // key stuck in its pressed visual state forever.
+                .pointerInput(key.type) {
+                    detectTapGestures(
+                        onPress = {
+                            isPressed = true
+                            isLongPressed = false
+                            triggerHaptic()
+                            var repeatJob: Job? = null
+                            if (key.type is KeyType.Backspace) {
+                                repeatJob = scope.launch {
+                                    delay(350L)
+                                    while (isPressed) {
+                                        triggerHaptic()
+                                        currentOnKeyPress(key.type)
+                                        delay(50L)
+                                    }
+                                }
+                            }
+                            val longPressJob = scope.launch {
+                                delay(260L)
+                                if (isPressed && key.type !is KeyType.Backspace) {
+                                    isLongPressed = true
+                                    triggerHaptic()
+                                    currentOnKeyLongPress(key.type)
+                                }
+                            }
+                            val released = tryAwaitRelease()
+                            longPressJob.cancel()
+                            repeatJob?.cancel()
+                            if (released && !isLongPressed) {
+                                currentOnKeyPress(key.type)
+                            }
+                            isPressed = false
+                            isLongPressed = false
+                        }
+                    )
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            when (val type = key.type) {
             is KeyType.Character -> {
                 val displayText = when (mode) {
                     KeyboardMode.UPPERCASE, KeyboardMode.CAPS_LOCKED -> type.primary.uppercase()
                     else -> type.primary
                 }
-                Text(
-                    text = displayText,
-                    color = fg,
-                    fontSize = (23 * fontScale).sp,
-                    fontWeight = FontWeight.SemiBold
-                )
+                val charFontSize = if (mode == KeyboardMode.NUMPAD) {
+                    if (type.primary.length == 1 && type.primary[0].isDigit()) (30 * fontScale).sp
+                    else (22 * fontScale).sp
+                } else {
+                    (23 * fontScale).sp
+                }
+                val charFontWeight = if (mode == KeyboardMode.NUMPAD) {
+                    if (type.primary.length == 1 && type.primary[0].isDigit()) FontWeight.Medium
+                    else FontWeight.SemiBold
+                } else {
+                    FontWeight.SemiBold
+                }
+
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = displayText,
+                        color = fg,
+                        fontSize = charFontSize,
+                        fontWeight = charFontWeight
+                    )
+                    if (type.popup.isNotEmpty() && showSecondaryHints) {
+                        Text(
+                            text = type.popup.first(),
+                            color = fg.copy(alpha = 0.45f),
+                            fontSize = (9.5 * fontScale).sp,
+                            lineHeight = (9.5 * fontScale).sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(top = 2.5.dp, end = 3.5.dp)
+                        )
+                    }
+                }
             }
             is KeyType.Shift -> {
                 val icon = when (mode) {
@@ -232,10 +344,11 @@ fun KeyboardKey(
                 val icon = when (imeAction) {
                     EditorInfo.IME_ACTION_SEARCH -> Icons.Default.Search
                     EditorInfo.IME_ACTION_SEND -> Icons.AutoMirrored.Filled.Send
-                    EditorInfo.IME_ACTION_GO -> Icons.AutoMirrored.Filled.ArrowForward
                     EditorInfo.IME_ACTION_DONE -> Icons.Default.Check
+                    EditorInfo.IME_ACTION_GO -> Icons.AutoMirrored.Filled.ArrowForward
                     EditorInfo.IME_ACTION_NEXT -> Icons.AutoMirrored.Filled.ArrowForward
-                    else -> Icons.AutoMirrored.Filled.ArrowBack
+                    EditorInfo.IME_ACTION_PREVIOUS -> Icons.AutoMirrored.Filled.ArrowBack
+                    else -> Icons.AutoMirrored.Filled.ArrowForward
                 }
                 Icon(
                     imageVector = icon,
@@ -254,7 +367,7 @@ fun KeyboardKey(
             }
             is KeyType.SymbolToggle -> {
                 Text(
-                    text = "?123",
+                    text = if (mode == KeyboardMode.NUMPAD) "!?#" else "?123",
                     color = fg,
                     fontSize = (15.5 * fontScale).sp,
                     fontWeight = FontWeight.Bold
@@ -302,4 +415,5 @@ fun KeyboardKey(
             }
         }
     }
+}
 }

@@ -11,7 +11,7 @@ import android.util.Log
 import android.view.KeyEvent
 import android.view.View
 import android.view.inputmethod.EditorInfo
-import android.view.inputmethod.InputMethodManager
+import android.view.inputmethod.InputConnection
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -31,11 +31,15 @@ import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.example.composekeyboard.MainActivity
+import com.example.composekeyboard.data.Capitalization
 import com.example.composekeyboard.data.ClipboardHistoryManager
+import com.example.composekeyboard.data.FieldInputKind
+import com.example.composekeyboard.data.GraphemeClusters
 import com.example.composekeyboard.data.KeyboardPreferences
 import com.example.composekeyboard.data.SwipeDictionary
 import com.example.composekeyboard.input.swipe.SwipeConstants
 import com.example.composekeyboard.input.swipe.nn.SwipeNeuralDecoder
+import com.example.composekeyboard.input.voice.VoiceInputController
 import com.example.composekeyboard.ui.keyboard.KeyboardScreen
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -78,15 +82,23 @@ class ComposeInputMethodService : InputMethodService(),
 
     /**
      * Bumped for every input session so the keyboard UI can reset per-field
-     * state (like auto-capitalization) even when the value itself is unchanged.
+     * state (suggestions, typed prefix) even when the values themselves are
+     * unchanged. Auto-shift is not keyed off this — it comes from the caret.
      */
     private var inputSession by mutableIntStateOf(0)
 
-    /** Whether the focused field's input type asks for sentence-style capitals. */
-    private var fieldWantsCaps by mutableStateOf(false)
+    /** Whether the focused field's input type is allowed to auto-shift. */
+    private var fieldAllowsCaps by mutableStateOf(false)
 
-    /** Whether the focused field is numeric / phone / datetime, requiring numpad mode. */
-    private var isNumericField by mutableStateOf(false)
+    /**
+     * Whether the caret is currently at a position that should auto-shift
+     * (sentence start, word start, or characters mode). Derived from the
+     * editor's text, so it survives dismiss and caret moves.
+     */
+    private var cursorWantsShift by mutableStateOf(false)
+
+    /** Layout the focused field asked for (text, email, phone, number, …). */
+    private var fieldInputKind by mutableStateOf(FieldInputKind.TEXT)
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var dictionarySaveJob: Job? = null
@@ -155,8 +167,8 @@ class ComposeInputMethodService : InputMethodService(),
                 neuralDecoder = neural,
                 imeAction = currentImeAction,
                 inputSession = inputSession,
-                autoCapitalizeField = fieldWantsCaps,
-                isNumericField = isNumericField,
+                cursorWantsShift = cursorWantsShift,
+                fieldInputKind = fieldInputKind,
                 onTextInput = { text ->
                     playKeySound(AudioManager.FX_KEYPRESS_STANDARD)
                     val ic = currentInputConnection
@@ -175,6 +187,7 @@ class ComposeInputMethodService : InputMethodService(),
                                 ic.endBatchEdit()
                                 selfEditsPending++
                                 trackTypedText(text)
+                                refreshCursorCaps()
                                 return@KeyboardScreen
                             }
                         }
@@ -182,6 +195,7 @@ class ComposeInputMethodService : InputMethodService(),
                         ic.commitText(text, 1)
                         selfEditsPending++
                         trackTypedText(text)
+                        refreshCursorCaps()
                     }
                 },
                 onDelete = {
@@ -193,11 +207,13 @@ class ComposeInputMethodService : InputMethodService(),
                     flushTypedWord()
                     lastSwipeCommit = null
                     handleEditorAction(actionId)
+                    refreshCursorCaps()
                 },
                 onMoveCursor = { offset ->
                     lastSwipeCommit = null
                     typedWord.setLength(0)
                     moveCursor(offset)
+                    refreshCursorCaps()
                 },
                 onSwipeWord = { word ->
                     playKeySound(AudioManager.FX_KEYPRESS_SPACEBAR)
@@ -224,6 +240,7 @@ class ComposeInputMethodService : InputMethodService(),
                 },
                 onAutoCapsToggled = { enabled ->
                     preferences.setAutoCapitalization(enabled)
+                    refreshCursorCaps()
                 },
                 onSwipeTypingToggled = { enabled ->
                     preferences.setSwipeTypingEnabled(enabled)
@@ -240,9 +257,8 @@ class ComposeInputMethodService : InputMethodService(),
                 onOpenFullSettings = {
                     launchSettingsActivity()
                 },
-                onSwitchIme = {
-                    val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
-                    imm?.showInputMethodPicker()
+                onRequestMicPermission = {
+                    launchSettingsActivity(requestMic = true)
                 }
             )
         }
@@ -267,12 +283,13 @@ class ComposeInputMethodService : InputMethodService(),
             } else {
                 EditorInfo.IME_ACTION_UNSPECIFIED
             }
-            fieldWantsCaps = fieldRequestsCapitalization(it)
-            isNumericField = fieldRequestsNumeric(it)
+            fieldAllowsCaps = Capitalization.fieldAllowsAutoCaps(it)
+            fieldInputKind = FieldInputKind.from(it.inputType)
         } ?: run {
-            fieldWantsCaps = false
-            isNumericField = false
+            fieldAllowsCaps = false
+            fieldInputKind = FieldInputKind.TEXT
         }
+        refreshCursorCaps()
         inputSession++
     }
 
@@ -303,6 +320,9 @@ class ComposeInputMethodService : InputMethodService(),
         super.onUpdateSelection(
             oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd
         )
+        // Caps follows the caret, including after our own commits and after
+        // the user taps into the middle of a sentence.
+        refreshCursorCaps()
         if (selfEditsPending > 0) {
             selfEditsPending--
             return
@@ -317,6 +337,7 @@ class ComposeInputMethodService : InputMethodService(),
     override fun onDestroy() {
         super.onDestroy()
         dictionarySaveJob?.cancel()
+        VoiceInputController.getInstance(this).release()
         // Detached on purpose: the service scope is about to be cancelled and
         // this last write must still land.
         CoroutineScope(Dispatchers.IO).launch { swipeDictionary.persistLearnedWords() }
@@ -345,6 +366,7 @@ class ComposeInputMethodService : InputMethodService(),
         selfEditsPending++
 
         lastSwipeCommit = SwipeCommit(word, needsSpace)
+        refreshCursorCaps()
     }
 
     /** Swaps the word the last gesture committed for one the user picked instead. */
@@ -366,6 +388,7 @@ class ComposeInputMethodService : InputMethodService(),
             swipeDictionary.learn(word)
             scheduleLearnedWordSave()
         }
+        refreshCursorCaps()
     }
 
     /**
@@ -389,6 +412,7 @@ class ComposeInputMethodService : InputMethodService(),
             scheduleLearnedWordSave()
         }
         typedWord.setLength(0)
+        refreshCursorCaps()
     }
 
     private fun handleDelete() {
@@ -404,18 +428,54 @@ class ComposeInputMethodService : InputMethodService(),
             selfEditsPending++
             lastSwipeCommit = null
             typedWord.setLength(0)
+            refreshCursorCaps()
             return
         }
 
         if (typedWord.isNotEmpty()) typedWord.setLength(typedWord.length - 1)
 
-        val selectedText = ic.getSelectedText(0)
-        if (selectedText.isNullOrEmpty()) {
-            ic.deleteSurroundingText(1, 0)
-        } else {
-            ic.commitText("", 1)
+        try {
+            val selectedText = ic.getSelectedText(0)
+            if (!selectedText.isNullOrEmpty()) {
+                ic.commitText("", 1)
+                selfEditsPending++
+            } else if (deleteLastGrapheme(ic)) {
+                selfEditsPending++
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Delete failed in the editor; falling back to KEYCODE_DEL", e)
+            sendDownUpKeyEvents(KeyEvent.KEYCODE_DEL)
         }
-        selfEditsPending++
+        refreshCursorCaps()
+    }
+
+    /**
+     * Deletes one user-visible character before the caret. Emoji (surrogate
+     * pairs, ZWJ sequences, flags, skin tones) are a single cluster, so a
+     * one-unit [android.view.inputmethod.InputConnection.deleteSurroundingText]
+     * would split them.
+     *
+     * Never asks the editor to delete "1 code point" when the caret is at the
+     * start: Compose [androidx.compose.foundation.text.BasicTextField] throws
+     * `start cannot be negative` and takes down the host (this app, in the
+     * companion playground).
+     *
+     * @return true if an edit was sent to the connection
+     */
+    private fun deleteLastGrapheme(ic: InputConnection): Boolean {
+        val before = ic.getTextBeforeCursor(GRAPHEME_LOOKBACK, 0)
+        val units = GraphemeClusters.utf16LengthOfLastCluster(before ?: "")
+        if (units > 0) {
+            ic.deleteSurroundingText(units, 0)
+            return true
+        }
+        // Unknown surrounding text (some editors return null). KEYCODE_DEL is
+        // a no-op on an empty field instead of crashing Compose.
+        if (before == null) {
+            sendDownUpKeyEvents(KeyEvent.KEYCODE_DEL)
+            return true
+        }
+        return false
     }
 
     /** True for characters a new word can follow without a space of its own. */
@@ -505,24 +565,35 @@ class ComposeInputMethodService : InputMethodService(),
         }
     }
 
-    private fun launchSettingsActivity() {
+    private fun launchSettingsActivity(requestMic: Boolean = false) {
         try {
             requestHideSelf(0)
             val intent = Intent(this, MainActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                if (requestMic) {
+                    putExtra(MainActivity.EXTRA_REQUEST_MIC, true)
+                }
             }
             val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
             } else {
                 PendingIntent.FLAG_UPDATE_CURRENT
             }
-            val pendingIntent = PendingIntent.getActivity(this, 0, intent, flags)
+            val pendingIntent = PendingIntent.getActivity(
+                this,
+                if (requestMic) 1 else 0,
+                intent,
+                flags
+            )
             pendingIntent.send()
         } catch (e: Exception) {
             Log.w(TAG, "PendingIntent launch failed; falling back to startActivity", e)
             try {
                 val intent = Intent(this, MainActivity::class.java).apply {
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    if (requestMic) {
+                        putExtra(MainActivity.EXTRA_REQUEST_MIC, true)
+                    }
                 }
                 startActivity(intent)
             } catch (e2: Exception) {
@@ -567,40 +638,33 @@ class ComposeInputMethodService : InputMethodService(),
     }
 
     /**
-     * True when the focused field's [EditorInfo.inputType] asks for capitals at
-     * the start of sentences (the usual case for prose fields). Password, URI
-     * and e-mail variations are excluded — capitalizing those is never wanted.
+     * Re-reads auto-shift from the editor's caret. [android.view.inputmethod.InputConnection.getCursorCapsMode]
+     * looks at the actual surrounding text, so a dismissed-and-reshown keyboard
+     * mid-sentence stays lowercase, and a caret after ". " comes back in shift.
      */
-    private fun fieldRequestsCapitalization(info: EditorInfo): Boolean {
-        val inputType = info.inputType
-        if (inputType and InputType.TYPE_MASK_CLASS != InputType.TYPE_CLASS_TEXT) return false
-        val variation = inputType and InputType.TYPE_MASK_VARIATION
-        if (variation == InputType.TYPE_TEXT_VARIATION_PASSWORD ||
-            variation == InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD ||
-            variation == InputType.TYPE_TEXT_VARIATION_WEB_PASSWORD ||
-            variation == InputType.TYPE_TEXT_VARIATION_URI ||
-            variation == InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS ||
-            variation == InputType.TYPE_TEXT_VARIATION_WEB_EMAIL_ADDRESS
-        ) {
-            return false
+    private fun refreshCursorCaps() {
+        val info = currentInputEditorInfo
+        val capsMode = try {
+            val ic = currentInputConnection
+            when {
+                info == null -> 0
+                ic != null -> ic.getCursorCapsMode(info.inputType)
+                else -> info.initialCapsMode
+            }
+        } catch (_: Exception) {
+            info?.initialCapsMode ?: 0
         }
-        return inputType and InputType.TYPE_TEXT_FLAG_CAP_SENTENCES != 0 ||
-                inputType and InputType.TYPE_TEXT_FLAG_CAP_WORDS != 0
-    }
-
-    /**
-     * True when the focused field's [EditorInfo.inputType] indicates a number, phone,
-     * or date/time field where a numpad-only keyboard should be shown automatically.
-     */
-    private fun fieldRequestsNumeric(info: EditorInfo): Boolean {
-        val inputClass = info.inputType and InputType.TYPE_MASK_CLASS
-        return inputClass == InputType.TYPE_CLASS_NUMBER ||
-                inputClass == InputType.TYPE_CLASS_PHONE ||
-                inputClass == InputType.TYPE_CLASS_DATETIME
+        cursorWantsShift = Capitalization.wantsShift(
+            autoCapsEnabled = preferences.settings.value.autoCapitalization,
+            fieldAllowsCaps = fieldAllowsCaps,
+            cursorCapsMode = capsMode
+        )
     }
 
     private companion object {
         private const val TAG = "ComposeKeyboard"
         const val SAVE_DEBOUNCE_MS = SwipeConstants.SAVE_DEBOUNCE_MS
+        /** Long enough for family ZWJ sequences and subdivision-flag tags. */
+        private const val GRAPHEME_LOOKBACK = 64
     }
 }

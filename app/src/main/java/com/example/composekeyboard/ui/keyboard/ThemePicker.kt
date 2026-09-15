@@ -121,7 +121,7 @@ fun ThemePicker(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            items(KeyboardThemeType.values()) { theme ->
+            items(KeyboardThemeType.entries) { theme ->
                 val isSelected = theme == currentTheme
                 val themeColorDef = getKeyboardColors(theme, customColors)
 

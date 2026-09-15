@@ -209,6 +209,37 @@ private fun getLightColors() = KeyboardColors(
     spaceBarText = LightAccentKeyText.copy(alpha = 0.6f)
 )
 
+/**
+ * Material theme for the companion app chrome. Kept independent from the
+ * keyboard palette so the settings UI stays readable while theme tiles
+ * still preview the live keyboard colors.
+ */
+@Composable
+fun CompanionTheme(content: @Composable () -> Unit) {
+    val context = LocalContext.current
+    val darkTheme = isSystemInDarkTheme()
+    val colorScheme = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+    } else if (darkTheme) {
+        darkColorScheme(
+            primary = Color(0xFF8B8DFF),
+            onPrimary = Color(0xFF1A1B4B),
+            surface = Color(0xFF121318)
+        )
+    } else {
+        lightColorScheme(
+            primary = Color(0xFF4F46E5),
+            onPrimary = Color.White,
+            surface = Color(0xFFF7F7FB)
+        )
+    }
+
+    MaterialTheme(
+        colorScheme = colorScheme,
+        content = content
+    )
+}
+
 @Composable
 fun ComposeKeyboardTheme(
     themeType: KeyboardThemeType = KeyboardThemeType.MATERIAL_DARK,
