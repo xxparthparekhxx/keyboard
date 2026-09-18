@@ -1,6 +1,281 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  All user-visible text lives here. UI code must use stringResource() /
+  pluralStringResource() (Compose) or getString() (services, controllers) —
+  never hardcoded literals — so the app can be translated (see values-es/)
+  and renders correctly under RTL layouts (supportsRtl="true").
+-->
 <resources>
     <string name="app_name">Compose Keyboard</string>
     <string name="ime_name">Compose Keyboard</string>
     <string name="subtype_en_us">English (US)</string>
+
+    <!-- Companion bottom navigation + titles -->
+    <string name="nav_home">Home</string>
+    <string name="nav_themes">Themes</string>
+    <string name="nav_clipboard">Clipboard</string>
+    <string name="nav_settings">Settings</string>
+    <string name="title_home">Compose Keyboard</string>
+    <string name="title_themes">Themes</string>
+    <string name="title_clipboard">Clipboard</string>
+    <string name="title_settings">Settings</string>
+    <string name="copied_to_clipboard">Copied to clipboard</string>
+
+    <!-- Keyboard header (icon descriptions) -->
+    <string name="desc_numpad">Number Pad</string>
+    <string name="desc_emoji">Emoji</string>
+    <string name="desc_voice_typing">Voice typing</string>
+    <string name="desc_clipboard_history">Clipboard History</string>
+    <string name="desc_choose_theme">Choose Theme</string>
+    <string name="desc_settings">Settings</string>
+
+    <!-- Suggestion strip -->
+    <string name="desc_suggestion">Suggestion: %1$s</string>
+
+    <!-- Voice input -->
+    <string name="voice_title">Voice typing</string>
+    <string name="desc_close">Close</string>
+    <string name="voice_unsupported_title">Needs a 64-bit ARM phone</string>
+    <string name="voice_unsupported_body">Whisper Tiny’s native library ships for arm64. This device can’t run it.</string>
+    <string name="voice_permission_title">Microphone access</string>
+    <string name="voice_permission_body">Android only grants the mic from the companion app, not from the keyboard overlay.</string>
+    <string name="voice_allow_mic">Allow microphone</string>
+    <string name="voice_download_title">Download Whisper Tiny</string>
+    <string name="voice_download_body">On-device English speech recognition. About 77 MB, stored only on this phone.</string>
+    <string name="voice_download_body_metered">On-device English speech recognition. About 77 MB, stored only on this phone. You appear to be on mobile data — this download will count against it.</string>
+    <string name="voice_download_action">Download model</string>
+    <string name="voice_downloading_title">Downloading Whisper Tiny</string>
+    <string name="voice_downloading_body">%1$d% · about 77 MB · stays on device after this</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="voice_tap_to_dictate">Tap to dictate</string>
+    <string name="voice_engine_line">Whisper Tiny · English · on-device</string>
+    <string name="voice_tap_to_stop">Tap to stop</string>
+    <string name="voice_transcribing">Transcribing…</string>
+    <string name="voice_failed_title">Couldn\'t transcribe</string>
+    <string name="voice_try_again">Try again</string>
+    <string name="desc_stop_recording">Stop recording</string>
+    <string name="desc_start_recording">Start recording</string>
+    <string name="voice_too_short">That was too short — try speaking a bit longer.</string>
+    <string name="voice_empty_result">Didn\'t catch that. Try again.</string>
+    <string name="voice_record_failed">Could not record audio</string>
+    <string name="voice_transcribe_failed">Transcription failed</string>
+    <string name="voice_download_failed">Download failed</string>
+
+    <!-- Model store errors (service layer, via getString) -->
+    <string name="model_download_failed_generic">Could not download Whisper Tiny</string>
+    <string name="model_download_http">Download failed (HTTP %1$d)</string>
+    <string name="model_download_incomplete">Downloaded file was incomplete</string>
+    <string name="model_integrity_failed">Model file failed integrity check — deleted, please retry</string>
+
+    <!-- Quick settings sheet -->
+    <string name="quick_settings">Quick Settings</string>
+    <string name="action_done">Done</string>
+    <string name="qs_height">Keyboard Height</string>
+    <string name="qs_font_size">Key Font Size</string>
+    <string name="qs_emoji_size">Emoji Display Size</string>
+    <string name="qs_glide">Glide Typing</string>
+    <string name="qs_glide_desc">Swipe across letters with neural decoder</string>
+    <string name="qs_number_row">Number Row</string>
+    <string name="qs_number_row_desc">Show dedicated 1-0 numbers above letters</string>
+    <string name="qs_haptic">Haptic Vibration</string>
+    <string name="qs_haptic_desc">Vibrate lightly on keypress &amp; swipe completion</string>
+    <string name="qs_sounds">Key Sounds</string>
+    <string name="qs_sounds_desc">Play audio click when pressing keys</string>
+    <string name="qs_autocaps">Auto-Capitalize</string>
+    <string name="qs_autocaps_desc">Capitalize first letter of new sentences</string>
+    <string name="qs_open_full">Open Full Settings App</string>
+
+    <!-- Theme picker -->
+    <string name="theme_select">Select Theme</string>
+    <string name="theme_selected">Selected</string>
+
+    <!-- Custom theme editor -->
+    <string name="custom_theme_title">Custom Theme Creator</string>
+    <string name="desc_reset">Reset</string>
+    <string name="action_reset">Reset</string>
+    <string name="custom_theme_save">Save &amp; Apply Custom Theme</string>
+    <string name="slot_title">Choose %1$s</string>
+    <string name="slot_background">Keyboard Background</string>
+    <string name="slot_background_desc">Main surface backdrop behind all keys</string>
+    <string name="slot_key_bg">Key Background</string>
+    <string name="slot_key_bg_desc">Standard character key button color</string>
+    <string name="slot_key_text">Letter / Text Color</string>
+    <string name="slot_key_text_desc">Character and symbol font color</string>
+    <string name="slot_accent_bg">Accent Keys Background</string>
+    <string name="slot_accent_bg_desc">Shift, Backspace, ?123 button color</string>
+    <string name="slot_action_bg">Action Key (Enter / Send)</string>
+    <string name="slot_action_bg_desc">Primary action button color</string>
+
+    <!-- Color picker -->
+    <string name="color_hue">Hue</string>
+    <string name="color_saturation">Saturation</string>
+    <string name="color_brightness">Brightness</string>
+    <string name="color_presets">Palette Presets</string>
+    <string name="action_apply">Apply</string>
+
+    <!-- In-keyboard clipboard -->
+    <string name="desc_search">Search</string>
+    <string name="clipboard_search_hint">Search copied items…</string>
+    <string name="desc_clear_search">Clear search</string>
+    <string name="clipboard_title">Clipboard History</string>
+    <string name="desc_search_clipboard">Search Clipboard</string>
+    <string name="action_clear">Clear</string>
+    <string name="desc_paste_clip">Paste clip: %1$s</string>
+    <string name="clip_pinned_prefix">Pinned • </string>
+    <string name="desc_delete_clip">Delete clip</string>
+    <string name="action_delete">Delete</string>
+    <string name="clip_empty_search_title">No matching clips found</string>
+    <string name="clip_empty_search_body">Try a different search query</string>
+    <string name="clip_empty_title_ime">Clipboard history is empty</string>
+    <string name="clip_empty_body_ime">Copied text will automatically appear here</string>
+    <string name="desc_pin_clip">Pin clip</string>
+    <string name="desc_unpin_clip">Unpin clip</string>
+
+    <!-- Emoji picker -->
+    <string name="emoji_search_hint">Type to search emojis…</string>
+    <string name="emoji_popular">Popular Searches</string>
+    <string name="emoji_no_results">No emojis found for \"%1$s\"</string>
+    <string name="emoji_recently_used">Recently Used</string>
+    <string name="desc_search_emojis">Search Emojis</string>
+    <string name="key_space">Space</string>
+    <string name="desc_shift">Shift</string>
+    <string name="desc_backspace">Backspace</string>
+    <string name="desc_enter_key">Action</string>
+    <string name="desc_delete">Delete</string>
+    <string name="desc_recent">Recent</string>
+
+    <!-- Home / setup -->
+    <string name="home_try_it">Try it out</string>
+    <string name="home_playground">Typing playground</string>
+    <string name="home_playground_hint">Tap a field type, then tap the box to open the keyboard.</string>
+    <string name="home_field_type">Field type</string>
+    <string name="home_enter_key">Enter key</string>
+    <string name="home_next_field">Next field</string>
+    <string name="home_while_typing">While you type</string>
+    <string name="tip_swipe_title">Swipe to type</string>
+    <string name="tip_swipe_body">Glide across letters to enter a word without lifting your finger.</string>
+    <string name="tip_longpress_title">Long-press for extras</string>
+    <string name="tip_longpress_body">Hold a key to pick accents, symbols, and numbers.</string>
+    <string name="tip_space_title">Drag the spacebar</string>
+    <string name="tip_space_body">Slide left or right on space to move the cursor.</string>
+    <string name="tip_dictate_title">Dictate with Whisper Tiny</string>
+    <string name="tip_dictate_body">Tap the mic in the header. Speech is transcribed on-device in English.</string>
+    <string name="tip_themes_title">Themes &amp; clipboard</string>
+    <string name="tip_themes_body">Open the keyboard header for emoji, clipboard, and quick settings.</string>
+    <string name="home_ready">Keyboard is ready</string>
+    <string name="home_ready_body">Compose Keyboard is enabled and selected.</string>
+    <string name="home_get_started">Get started</string>
+    <string name="home_get_started_body">Enable the keyboard, then choose it as your input method.</string>
+    <string name="setup_enable_title">Enable Compose Keyboard</string>
+    <string name="setup_enable_action">Open settings</string>
+    <string name="setup_select_title">Select as your keyboard</string>
+    <string name="setup_select_action">Choose keyboard</string>
+
+    <!-- Playground input-type chips (mirror Android input types) -->
+    <string name="pt_text">Text</string>
+    <string name="pt_number">Number</string>
+    <string name="pt_phone">Phone</string>
+    <string name="pt_decimal">Decimal</string>
+    <string name="pt_email">Email</string>
+    <string name="pt_url">URL</string>
+    <string name="pt_password">Password</string>
+    <string name="pt_pin">PIN</string>
+    <string name="pt_ascii">ASCII</string>
+    <string name="pt_datetime">Date/time</string>
+
+    <!-- Companion settings -->
+    <string name="set_section_typing">Typing</string>
+    <string name="set_section_size">Size</string>
+    <string name="set_number_row">Number row</string>
+    <string name="set_number_row_desc">Keep 1–0 visible above the letters. When off, numbers stay on long-press.</string>
+    <string name="set_glide">Glide typing</string>
+    <string name="set_glide_desc">Swipe across letters to type words with on-device decoding.</string>
+    <string name="set_autocaps">Auto-capitalization</string>
+    <string name="set_autocaps_desc">Capitalize the first letter of sentences and after punctuation.</string>
+    <string name="set_haptic">Haptic vibration</string>
+    <string name="set_haptic_desc">Light taps on keys, swipe completions, and clipboard actions.</string>
+    <string name="set_sounds">Key sounds</string>
+    <string name="set_sounds_desc">Play a click when you press keys and space.</string>
+    <string name="set_popups">Key popups</string>
+    <string name="set_popups_desc">Show an enlarged preview above each key as you press it.</string>
+    <string name="set_height">Keyboard height</string>
+    <string name="set_height_desc">Vertical scale of keys and panels.</string>
+    <string name="set_key_text">Key text</string>
+    <string name="set_key_text_desc">Letters, numbers, and symbols on the keys.</string>
+    <string name="set_emoji_size">Emoji size</string>
+    <string name="set_emoji_size_desc">Emoji in the categorized picker grid.</string>
+    <string name="set_about">About</string>
+    <string name="set_about_version">Compose Keyboard %1$s</string>
+    <string name="set_about_body">A Compose IME with neural swipe typing, clipboard history, and custom themes. Changes here apply the next time the keyboard opens.</string>
+    <string name="set_voice">Voice typing</string>
+    <string name="set_voice_unsupported">Whisper Tiny needs a 64-bit ARM phone (arm64-v8a).</string>
+    <string name="set_voice_ready">Ready. Tap the mic on the keyboard to dictate in English, on-device.</string>
+    <string name="set_voice_intro">On-device speech recognition with Whisper Tiny (~77 MB). Nothing is sent to a server.</string>
+    <string name="set_mic">Microphone</string>
+    <string name="set_mic_allowed">Allowed</string>
+    <string name="set_mic_required">Required before the keyboard can listen</string>
+    <string name="set_downloading">Downloading model %1$d%</string>
+    <string name="set_model_title">Whisper Tiny model</string>
+    <string name="set_model_installed">Installed (~77 MB)</string>
+    <string name="set_model_download">Download English weights to this phone</string>
+    <string name="size_small">Small</string>
+    <string name="size_normal">Normal</string>
+    <string name="size_large">Large</string>
+    <string name="size_huge">Huge</string>
+    <string name="size_extra_large">Extra large</string>
+    <string name="size_short">Short</string>
+    <string name="size_compact">Compact</string>
+    <string name="size_standard">Standard</string>
+    <string name="size_tall">Tall</string>
+    <string name="size_extra_tall">Extra tall</string>
+
+    <!-- Companion clipboard -->
+    <string name="clip_confirm_title">Clear unpinned clips?</string>
+    <string name="clip_confirm_body">Pinned items stay. Everything else will be removed from history.</string>
+    <string name="clip_search_hint">Search clips</string>
+    <string name="clip_clear_unpinned">Clear unpinned</string>
+    <string name="action_pin">Pin</string>
+    <string name="action_unpin">Unpin</string>
+    <string name="clip_empty_title">Nothing copied yet</string>
+    <string name="clip_empty_body">Copy text in any app and it will show up here. Pin clips you want to keep.</string>
+    <string name="clip_no_matches_title">No matches</string>
+    <string name="clip_no_matches_body">Nothing in clipboard history matches “%1$s”.</string>
+    <plurals name="clips_saved">
+        <item quantity="one">%1$d saved</item>
+        <item quantity="other">%1$d saved</item>
+    </plurals>
+
+    <!-- Companion appearance -->
+    <string name="appearance_choose">Choose a look that applies to the keyboard everywhere it appears.</string>
+    <string name="appearance_presets">Presets</string>
+    <string name="appearance_custom">Custom</string>
+    <string name="appearance_custom_body">Build your own palette, then save it to use as the active theme.</string>
+
+    <!-- Playground hints (mirror Android input types) -->
+    <string name="pt_hint_text">QWERTY layout, swipe typing, and suggestions</string>
+    <string name="pt_hint_number">Switches to the dedicated numpad</string>
+    <string name="pt_hint_phone">Phone pad with extra dial symbols</string>
+    <string name="pt_hint_decimal">Numpad with a decimal point</string>
+    <string name="pt_hint_email">QWERTY with @ and .com on the bottom row</string>
+    <string name="pt_hint_uri">QWERTY with / and . for addresses</string>
+    <string name="pt_hint_password">QWERTY without suggestions or swipe</string>
+    <string name="pt_hint_pin">Numpad without learning or suggestions</string>
+    <string name="pt_hint_ascii">Standard letters, offered for ASCII-capable fields</string>
+    <string name="pt_hint_datetime">Number pad with / and :</string>
+    <string name="pt_ph_text">Type or swipe a word…</string>
+    <string name="pt_ph_number">Enter a PIN or digits…</string>
+    <string name="pt_ph_phone">Enter a phone number…</string>
+    <string name="pt_ph_decimal">Enter an amount…</string>
+    <string name="pt_ph_password">Enter a password…</string>
+    <string name="pt_ph_pin">Enter a PIN…</string>
+    <string name="pt_ph_ascii">ASCII text…</string>
+
+    <!-- Playground IME action chips (mirror EditorInfo actions) -->
+    <string name="ime_action_enter">Enter</string>
+    <string name="ime_action_search">Search</string>
+    <string name="ime_action_send">Send</string>
+    <string name="ime_action_done">Done</string>
+    <string name="ime_action_go">Go</string>
+    <string name="ime_action_next">Next</string>
+    <string name="ime_action_previous">Previous</string>
 </resources>

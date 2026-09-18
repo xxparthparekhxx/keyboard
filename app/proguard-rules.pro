@@ -1,8 +1,8 @@
 # Compose Keyboard ProGuard Rules
 
 # Keep Android component entry points declared in AndroidManifest.xml
--keep class com.example.composekeyboard.service.ComposeInputMethodService { *; }
--keep class com.example.composekeyboard.MainActivity { *; }
+-keep class io.github.xxparthparekhxx.composekeyboard.service.ComposeInputMethodService { *; }
+-keep class io.github.xxparthparekhxx.composekeyboard.MainActivity { *; }
 
 # Keep Parcelable implementations
 -keep class * implements android.os.Parcelable {
@@ -17,8 +17,8 @@
 }
 
 # Keep project data models and enums
--keep enum com.example.composekeyboard.** { *; }
--keep class com.example.composekeyboard.data.** { *; }
+-keep enum io.github.xxparthparekhxx.composekeyboard.** { *; }
+-keep class io.github.xxparthparekhxx.composekeyboard.data.** { *; }
 
 # Keep whisper.cpp JNI bindings
 -keep class dev.ffmpegkit.whisper.** { *; }

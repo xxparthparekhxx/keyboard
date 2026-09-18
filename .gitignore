@@ -23,5 +23,9 @@ context
 # Signing & Keystores
 *.keystore
 *.jks
+# ...and any suffixed variant (e.g. release.keystore.orphaned-YYYYMMDD from a
+# key rotation). Key material must never reach git, whatever it is named.
+*.keystore.*
+*.jks.*
 keystore.properties
 app/keystore.properties

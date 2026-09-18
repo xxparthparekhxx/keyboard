@@ -1,0 +1,10 @@
+# Reproducible training environment for the swipe encoder.
+# Install:  pip install -r requirements.txt
+# GPU:      pip install torch --index-url https://download.pytorch.org/whl/cu121
+#           (install the CUDA wheel first, then the rest of this file)
+torch>=2.4
+numpy>=1.26,<3
+orjson>=3.9
+huggingface_hub>=0.24
+tqdm>=4.66
+pytest>=8

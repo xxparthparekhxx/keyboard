@@ -6,13 +6,21 @@ on:
   pull_request:
     branches: [ master, main ]
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
+# Cancel superseded runs on the same branch: a force-push should not leave two
+# full Android builds racing.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
+jobs:
+  unit:
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v4
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -27,5 +35,112 @@ jobs:
       - name: Run Unit Tests & Lint
         run: ./gradlew testDebugUnitTest lintVitalRelease
 
+      - name: Upload test & lint reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-reports
+          path: |
+            app/build/reports/tests/
+            app/build/reports/lint-results-*.html
+            app/build/test-results/testDebugUnitTest/
+
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: ml/requirements.txt
+
+      # Order matters. torch MUST come first, from the CPU index: the default
+      # PyPI linux wheel is the CUDA build (~2.5 GB of bundled nvidia libs) and
+      # blows the runner's disk. The second install then sees torch>=2.4 already
+      # satisfied and skips it -- which only holds because --upgrade is NOT
+      # passed here. Do not add it.
+      - name: Install CPU torch
+        run: pip install --index-url https://download.pytorch.org/whl/cpu "torch>=2.4"
+
+      - name: Install remaining ML dependencies
+        run: pip install -r ml/requirements.txt
+
+      - name: Run ML tests
+        run: python -m pytest tests/
+        working-directory: ml
+
+  build:
+    runs-on: ubuntu-latest
+    needs: [unit, python]
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      # The release block signs with keystore.properties when present and
+      # silently ships unsigned APKs when absent. CI must exercise the signing
+      # path, so mint an throwaway keystore here (never committed).
+      - name: Create throwaway release keystore
+        run: |
+          keytool -genkeypair -v \
+            -keystore app/ci-release.keystore \
+            -alias ci -keyalg RSA -keysize 2048 -validity 7 \
+            -storepass android -keypass android \
+            -dname "CN=CI, OU=CI, O=CI, L=CI, ST=CI, C=US"
+          cat > keystore.properties <<'EOF'
+          storeFile=app/ci-release.keystore
+          storePassword=android
+          keyAlias=ci
+          keyPassword=android
+          EOF
+
       - name: Build Debug & Release APKs
         run: ./gradlew assembleDebug assembleRelease
+
+      - name: Upload APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: apks
+          path: |
+            app/build/outputs/apk/debug/*.apk
+            app/build/outputs/apk/release/*.apk
+
+  # On-device Compose UI tests (MainActivitySmokeTest and anything added under
+  # app/src/androidTest). Emulator-based, so it runs separately from the unit
+  # gate above.
+  instrumented:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Run instrumented tests on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 29
+          target: default
+          arch: x86_64
+          script: chmod +x gradlew && ./gradlew connectedCheck
