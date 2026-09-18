@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<locale-config xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- English is the default (values/); Spanish proves the string-resource
+         plumbing (values-es/). Add more values-<lang>/ directories here. -->
+    <locale android:name="en" />
+    <locale android:name="es" />
+</locale-config>
