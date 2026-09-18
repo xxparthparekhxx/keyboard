@@ -4,8 +4,8 @@
 
 ### A Modern, Neural-Powered Android Keyboard Built Entirely with Jetpack Compose
 
-[![Kotlin](https://img.shields.io/badge/Kotlin-2.0.0-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org)
-[![Compose](https://img.shields.io/badge/Jetpack_Compose-BOM_2024.06-4285F4?logo=jetpackcompose&logoColor=white)](https://developer.android.com/jetpack/compose)
+[![Kotlin](https://img.shields.io/badge/Kotlin-2.0.21-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org)
+[![Compose](https://img.shields.io/badge/Jetpack_Compose-BOM_2024.12-4285F4?logo=jetpackcompose&logoColor=white)](https://developer.android.com/jetpack/compose)
 [![Material 3](https://img.shields.io/badge/Material_3-Dynamic_Color-E8710A?logo=materialdesign&logoColor=white)](https://m3.material.io)
 [![API](https://img.shields.io/badge/API-24%2B-brightgreen)](https://developer.android.com/about/versions/nougat)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -135,11 +135,13 @@ CTC blank semantics solve this: extending a prefix by the character it already e
 
 | Decoder | Lexicon | Top-1 | Top-3 | Top-10 |
 |---------|---------|-------|-------|--------|
-| **Neural (this project)** | App 35K + eval | **92.09%** | **97.69%** | **98.59%** |
-| Neural | App 35K | 85.78% | 91.05% | 91.88% |
-| Geometric (SHARK²-family) | App 35K | ~73% | — | — |
+| **Neural (this project)** | App 150K + eval | **92.09%** | **97.69%** | **98.59%** |
+| Neural | App 150K | 85.78% | 91.05% | 91.88% |
+| Geometric (SHARK²-family) | App 150K | ~73% | — | — |
 
 *Evaluated on 47,552 test gestures from the FUTO Swipe Dataset.*
+
+*The shipped lexicon has since grown to 150,289 words; re-run `tools/eval_neural.py` to refresh these figures against the current list.*
 
 ---
 
@@ -149,7 +151,7 @@ CTC blank semantics solve this: extending a prefix by the character it already e
 keyboard/
 ├── app/
 │   ├── src/main/
-│   │   ├── java/com/example/composekeyboard/
+│   │   ├── java/io/github/xxparthparekhxx/composekeyboard/
 │   │   │   ├── MainActivity.kt                      # Setup Wizard, Test Sandbox & Settings
 │   │   │   ├── data/
 │   │   │   │   ├── ClipboardHistoryManager.kt       # Persistent local clipboard manager
@@ -226,7 +228,7 @@ keyboard/
 | JDK | 17 |
 | Android SDK | API 35 (compileSdk) |
 | Min Android Version | 7.0 Nougat (API 24) |
-| Kotlin | 2.0.0 |
+| Kotlin | 2.0.21 |
 
 ### Build & Install
 
@@ -239,7 +241,7 @@ cd keyboard
 ./gradlew assembleDebug
 
 # Install on connected device/emulator
-adb install -r app/build/outputs/apk/debug/composekeyboard-debug-universal.apk
+adb install -r app/build/outputs/apk/debug/composekeyboard-debug.apk
 ```
 
 ### Setup on Device
@@ -253,13 +255,13 @@ adb install -r app/build/outputs/apk/debug/composekeyboard-debug-universal.apk
 
 ```bash
 # Enable the keyboard
-adb shell ime enable com.example.composekeyboard/.service.ComposeInputMethodService
+adb shell ime enable io.github.xxparthparekhxx.composekeyboard/.service.ComposeInputMethodService
 
 # Set as active keyboard
-adb shell ime set com.example.composekeyboard/.service.ComposeInputMethodService
+adb shell ime set io.github.xxparthparekhxx.composekeyboard/.service.ComposeInputMethodService
 
 # Launch the companion app
-adb shell am start -n com.example.composekeyboard/.MainActivity
+adb shell am start -n io.github.xxparthparekhxx.composekeyboard/.MainActivity
 
 # View logs
 adb logcat -s ComposeKeyboard:V SwipeNeural:V AndroidRuntime:E
@@ -417,7 +419,7 @@ python tools/tune_scoring.py --ckpt runs/encoder/best.pt --n 12000 --prune-trial
 python tools/eval_neural.py --split test --extend --beam 100
 # → top-1 92.09%  top-3 97.69%  top-10 98.59%
 
-# Without extended lexicon (app's actual 35K dictionary)
+# Without extended lexicon (the shipped 150,289-word dictionary)
 python tools/eval_neural.py --split test --beam 100
 # → top-1 85.78%  top-3 91.05%  top-10 91.88%
 ```
@@ -442,10 +444,10 @@ hf upload xxparthparekhxx/compose-keyboard-swipe-encoder \
 
 | Component | Technology | Version |
 |-----------|------------|---------|
-| Language | Kotlin | 2.0.0 |
-| UI Framework | Jetpack Compose | BOM 2024.06.00 |
+| Language | Kotlin | 2.0.21 |
+| UI Framework | Jetpack Compose | BOM 2024.12.01 |
 | Design System | Material 3 | Latest |
-| Build System | Gradle + AGP | 8.7 / 8.4.2 |
+| Build System | Gradle + AGP | 8.7 / 8.5.2 |
 | ML Training | PyTorch | Latest |
 | Dataset | FUTO Swipe Corpus | ~900K gestures |
 | Min SDK | Android 7.0 | API 24 |
@@ -468,7 +470,7 @@ The training pipeline includes a physics-based gesture synthesizer ([`ml/swipe/s
 
 ### On-Device Inference
 
-The Kotlin inference engine ([`SwipeNet.kt`](app/src/main/java/com/example/composekeyboard/input/swipe/nn/SwipeNet.kt)) is a line-by-line transcription of the PyTorch model with performance optimizations:
+The Kotlin inference engine ([`SwipeNet.kt`](app/src/main/java/io/github/xxparthparekhxx/composekeyboard/input/swipe/nn/SwipeNet.kt)) is a line-by-line transcription of the PyTorch model with performance optimizations:
 
 - **8-wide accumulator unrolling** in the linear projection (~90% of compute) to fill ARM issue slots
 - **Pre-allocated scratch buffers** — zero allocations during a gesture decode
@@ -476,7 +478,7 @@ The Kotlin inference engine ([`SwipeNet.kt`](app/src/main/java/com/example/compo
 
 ### Compose IME Integration
 
-[`ComposeInputMethodService.kt`](app/src/main/java/com/example/composekeyboard/service/ComposeInputMethodService.kt) bridges Android's `InputMethodService` with Jetpack Compose by implementing `LifecycleOwner`, `ViewModelStoreOwner`, and `SavedStateRegistryOwner` — allowing full Compose rendering inside a system service window.
+[`ComposeInputMethodService.kt`](app/src/main/java/io/github/xxparthparekhxx/composekeyboard/service/ComposeInputMethodService.kt) bridges Android's `InputMethodService` with Jetpack Compose by implementing `LifecycleOwner`, `ViewModelStoreOwner`, and `SavedStateRegistryOwner` — allowing full Compose rendering inside a system service window.
 
 ---
 
