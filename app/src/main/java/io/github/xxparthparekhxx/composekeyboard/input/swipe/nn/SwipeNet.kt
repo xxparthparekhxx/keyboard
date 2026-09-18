@@ -1,4 +1,4 @@
-package com.example.composekeyboard.input.swipe.nn
+package io.github.xxparthparekhxx.composekeyboard.input.swipe.nn
 
 import java.io.DataInputStream
 import java.io.InputStream
@@ -402,21 +402,67 @@ class SwipeNet private constructor(private val w: Map<String, Tensor>) {
             require(String(magic) == "SWEN") { "not a swipe encoder file" }
             require(readLE(input) == 1) { "unsupported encoder version" }
             val count = readLE(input)
+            require(count in 1..512) { "implausible tensor count: $count" }
 
             val map = HashMap<String, Tensor>(count * 2)
             repeat(count) {
                 val name = String(ByteArray(readLE(input)).also { input.readFully(it) })
+                require(name.length in 1..64) { "bad tensor name length" }
                 val dims = IntArray(readLE(input)) { readLE(input) }
+                require(dims.isNotEmpty() && dims.size <= 4) { "bad ndim for $name" }
+                require(dims.all { it in 1..4096 }) { "bad dims for $name: ${dims.toList()}" }
                 var n = 1
                 for (d in dims) n *= d
+                require(n in 1..(8 shl 20)) { "bad tensor size for $name: $n" }
                 val bytes = ByteArray(n * 4)
                 input.readFully(bytes)
                 val fb = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer()
                 val data = FloatArray(n)
                 fb.get(data)
+                require(data.all { it.isFinite() }) { "non-finite weight in $name" }
                 map[name] = Tensor(dims, data)
             }
+            validate(map)
             return SwipeNet(map)
+        }
+
+        private fun expect(map: Map<String, Tensor>, name: String, vararg dims: Int) {
+            val t = map[name] ?: throw IllegalArgumentException("encoder missing tensor: $name")
+            require(t.dims.contentEquals(dims)) {
+                "encoder tensor $name has dims ${t.dims.toList()}, expected ${dims.toList()}"
+            }
+        }
+
+        /**
+         * Fails fast at load time when the file is structurally valid but does
+         * not match the hardcoded network shape. Without this a wrong-shaped
+         * re-export throws ArrayIndexOutOfBounds deep inside [SwipeNet.forward]
+         * mid-gesture, past the point where the geometric fallback can catch it.
+         */
+        private fun validate(map: Map<String, Tensor>) {
+            expect(map, "savgol", 3, 7)
+            expect(map, "stem.w", DIM, F_IN, 5)
+            expect(map, "stem.b", DIM)
+            for (i in DILATIONS.indices) {
+                expect(map, "b$i.dw.w", DIM, 1, DW_KERNEL)
+                expect(map, "b$i.dw.b", DIM)
+                expect(map, "b$i.pw1.w", EXPAND, DIM)
+                expect(map, "b$i.pw1.b", EXPAND)
+                expect(map, "b$i.grn.g", EXPAND / 2)
+                expect(map, "b$i.grn.b", EXPAND / 2)
+                expect(map, "b$i.pw2.w", DIM, EXPAND / 2)
+                expect(map, "b$i.pw2.b", DIM)
+                expect(map, "b$i.se1.w", SE_HIDDEN, DIM)
+                expect(map, "b$i.se1.b", SE_HIDDEN)
+                expect(map, "b$i.se2.w", DIM, SE_HIDDEN)
+                expect(map, "b$i.se2.b", DIM)
+            }
+            expect(map, "adapter.w", HEAD_DIM, DIM, 2)
+            expect(map, "adapter.b", HEAD_DIM)
+            expect(map, "coeff.w", N_COEFF, HEAD_DIM)
+            expect(map, "coeff.b", N_COEFF)
+            expect(map, "gate.w", 1, HEAD_DIM)
+            expect(map, "gate.b", 1)
         }
 
         private fun readLE(input: DataInputStream): Int {

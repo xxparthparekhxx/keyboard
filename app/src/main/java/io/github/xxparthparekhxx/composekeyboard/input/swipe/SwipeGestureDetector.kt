@@ -1,4 +1,4 @@
-package com.example.composekeyboard.input.swipe
+package io.github.xxparthparekhxx.composekeyboard.input.swipe
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue

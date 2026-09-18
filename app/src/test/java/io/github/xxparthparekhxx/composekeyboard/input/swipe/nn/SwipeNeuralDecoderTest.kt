@@ -1,12 +1,21 @@
-package com.example.composekeyboard.input.swipe.nn
+package io.github.xxparthparekhxx.composekeyboard.input.swipe.nn
 
-import com.example.composekeyboard.input.swipe.SwipeKeyMap
-import com.example.composekeyboard.input.swipe.SwipeTrace
+import io.github.xxparthparekhxx.composekeyboard.input.swipe.SwipeKeyMap
+import io.github.xxparthparekhxx.composekeyboard.input.swipe.SwipeTrace
 import org.junit.Assert.*
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 import java.io.File
 import java.io.FileInputStream
 
+/**
+ * Runs under Robolectric (not plain JUnit) because [SwipeNeuralDecoder] logs
+ * via android.util.Log, which throws on the JVM without shadows. This is
+ * precisely why unitTests.isReturnDefaultValues was removed: silent defaults
+ * hid this dependency.
+ */
+@RunWith(RobolectricTestRunner::class)
 class SwipeNeuralDecoderTest {
 
     @Test
@@ -54,7 +63,7 @@ class SwipeNeuralDecoderTest {
         assertNotNull("swipe_encoder.bin not found", assetFile)
 
         val net = FileInputStream(assetFile!!).use { SwipeNet.load(it) }
-        val dict = com.example.composekeyboard.data.SwipeDictionaryTest.createTestDictionary()
+        val dict = io.github.xxparthparekhxx.composekeyboard.data.SwipeDictionaryTest.createTestDictionary()
         repeat(3) { dict.learn("initial") }
 
         val beam = SwipeBeam.build(listOf("initial"), intArrayOf(100))

@@ -1,7 +1,7 @@
-package com.example.composekeyboard.input.swipe
+package io.github.xxparthparekhxx.composekeyboard.input.swipe
 
-import com.example.composekeyboard.data.KeyType
-import com.example.composekeyboard.data.SwipeDictionary
+import io.github.xxparthparekhxx.composekeyboard.data.KeyType
+import io.github.xxparthparekhxx.composekeyboard.data.SwipeDictionary
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull

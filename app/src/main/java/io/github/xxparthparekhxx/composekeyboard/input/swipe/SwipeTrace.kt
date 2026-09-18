@@ -1,4 +1,4 @@
-package com.example.composekeyboard.input.swipe
+package io.github.xxparthparekhxx.composekeyboard.input.swipe
 
 import kotlin.math.sqrt
 

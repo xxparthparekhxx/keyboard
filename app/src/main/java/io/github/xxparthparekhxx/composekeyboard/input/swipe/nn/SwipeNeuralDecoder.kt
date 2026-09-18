@@ -1,10 +1,10 @@
-package com.example.composekeyboard.input.swipe.nn
+package io.github.xxparthparekhxx.composekeyboard.input.swipe.nn
 
 import android.content.Context
 import android.util.Log
-import com.example.composekeyboard.data.SwipeDictionary
-import com.example.composekeyboard.input.swipe.SwipeKeyMap
-import com.example.composekeyboard.input.swipe.SwipeTrace
+import io.github.xxparthparekhxx.composekeyboard.data.SwipeDictionary
+import io.github.xxparthparekhxx.composekeyboard.input.swipe.SwipeKeyMap
+import io.github.xxparthparekhxx.composekeyboard.input.swipe.SwipeTrace
 
 /**
  * Neural swipe decoding: encoder, then lexicon-constrained beam search.
@@ -12,7 +12,7 @@ import com.example.composekeyboard.input.swipe.SwipeTrace
  * Replaces the geometric decoder's shape matching with a network that reads
  * intention out of the gesture — including its *timing*, which the geometric
  * path discarded entirely at resampling time. On the FUTO evaluation corpus the
- * geometric decoder scores 73% top-1 against this path's 93%, and most of the
+ * geometric decoder scores 73% top-1 against this path's 92.09%, and most of the
  * recovered ground is words the old scorer could not distinguish even in
  * principle (doubled letters, and letters that sit on a straight line between
  * their neighbours).
@@ -49,7 +49,15 @@ class SwipeNeuralDecoder private constructor(
      * counter: a rebuild walks ~150k words and allocates ~70 MB, so it is worth
      * doing when the user teaches a genuinely new word and not for the score
      * boost that every ordinary typed word produces.
+     *
+     * Synchronized with [decode] and [bumpScore]: the check-then-act on
+     * [beamVersion] must be atomic, otherwise two debounced saves racing on
+     * Dispatchers.IO (e.g. onFinishInputView + onWindowHidden) each build a
+     * ~70 MB trie inside an IME process with a tight memory budget. A bump
+     * racing a rebuild is serialized rather than silently lost into the
+     * outgoing beam.
      */
+    @Synchronized
     fun updateBeam(dictionary: SwipeDictionary) {
         val currentVersion = dictionary.lexiconVersion
         if (currentVersion == beamVersion) return

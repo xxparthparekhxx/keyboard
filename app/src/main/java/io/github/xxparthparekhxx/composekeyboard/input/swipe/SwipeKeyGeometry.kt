@@ -1,8 +1,8 @@
-package com.example.composekeyboard.input.swipe
+package io.github.xxparthparekhxx.composekeyboard.input.swipe
 
 import androidx.compose.ui.geometry.Offset
-import com.example.composekeyboard.data.KeyType
-import com.example.composekeyboard.data.SwipeDictionary.Companion.ALPHABET
+import io.github.xxparthparekhxx.composekeyboard.data.KeyType
+import io.github.xxparthparekhxx.composekeyboard.data.SwipeDictionary.Companion.ALPHABET
 
 /**
  * Live map of where each letter key sits, in the coordinate space of the

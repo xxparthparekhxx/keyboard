@@ -1,4 +1,4 @@
-package com.example.composekeyboard.input.swipe
+package io.github.xxparthparekhxx.composekeyboard.input.swipe
 
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -6,8 +6,8 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
-import com.example.composekeyboard.data.SwipeDictionary
-import com.example.composekeyboard.input.swipe.nn.SwipeNeuralDecoder
+import io.github.xxparthparekhxx.composekeyboard.data.SwipeDictionary
+import io.github.xxparthparekhxx.composekeyboard.input.swipe.nn.SwipeNeuralDecoder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job

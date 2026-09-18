@@ -1,4 +1,4 @@
-package com.example.composekeyboard.input.swipe.nn
+package io.github.xxparthparekhxx.composekeyboard.input.swipe.nn
 
 import org.junit.Assert.*
 import org.junit.Test

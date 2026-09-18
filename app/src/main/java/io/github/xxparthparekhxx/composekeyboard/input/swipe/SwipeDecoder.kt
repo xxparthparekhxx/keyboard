@@ -1,6 +1,6 @@
-package com.example.composekeyboard.input.swipe
+package io.github.xxparthparekhxx.composekeyboard.input.swipe
 
-import com.example.composekeyboard.data.SwipeDictionary
+import io.github.xxparthparekhxx.composekeyboard.data.SwipeDictionary
 import kotlin.math.abs
 import kotlin.math.acos
 import kotlin.math.max
