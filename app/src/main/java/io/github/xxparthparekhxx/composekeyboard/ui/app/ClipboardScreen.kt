@@ -1,4 +1,4 @@
-package com.example.composekeyboard.ui.app
+package io.github.xxparthparekhxx.composekeyboard.ui.app
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -40,12 +40,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.composekeyboard.data.ClipboardItem
+import io.github.xxparthparekhxx.composekeyboard.R
+import io.github.xxparthparekhxx.composekeyboard.data.ClipboardItem
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -77,8 +80,8 @@ fun ClipboardScreen(
     if (showClearDialog) {
         AlertDialog(
             onDismissRequest = { showClearDialog = false },
-            title = { Text("Clear unpinned clips?") },
-            text = { Text("Pinned items stay. Everything else will be removed from history.") },
+            title = { Text(stringResource(R.string.clip_confirm_title)) },
+            text = { Text(stringResource(R.string.clip_confirm_body)) },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -86,12 +89,12 @@ fun ClipboardScreen(
                         showClearDialog = false
                     }
                 ) {
-                    Text("Clear")
+                    Text(stringResource(R.string.action_clear))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showClearDialog = false }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.action_cancel))
                 }
             }
         )
@@ -104,7 +107,7 @@ fun ClipboardScreen(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
                     modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("Search clips") },
+                    placeholder = { Text(stringResource(R.string.clip_search_hint)) },
                     leadingIcon = {
                         Icon(
                             imageVector = Icons.Default.Search,
@@ -114,7 +117,7 @@ fun ClipboardScreen(
                     trailingIcon = {
                         if (searchQuery.isNotEmpty()) {
                             TextButton(onClick = { searchQuery = "" }) {
-                                Text("Clear")
+                                Text(stringResource(R.string.action_clear))
                             }
                         }
                     },
@@ -127,7 +130,7 @@ fun ClipboardScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "${clipboardItems.size} saved",
+                        text = pluralStringResource(R.plurals.clips_saved, clipboardItems.size, clipboardItems.size),
                         fontSize = 13.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -135,7 +138,7 @@ fun ClipboardScreen(
                         onClick = { showClearDialog = true },
                         enabled = clipboardItems.any { !it.isPinned }
                     ) {
-                        Text("Clear unpinned")
+                        Text(stringResource(R.string.clip_clear_unpinned))
                     }
                 }
             }
@@ -144,14 +147,14 @@ fun ClipboardScreen(
         when {
             clipboardItems.isEmpty() -> {
                 EmptyClipboardState(
-                    title = "Nothing copied yet",
-                    body = "Copy text in any app and it will show up here. Pin clips you want to keep."
+                    title = stringResource(R.string.clip_empty_title),
+                    body = stringResource(R.string.clip_empty_body)
                 )
             }
             displayedItems.isEmpty() -> {
                 EmptyClipboardState(
-                    title = "No matches",
-                    body = "Nothing in clipboard history matches “$searchQuery”."
+                    title = stringResource(R.string.clip_no_matches_title),
+                    body = stringResource(R.string.clip_no_matches_body, searchQuery)
                 )
             }
             else -> {
@@ -212,7 +215,7 @@ private fun ClipboardHistoryRow(
         IconButton(onClick = onTogglePin) {
             Icon(
                 imageVector = if (clip.isPinned) Icons.Default.PushPin else Icons.Outlined.PushPin,
-                contentDescription = if (clip.isPinned) "Unpin" else "Pin",
+                contentDescription = if (clip.isPinned) stringResource(R.string.action_unpin) else stringResource(R.string.action_pin),
                 tint = if (clip.isPinned) {
                     MaterialTheme.colorScheme.primary
                 } else {

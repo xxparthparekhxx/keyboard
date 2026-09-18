@@ -1,4 +1,4 @@
-package com.example.composekeyboard.ui.app
+package io.github.xxparthparekhxx.composekeyboard.ui.app
 
 import android.content.Context
 import android.provider.Settings

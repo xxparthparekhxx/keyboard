@@ -1,4 +1,4 @@
-package com.example.composekeyboard.ui.app
+package io.github.xxparthparekhxx.composekeyboard.ui.app
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
@@ -13,14 +13,16 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.composekeyboard.data.CustomThemeColors
-import com.example.composekeyboard.data.KeyboardPreferences
-import com.example.composekeyboard.data.KeyboardSettings
-import com.example.composekeyboard.data.KeyboardThemeType
-import com.example.composekeyboard.ui.theme.CustomThemeEditorCard
+import io.github.xxparthparekhxx.composekeyboard.R
+import io.github.xxparthparekhxx.composekeyboard.data.CustomThemeColors
+import io.github.xxparthparekhxx.composekeyboard.data.KeyboardPreferences
+import io.github.xxparthparekhxx.composekeyboard.data.KeyboardSettings
+import io.github.xxparthparekhxx.composekeyboard.data.KeyboardThemeType
+import io.github.xxparthparekhxx.composekeyboard.ui.theme.CustomThemeEditorCard
 
 @Composable
 fun AppearanceScreen(
@@ -38,14 +40,14 @@ fun AppearanceScreen(
     ) {
         item(span = { GridItemSpan(3) }) {
             Text(
-                text = "Choose a look that applies to the keyboard everywhere it appears.",
+                text = stringResource(R.string.appearance_choose),
                 fontSize = 13.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 lineHeight = 18.sp
             )
         }
         item(span = { GridItemSpan(3) }) {
-            SectionHeader("Presets")
+            SectionHeader(stringResource(R.string.appearance_presets))
         }
         items(KeyboardThemeType.entries) { theme ->
             ThemePreviewCard(
@@ -57,10 +59,10 @@ fun AppearanceScreen(
         }
         item(span = { GridItemSpan(3) }) {
             Spacer(modifier = Modifier.height(8.dp))
-            SectionHeader("Custom")
+            SectionHeader(stringResource(R.string.appearance_custom))
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Build your own palette, then save it to use as the active theme.",
+                text = stringResource(R.string.appearance_custom_body),
                 fontSize = 13.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontWeight = FontWeight.Normal,

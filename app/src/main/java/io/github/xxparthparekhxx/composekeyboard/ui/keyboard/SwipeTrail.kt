@@ -1,11 +1,11 @@
-package com.example.composekeyboard.ui.keyboard
+package io.github.xxparthparekhxx.composekeyboard.ui.keyboard
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import com.example.composekeyboard.input.swipe.SwipeConstants
-import com.example.composekeyboard.input.swipe.SwipeTrace
+import io.github.xxparthparekhxx.composekeyboard.input.swipe.SwipeConstants
+import io.github.xxparthparekhxx.composekeyboard.input.swipe.SwipeTrace
 import kotlin.math.pow
 
 /**

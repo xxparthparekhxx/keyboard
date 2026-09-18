@@ -1,4 +1,4 @@
-package com.example.composekeyboard.ui.keyboard
+package io.github.xxparthparekhxx.composekeyboard.ui.keyboard
 
 import android.os.Build
 import android.view.HapticFeedbackConstants
@@ -46,25 +46,25 @@ import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
-import com.example.composekeyboard.data.Capitalization
-import com.example.composekeyboard.data.ClipboardHistoryManager
-import com.example.composekeyboard.data.FieldInputKind
-import com.example.composekeyboard.data.GraphemeClusters
-import com.example.composekeyboard.data.EmojiSuggestions
-import com.example.composekeyboard.data.KeyModel
-import com.example.composekeyboard.data.KeyType
-import com.example.composekeyboard.data.KeyboardLayouts
-import com.example.composekeyboard.data.KeyboardMode
-import com.example.composekeyboard.data.KeyboardSettings
-import com.example.composekeyboard.data.KeyboardThemeType
-import com.example.composekeyboard.data.SwipeDictionary
-import com.example.composekeyboard.input.swipe.nn.SwipeNeuralDecoder
-import com.example.composekeyboard.input.swipe.SwipeConstants
-import com.example.composekeyboard.input.swipe.SwipeController
-import com.example.composekeyboard.input.swipe.SwipeKeyGeometry
-import com.example.composekeyboard.input.swipe.swipeTypingGestures
-import com.example.composekeyboard.theme.ComposeKeyboardTheme
-import com.example.composekeyboard.theme.LocalKeyboardColors
+import io.github.xxparthparekhxx.composekeyboard.data.Capitalization
+import io.github.xxparthparekhxx.composekeyboard.data.ClipboardHistoryManager
+import io.github.xxparthparekhxx.composekeyboard.data.FieldInputKind
+import io.github.xxparthparekhxx.composekeyboard.data.GraphemeClusters
+import io.github.xxparthparekhxx.composekeyboard.data.EmojiSuggestions
+import io.github.xxparthparekhxx.composekeyboard.data.KeyModel
+import io.github.xxparthparekhxx.composekeyboard.data.KeyType
+import io.github.xxparthparekhxx.composekeyboard.data.KeyboardLayouts
+import io.github.xxparthparekhxx.composekeyboard.data.KeyboardMode
+import io.github.xxparthparekhxx.composekeyboard.data.KeyboardSettings
+import io.github.xxparthparekhxx.composekeyboard.data.KeyboardThemeType
+import io.github.xxparthparekhxx.composekeyboard.data.SwipeDictionary
+import io.github.xxparthparekhxx.composekeyboard.input.swipe.nn.SwipeNeuralDecoder
+import io.github.xxparthparekhxx.composekeyboard.input.swipe.SwipeConstants
+import io.github.xxparthparekhxx.composekeyboard.input.swipe.SwipeController
+import io.github.xxparthparekhxx.composekeyboard.input.swipe.SwipeKeyGeometry
+import io.github.xxparthparekhxx.composekeyboard.input.swipe.swipeTypingGestures
+import io.github.xxparthparekhxx.composekeyboard.theme.ComposeKeyboardTheme
+import io.github.xxparthparekhxx.composekeyboard.theme.LocalKeyboardColors
 import kotlin.math.abs
 
 @Composable

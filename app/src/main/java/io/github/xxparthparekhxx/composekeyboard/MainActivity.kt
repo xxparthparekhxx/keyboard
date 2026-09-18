@@ -1,4 +1,4 @@
-package com.example.composekeyboard
+package io.github.xxparthparekhxx.composekeyboard
 
 import android.os.Bundle
 import android.content.Intent
@@ -8,12 +8,12 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import com.example.composekeyboard.data.ClipboardHistoryManager
-import com.example.composekeyboard.data.KeyboardPreferences
-import com.example.composekeyboard.theme.CompanionTheme
-import com.example.composekeyboard.ui.app.CompanionApp
-import com.example.composekeyboard.ui.app.checkIsImeEnabled
-import com.example.composekeyboard.ui.app.checkIsImeSelected
+import io.github.xxparthparekhxx.composekeyboard.data.ClipboardHistoryManager
+import io.github.xxparthparekhxx.composekeyboard.data.KeyboardPreferences
+import io.github.xxparthparekhxx.composekeyboard.theme.CompanionTheme
+import io.github.xxparthparekhxx.composekeyboard.ui.app.CompanionApp
+import io.github.xxparthparekhxx.composekeyboard.ui.app.checkIsImeEnabled
+import io.github.xxparthparekhxx.composekeyboard.ui.app.checkIsImeSelected
 
 class MainActivity : ComponentActivity() {
 

@@ -1,4 +1,4 @@
-package com.example.composekeyboard.ui.app
+package io.github.xxparthparekhxx.composekeyboard.ui.app
 
 import android.text.Editable
 import android.text.InputType
@@ -56,6 +56,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -64,72 +65,84 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import io.github.xxparthparekhxx.composekeyboard.R
 
 private enum class PlaygroundInputType(
-    val label: String,
+    val labelRes: Int,
     val keyboardType: KeyboardType?,
     val placeholder: String,
-    val hint: String
+    val placeholderRes: Int?,
+    val hintRes: Int
 ) {
     TEXT(
-        label = "Text",
+        labelRes = R.string.pt_text,
         keyboardType = KeyboardType.Text,
-        placeholder = "Type or swipe a word…",
-        hint = "QWERTY layout, swipe typing, and suggestions"
+        placeholder = "",
+        placeholderRes = R.string.pt_ph_text,
+        hintRes = R.string.pt_hint_text
     ),
     NUMBER(
-        label = "Number",
+        labelRes = R.string.pt_number,
         keyboardType = KeyboardType.Number,
-        placeholder = "Enter a PIN or digits…",
-        hint = "Switches to the dedicated numpad"
+        placeholder = "",
+        placeholderRes = R.string.pt_ph_number,
+        hintRes = R.string.pt_hint_number
     ),
     PHONE(
-        label = "Phone",
+        labelRes = R.string.pt_phone,
         keyboardType = KeyboardType.Phone,
-        placeholder = "Enter a phone number…",
-        hint = "Phone pad with extra dial symbols"
+        placeholder = "",
+        placeholderRes = R.string.pt_ph_phone,
+        hintRes = R.string.pt_hint_phone
     ),
     DECIMAL(
-        label = "Decimal",
+        labelRes = R.string.pt_decimal,
         keyboardType = KeyboardType.Decimal,
-        placeholder = "Enter an amount…",
-        hint = "Numpad with a decimal point"
+        placeholder = "",
+        placeholderRes = R.string.pt_ph_decimal,
+        hintRes = R.string.pt_hint_decimal
     ),
     EMAIL(
-        label = "Email",
+        labelRes = R.string.pt_email,
         keyboardType = KeyboardType.Email,
         placeholder = "name@example.com",
-        hint = "QWERTY with @ and .com on the bottom row"
+        placeholderRes = null,
+        hintRes = R.string.pt_hint_email
     ),
     URI(
-        label = "URL",
+        labelRes = R.string.pt_url,
         keyboardType = KeyboardType.Uri,
         placeholder = "https://…",
-        hint = "QWERTY with / and . for addresses"
+        placeholderRes = null,
+        hintRes = R.string.pt_hint_uri
     ),
     PASSWORD(
-        label = "Password",
+        labelRes = R.string.pt_password,
         keyboardType = KeyboardType.Password,
-        placeholder = "Enter a password…",
-        hint = "QWERTY without suggestions or swipe"
+        placeholder = "",
+        placeholderRes = R.string.pt_ph_password,
+        hintRes = R.string.pt_hint_password
     ),
     NUMBER_PASSWORD(
-        label = "PIN",
+        labelRes = R.string.pt_pin,
         keyboardType = KeyboardType.NumberPassword,
-        placeholder = "Enter a PIN…",
-        hint = "Numpad without learning or suggestions"
+        placeholder = "",
+        placeholderRes = R.string.pt_ph_pin,
+        hintRes = R.string.pt_hint_pin
     ),
     ASCII(
-        label = "ASCII",
+        labelRes = R.string.pt_ascii,
         keyboardType = KeyboardType.Ascii,
-        placeholder = "ASCII text…",
-        hint = "Standard letters, offered for ASCII-capable fields"
+        placeholder = "",
+        placeholderRes = R.string.pt_ph_ascii,
+        hintRes = R.string.pt_hint_ascii
     ),
     DATETIME(
-        label = "Date/time",
+        labelRes = R.string.pt_datetime,
         keyboardType = null,
         placeholder = "2026-09-15 14:30",
-        hint = "Number pad with / and :"
+        placeholderRes = null,
+        hintRes = R.string.pt_hint_datetime
     );
 
     val usesPlatformDatetimeField: Boolean
@@ -140,16 +153,16 @@ private enum class PlaygroundInputType(
 }
 
 private enum class PlaygroundImeAction(
-    val label: String,
+    val labelRes: Int,
     val imeAction: ImeAction
 ) {
-    DEFAULT("Enter", ImeAction.Default),
-    SEARCH("Search", ImeAction.Search),
-    SEND("Send", ImeAction.Send),
-    DONE("Done", ImeAction.Done),
-    GO("Go", ImeAction.Go),
-    NEXT("Next", ImeAction.Next),
-    PREVIOUS("Previous", ImeAction.Previous);
+    DEFAULT(R.string.ime_action_enter, ImeAction.Default),
+    SEARCH(R.string.ime_action_search, ImeAction.Search),
+    SEND(R.string.ime_action_send, ImeAction.Send),
+    DONE(R.string.ime_action_done, ImeAction.Done),
+    GO(R.string.ime_action_go, ImeAction.Go),
+    NEXT(R.string.ime_action_next, ImeAction.Next),
+    PREVIOUS(R.string.ime_action_previous, ImeAction.Previous);
 
     fun toEditorImeAction(): Int = when (imeAction) {
         ImeAction.Search -> EditorInfo.IME_ACTION_SEARCH
@@ -231,24 +244,24 @@ fun HomeScreen(
         }
 
         item {
-            SectionHeader("Try it out")
+            SectionHeader(stringResource(R.string.home_try_it))
             Spacer(modifier = Modifier.height(8.dp))
             CompanionCard {
                 Text(
-                    text = "Typing playground",
+                    text = stringResource(R.string.home_playground),
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Tap a field type, then tap the box to open the keyboard.",
+                    text = stringResource(R.string.home_playground_hint),
                     fontSize = 13.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     lineHeight = 18.sp
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
-                    text = "Field type",
+                    text = stringResource(R.string.home_field_type),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -262,13 +275,13 @@ fun HomeScreen(
                         FilterChip(
                             selected = inputType == type,
                             onClick = { selectedType = type.name },
-                            label = { Text(type.label) }
+                            label = { Text(stringResource(type.labelRes)) }
                         )
                     }
                 }
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
-                    text = "Enter key",
+                    text = stringResource(R.string.home_enter_key),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -282,7 +295,7 @@ fun HomeScreen(
                         FilterChip(
                             selected = imeAction == action,
                             onClick = { selectedAction = action.name },
-                            label = { Text(action.label) }
+                            label = { Text(stringResource(action.labelRes)) }
                         )
                     }
                 }
@@ -292,13 +305,13 @@ fun HomeScreen(
                         DatetimePlaygroundField(
                             value = fieldValue,
                             onValueChange = { datetimeValue = it },
-                            placeholder = inputType.placeholder,
+                            placeholder = inputType.placeholderRes?.let { stringResource(it) } ?: inputType.placeholder,
                             imeAction = imeAction.toEditorImeAction(),
                             modifier = Modifier.weight(1f)
                         )
                         if (fieldValue.isNotEmpty()) {
                             TextButton(onClick = { datetimeValue = "" }) {
-                                Text("Clear")
+                                Text(stringResource(R.string.action_clear))
                             }
                         }
                     }
@@ -319,7 +332,7 @@ fun HomeScreen(
                                 PlaygroundInputType.DATETIME -> datetimeValue = value
                             }
                         },
-                        placeholder = { Text(inputType.placeholder) },
+                        placeholder = { Text(inputType.placeholderRes?.let { stringResource(it) } ?: inputType.placeholder) },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(14.dp),
                         keyboardOptions = KeyboardOptions(
@@ -350,7 +363,7 @@ fun HomeScreen(
                                         PlaygroundInputType.DATETIME -> datetimeValue = ""
                                     }
                                 }) {
-                                    Text("Clear")
+                                    Text(stringResource(R.string.action_clear))
                                 }
                             }
                         }
@@ -361,7 +374,7 @@ fun HomeScreen(
                     OutlinedTextField(
                         value = nextFieldValue,
                         onValueChange = { nextFieldValue = it },
-                        placeholder = { Text("Next field") },
+                        placeholder = { Text(stringResource(R.string.home_next_field)) },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(14.dp),
                         keyboardOptions = KeyboardOptions(
@@ -374,7 +387,7 @@ fun HomeScreen(
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = inputType.hint,
+                    text = stringResource(inputType.hintRes),
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -382,37 +395,37 @@ fun HomeScreen(
         }
 
         item {
-            SectionHeader("While you type")
+            SectionHeader(stringResource(R.string.home_while_typing))
             Spacer(modifier = Modifier.height(8.dp))
             CompanionCard {
                 TipRow(
                     icon = Icons.Default.Swipe,
-                    title = "Swipe to type",
-                    body = "Glide across letters to enter a word without lifting your finger."
+                    title = stringResource(R.string.tip_swipe_title),
+                    body = stringResource(R.string.tip_swipe_body)
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 TipRow(
                     icon = Icons.Default.Keyboard,
-                    title = "Long-press for extras",
-                    body = "Hold a key to pick accents, symbols, and numbers."
+                    title = stringResource(R.string.tip_longpress_title),
+                    body = stringResource(R.string.tip_longpress_body)
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 TipRow(
                     icon = Icons.Default.SpaceBar,
-                    title = "Drag the spacebar",
-                    body = "Slide left or right on space to move the cursor."
+                    title = stringResource(R.string.tip_space_title),
+                    body = stringResource(R.string.tip_space_body)
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 TipRow(
                     icon = Icons.Default.Mic,
-                    title = "Dictate with Whisper Tiny",
-                    body = "Tap the mic in the header. Speech is transcribed on-device in English."
+                    title = stringResource(R.string.tip_dictate_title),
+                    body = stringResource(R.string.tip_dictate_body)
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 TipRow(
                     icon = Icons.Default.Gesture,
-                    title = "Themes & clipboard",
-                    body = "Open the keyboard header for emoji, clipboard, and quick settings."
+                    title = stringResource(R.string.tip_themes_title),
+                    body = stringResource(R.string.tip_themes_body)
                 )
             }
         }
@@ -432,13 +445,13 @@ private fun ReadyBanner() {
             Spacer(modifier = Modifier.width(12.dp))
             Column {
                 Text(
-                    text = "Keyboard is ready",
+                    text = stringResource(R.string.home_ready),
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp,
                     color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
                 Text(
-                    text = "Compose Keyboard is enabled and selected.",
+                    text = stringResource(R.string.home_ready_body),
                     fontSize = 13.sp,
                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
                 )
@@ -456,32 +469,32 @@ fun SetupWizardCard(
 ) {
     CompanionCard(containerColor = MaterialTheme.colorScheme.primaryContainer) {
         Text(
-            text = "Get started",
+            text = stringResource(R.string.home_get_started),
             fontWeight = FontWeight.Bold,
             fontSize = 18.sp,
             color = MaterialTheme.colorScheme.onPrimaryContainer
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
-            text = "Enable the keyboard, then choose it as your input method.",
+            text = stringResource(R.string.home_get_started_body),
             fontSize = 13.sp,
             color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
             lineHeight = 18.sp
         )
         Spacer(modifier = Modifier.height(14.dp))
         SetupStepItem(
-            title = "Enable Compose Keyboard",
+            title = stringResource(R.string.setup_enable_title),
             description = "Turn it on in Android input method settings",
             isCompleted = isImeEnabled,
-            actionLabel = "Open settings",
+            actionLabel = stringResource(R.string.setup_enable_action),
             onActionClick = onEnableClick
         )
         Spacer(modifier = Modifier.height(10.dp))
         SetupStepItem(
-            title = "Select as your keyboard",
+            title = stringResource(R.string.setup_select_title),
             description = "Pick Compose Keyboard from the system picker",
             isCompleted = isImeSelected,
-            actionLabel = "Choose keyboard",
+            actionLabel = stringResource(R.string.setup_select_action),
             onActionClick = onSelectClick
         )
     }

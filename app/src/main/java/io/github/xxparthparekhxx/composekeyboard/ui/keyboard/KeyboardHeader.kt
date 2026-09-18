@@ -1,4 +1,4 @@
-package com.example.composekeyboard.ui.keyboard
+package io.github.xxparthparekhxx.composekeyboard.ui.keyboard
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -22,12 +22,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import com.example.composekeyboard.data.KeyboardMode
-import com.example.composekeyboard.theme.LocalKeyboardColors
+import io.github.xxparthparekhxx.composekeyboard.R
+import io.github.xxparthparekhxx.composekeyboard.data.KeyboardMode
+import io.github.xxparthparekhxx.composekeyboard.theme.LocalKeyboardColors
 
 @Composable
 fun KeyboardHeader(
@@ -56,7 +58,7 @@ fun KeyboardHeader(
             icon = {
                 Icon(
                     imageVector = Icons.Default.Dialpad,
-                    contentDescription = "Number Pad",
+                    contentDescription = stringResource(R.string.desc_numpad),
                     tint = if (currentMode == KeyboardMode.NUMPAD) colors.actionKeyBackground else colors.headerIconColor,
                     modifier = Modifier.size(22.dp)
                 )
@@ -69,7 +71,7 @@ fun KeyboardHeader(
             icon = {
                 Icon(
                     imageVector = Icons.Default.SentimentSatisfiedAlt,
-                    contentDescription = "Emoji",
+                    contentDescription = stringResource(R.string.desc_emoji),
                     tint = if (currentMode == KeyboardMode.EMOJI) colors.actionKeyBackground else colors.headerIconColor,
                     modifier = Modifier.size(22.dp)
                 )
@@ -81,7 +83,7 @@ fun KeyboardHeader(
             icon = {
                 Icon(
                     imageVector = Icons.Default.Mic,
-                    contentDescription = "Voice typing",
+                    contentDescription = stringResource(R.string.desc_voice_typing),
                     tint = if (currentMode == KeyboardMode.VOICE) colors.actionKeyBackground else colors.headerIconColor,
                     modifier = Modifier.size(22.dp)
                 )
@@ -94,7 +96,7 @@ fun KeyboardHeader(
             icon = {
                 Icon(
                     imageVector = Icons.Default.ContentPaste,
-                    contentDescription = "Clipboard History",
+                    contentDescription = stringResource(R.string.desc_clipboard_history),
                     tint = if (currentMode == KeyboardMode.CLIPBOARD) colors.actionKeyBackground else colors.headerIconColor,
                     modifier = Modifier.size(22.dp)
                 )
@@ -107,7 +109,7 @@ fun KeyboardHeader(
             icon = {
                 Icon(
                     imageVector = Icons.Default.Palette,
-                    contentDescription = "Choose Theme",
+                    contentDescription = stringResource(R.string.desc_choose_theme),
                     tint = if (currentMode == KeyboardMode.THEMES) colors.actionKeyBackground else colors.headerIconColor,
                     modifier = Modifier.size(22.dp)
                 )
@@ -120,7 +122,7 @@ fun KeyboardHeader(
             icon = {
                 Icon(
                     imageVector = Icons.Default.Settings,
-                    contentDescription = "Settings",
+                    contentDescription = stringResource(R.string.desc_settings),
                     tint = if (currentMode == KeyboardMode.SETTINGS) colors.actionKeyBackground else colors.headerIconColor,
                     modifier = Modifier.size(22.dp)
                 )

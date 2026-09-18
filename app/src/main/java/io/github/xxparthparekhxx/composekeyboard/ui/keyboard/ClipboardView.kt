@@ -1,4 +1,4 @@
-package com.example.composekeyboard.ui.keyboard
+package io.github.xxparthparekhxx.composekeyboard.ui.keyboard
 
 import android.view.HapticFeedbackConstants
 import androidx.compose.foundation.background
@@ -40,6 +40,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -50,9 +51,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.composekeyboard.data.ClipboardHistoryManager
-import com.example.composekeyboard.data.ClipboardItem
-import com.example.composekeyboard.theme.LocalKeyboardColors
+import io.github.xxparthparekhxx.composekeyboard.R
+import io.github.xxparthparekhxx.composekeyboard.data.ClipboardHistoryManager
+import io.github.xxparthparekhxx.composekeyboard.data.ClipboardItem
+import io.github.xxparthparekhxx.composekeyboard.theme.LocalKeyboardColors
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -105,7 +107,7 @@ fun ClipboardView(
             ) {
                 Icon(
                     imageVector = Icons.Default.Search,
-                    contentDescription = "Search",
+                    contentDescription = stringResource(R.string.desc_search),
                     tint = colors.actionKeyBackground,
                     modifier = Modifier.size(20.dp)
                 )
@@ -113,7 +115,7 @@ fun ClipboardView(
                 Box(modifier = Modifier.weight(1f)) {
                     if (searchQuery.isEmpty()) {
                         Text(
-                            text = "Search copied items...",
+                            text = stringResource(R.string.clipboard_search_hint),
                             color = colors.keyTextColor.copy(alpha = 0.45f),
                             fontSize = 13.sp
                         )
@@ -142,7 +144,7 @@ fun ClipboardView(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Close,
-                            contentDescription = "Clear search",
+                            contentDescription = stringResource(R.string.desc_clear_search),
                             tint = colors.accentKeyTextColor,
                             modifier = Modifier.size(16.dp)
                         )
@@ -164,7 +166,7 @@ fun ClipboardView(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "Cancel",
+                        text = stringResource(R.string.action_cancel),
                         color = colors.accentKeyTextColor,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold
@@ -190,7 +192,7 @@ fun ClipboardView(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "Clipboard History",
+                        text = stringResource(R.string.clipboard_title),
                         color = colors.keyTextColor,
                         fontWeight = FontWeight.Bold,
                         fontSize = 14.sp
@@ -213,7 +215,7 @@ fun ClipboardView(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Search,
-                                contentDescription = "Search Clipboard",
+                                contentDescription = stringResource(R.string.desc_search_clipboard),
                                 tint = colors.accentKeyTextColor,
                                 modifier = Modifier.size(16.dp)
                             )
@@ -233,7 +235,7 @@ fun ClipboardView(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = "Clear",
+                                text = stringResource(R.string.action_clear),
                                 color = colors.accentKeyTextColor,
                                 fontSize = 12.sp
                             )
@@ -281,13 +283,13 @@ fun ClipboardView(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = if (isSearching) "No matching clips found" else "Clipboard history is empty",
+                        text = if (isSearching) stringResource(R.string.clip_empty_search_title) else stringResource(R.string.clip_empty_title_ime),
                         color = colors.accentKeyTextColor,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Medium
                     )
                     Text(
-                        text = if (isSearching) "Try a different search query" else "Copied text will automatically appear here",
+                        text = if (isSearching) stringResource(R.string.clip_empty_search_body) else stringResource(R.string.clip_empty_body_ime),
                         color = colors.accentKeyTextColor.copy(alpha = 0.6f),
                         fontSize = 11.sp
                     )
@@ -337,6 +339,10 @@ private fun ClipboardItemCard(
     val formattedTime = remember(item.timestamp) {
         SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(item.timestamp))
     }
+    val pasteDesc = stringResource(R.string.desc_paste_clip, item.text.take(40))
+    val pinDesc = if (item.isPinned) stringResource(R.string.desc_unpin_clip)
+        else stringResource(R.string.desc_pin_clip)
+    val deleteDesc = stringResource(R.string.desc_delete_clip)
 
     Row(
         modifier = Modifier
@@ -350,7 +356,7 @@ private fun ClipboardItemCard(
             .background(colors.keyBackground)
             .semantics {
                 role = Role.Button
-                contentDescription = "Paste clip: ${item.text.take(40)}"
+                contentDescription = pasteDesc
             }
             .clickable { onPaste() }
             .padding(horizontal = 10.dp, vertical = 8.dp),
@@ -368,7 +374,7 @@ private fun ClipboardItemCard(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (item.isPinned) {
                     Text(
-                        text = "Pinned • ",
+                        text = stringResource(R.string.clip_pinned_prefix),
                         color = colors.actionKeyBackground,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold
@@ -391,7 +397,7 @@ private fun ClipboardItemCard(
                 .clip(RoundedCornerShape(4.dp))
                 .semantics {
                     role = Role.Button
-                    contentDescription = if (item.isPinned) "Unpin clip" else "Pin clip"
+                    contentDescription = pinDesc
                 }
                 .clickable { onTogglePin() },
             contentAlignment = Alignment.Center
@@ -411,7 +417,7 @@ private fun ClipboardItemCard(
                 .clip(RoundedCornerShape(4.dp))
                 .semantics {
                     role = Role.Button
-                    contentDescription = "Delete clip"
+                    contentDescription = deleteDesc
                 }
                 .clickable { onDelete() },
             contentAlignment = Alignment.Center

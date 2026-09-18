@@ -1,4 +1,4 @@
-package com.example.composekeyboard.ui.keyboard
+package io.github.xxparthparekhxx.composekeyboard.ui.keyboard
 
 import android.view.HapticFeedbackConstants
 import androidx.compose.foundation.background
@@ -36,14 +36,16 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.composekeyboard.input.voice.VoiceInputController
-import com.example.composekeyboard.input.voice.VoiceUiState
-import com.example.composekeyboard.theme.LocalKeyboardColors
+import io.github.xxparthparekhxx.composekeyboard.R
+import io.github.xxparthparekhxx.composekeyboard.input.voice.VoiceInputController
+import io.github.xxparthparekhxx.composekeyboard.input.voice.VoiceUiState
+import io.github.xxparthparekhxx.composekeyboard.theme.LocalKeyboardColors
 
 @Composable
 fun VoiceInputView(
@@ -87,7 +89,7 @@ fun VoiceInputView(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
-                text = "Voice typing",
+                text = stringResource(R.string.voice_title),
                 color = colors.keyTextColor,
                 fontWeight = FontWeight.Bold,
                 fontSize = 14.sp
@@ -105,7 +107,7 @@ fun VoiceInputView(
             ) {
                 Icon(
                     imageVector = Icons.Default.Close,
-                    contentDescription = "Close",
+                    contentDescription = stringResource(R.string.desc_close),
                     tint = colors.headerIconColor,
                     modifier = Modifier.size(18.dp)
                 )
@@ -122,18 +124,18 @@ fun VoiceInputView(
             when (val ui = state) {
                 VoiceUiState.UnsupportedDevice -> {
                     StatusCopy(
-                        title = "Needs a 64-bit ARM phone",
-                        body = "Whisper Tiny’s native library ships for arm64. This device can’t run it."
+                        title = stringResource(R.string.voice_unsupported_title),
+                        body = stringResource(R.string.voice_unsupported_body)
                     )
                 }
                 VoiceUiState.NeedPermission -> {
                     StatusCopy(
-                        title = "Microphone access",
-                        body = "Android only grants the mic from the companion app, not from the keyboard overlay."
+                        title = stringResource(R.string.voice_permission_title),
+                        body = stringResource(R.string.voice_permission_body)
                     )
                     Spacer(modifier = Modifier.height(14.dp))
                     ActionChip(
-                        label = "Allow microphone",
+                        label = stringResource(R.string.voice_allow_mic),
                         onClick = {
                             triggerHaptic()
                             onRequestMicPermission()
@@ -141,13 +143,18 @@ fun VoiceInputView(
                     )
                 }
                 VoiceUiState.NeedModel -> {
+                    val metered = remember { controller.isMeteredDownload() }
                     StatusCopy(
-                        title = "Download Whisper Tiny",
-                        body = "On-device English speech recognition. About 75 MB, stored only on this phone."
+                        title = stringResource(R.string.voice_download_title),
+                        body = if (metered) {
+                            stringResource(R.string.voice_download_body_metered)
+                        } else {
+                            stringResource(R.string.voice_download_body)
+                        }
                     )
                     Spacer(modifier = Modifier.height(14.dp))
                     ActionChip(
-                        label = "Download model",
+                        label = stringResource(R.string.voice_download_action),
                         onClick = {
                             triggerHaptic()
                             controller.downloadModel()
@@ -156,18 +163,26 @@ fun VoiceInputView(
                 }
                 is VoiceUiState.Downloading -> {
                     StatusCopy(
-                        title = "Downloading Whisper Tiny",
-                        body = "${(ui.fraction * 100).toInt()}% · stays on device after this"
+                        title = stringResource(R.string.voice_downloading_title),
+                        body = stringResource(R.string.voice_downloading_body, (ui.fraction * 100).toInt())
                     )
                     Spacer(modifier = Modifier.height(14.dp))
                     LinearProgressIndicator(
-                        progress = ui.fraction,
+                        progress = { ui.fraction },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(6.dp)
                             .clip(RoundedCornerShape(4.dp)),
                         color = colors.actionKeyBackground,
                         trackColor = colors.accentKeyBackground
+                    )
+                    Spacer(modifier = Modifier.height(14.dp))
+                    ActionChip(
+                        label = stringResource(R.string.action_cancel),
+                        onClick = {
+                            triggerHaptic()
+                            controller.cancelModelDownload()
+                        }
                     )
                 }
                 VoiceUiState.Idle -> {
@@ -180,13 +195,13 @@ fun VoiceInputView(
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        text = "Tap to dictate",
+                        text = stringResource(R.string.voice_tap_to_dictate),
                         color = colors.keyTextColor,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 16.sp
                     )
                     Text(
-                        text = "Whisper Tiny · English · on-device",
+                        text = stringResource(R.string.voice_engine_line),
                         color = colors.headerIconColor,
                         fontSize = 12.sp
                     )
@@ -207,7 +222,7 @@ fun VoiceInputView(
                         fontSize = 18.sp
                     )
                     Text(
-                        text = "Tap to stop",
+                        text = stringResource(R.string.voice_tap_to_stop),
                         color = colors.headerIconColor,
                         fontSize = 12.sp
                     )
@@ -220,17 +235,17 @@ fun VoiceInputView(
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        text = "Transcribing…",
+                        text = stringResource(R.string.voice_transcribing),
                         color = colors.keyTextColor,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 15.sp
                     )
                 }
                 is VoiceUiState.Failed -> {
-                    StatusCopy(title = "Couldn't transcribe", body = ui.message)
+                    StatusCopy(title = stringResource(R.string.voice_failed_title), body = ui.message)
                     Spacer(modifier = Modifier.height(14.dp))
                     ActionChip(
-                        label = "Try again",
+                        label = stringResource(R.string.voice_try_again),
                         onClick = {
                             triggerHaptic()
                             controller.refresh()
@@ -296,7 +311,7 @@ private fun MicButton(recording: Boolean, onClick: () -> Unit) {
     ) {
         Icon(
             imageVector = if (recording) Icons.Default.Stop else Icons.Default.Mic,
-            contentDescription = if (recording) "Stop recording" else "Start recording",
+            contentDescription = if (recording) stringResource(R.string.desc_stop_recording) else stringResource(R.string.desc_start_recording),
             tint = if (recording) colors.actionKeyTextColor else colors.accentKeyTextColor,
             modifier = Modifier.size(32.dp)
         )

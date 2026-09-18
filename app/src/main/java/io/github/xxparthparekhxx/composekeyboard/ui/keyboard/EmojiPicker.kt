@@ -1,4 +1,4 @@
-package com.example.composekeyboard.ui.keyboard
+package io.github.xxparthparekhxx.composekeyboard.ui.keyboard
 
 import android.view.HapticFeedbackConstants
 import androidx.compose.animation.AnimatedVisibility
@@ -51,16 +51,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.composekeyboard.data.EmojiCatalog
-import com.example.composekeyboard.data.EmojiCategory
-import com.example.composekeyboard.data.RecentEmojiManager
-import com.example.composekeyboard.theme.LocalKeyboardColors
+import io.github.xxparthparekhxx.composekeyboard.R
+import io.github.xxparthparekhxx.composekeyboard.data.EmojiCatalog
+import io.github.xxparthparekhxx.composekeyboard.data.EmojiCategory
+import io.github.xxparthparekhxx.composekeyboard.data.RecentEmojiManager
+import io.github.xxparthparekhxx.composekeyboard.theme.LocalKeyboardColors
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -89,10 +91,11 @@ fun EmojiPicker(
     // Initialize session recents stably so tapping emojis to insert them doesn't jerk the active scroll grid
     val sessionRecents = remember { recentManager.recentEmojis.value }
 
-    val allCategories = remember(sessionRecents, catalog) {
+    val recentLabel = stringResource(R.string.desc_recent)
+    val allCategories = remember(sessionRecents, catalog, recentLabel) {
         listOf(
             EmojiCategory(
-                name = "Recent",
+                name = recentLabel,
                 icon = "🕒",
                 emojis = sessionRecents
             )
@@ -178,7 +181,7 @@ fun EmojiPicker(
                 Box(modifier = Modifier.weight(1f)) {
                     if (searchQuery.isEmpty()) {
                         Text(
-                            text = "Type to search emojis...",
+                            text = stringResource(R.string.emoji_search_hint),
                             color = colors.keyTextColor.copy(alpha = 0.45f),
                             fontSize = 13.sp
                         )
@@ -203,7 +206,7 @@ fun EmojiPicker(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Close,
-                            contentDescription = "Clear",
+                            contentDescription = stringResource(R.string.desc_clear_search),
                             tint = colors.accentKeyTextColor,
                             modifier = Modifier.size(16.dp)
                         )
@@ -225,7 +228,7 @@ fun EmojiPicker(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "Cancel",
+                        text = stringResource(R.string.action_cancel),
                         color = colors.accentKeyTextColor,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold
@@ -264,7 +267,7 @@ fun EmojiPicker(
                         if (index == 0) {
                             Icon(
                                 imageVector = Icons.Default.History,
-                                contentDescription = "Recent",
+                                contentDescription = stringResource(R.string.desc_recent),
                                 tint = if (isSelected) colors.actionKeyTextColor else colors.accentKeyTextColor,
                                 modifier = Modifier.size(20.dp)
                             )
@@ -289,7 +292,7 @@ fun EmojiPicker(
                     .padding(12.dp)
             ) {
                 Text(
-                    text = "Popular Searches",
+                    text = stringResource(R.string.emoji_popular),
                     color = colors.accentKeyTextColor,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold
@@ -328,7 +331,7 @@ fun EmojiPicker(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "No emojis found for \"$searchQuery\"",
+                        text = stringResource(R.string.emoji_no_results, searchQuery),
                         color = colors.accentKeyTextColor,
                         fontSize = 15.sp
                     )
@@ -401,7 +404,7 @@ fun EmojiPicker(
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = "Recently Used",
+                                    text = stringResource(R.string.emoji_recently_used),
                                     color = colors.accentKeyTextColor,
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.Bold
@@ -486,7 +489,7 @@ fun EmojiPicker(
             ) {
                 Icon(
                     imageVector = Icons.Default.Search,
-                    contentDescription = "Search Emojis",
+                    contentDescription = stringResource(R.string.desc_search_emojis),
                     tint = if (isSearching) colors.actionKeyTextColor else colors.accentKeyTextColor,
                     modifier = Modifier.size(20.dp)
                 )
@@ -515,7 +518,7 @@ fun EmojiPicker(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "Space",
+                    text = stringResource(R.string.key_space),
                     color = colors.keyTextColor.copy(alpha = 0.85f),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium
@@ -556,7 +559,7 @@ fun EmojiPicker(
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.Backspace,
-                    contentDescription = "Delete",
+                    contentDescription = stringResource(R.string.desc_delete),
                     tint = colors.accentKeyTextColor,
                     modifier = Modifier.size(21.dp)
                 )

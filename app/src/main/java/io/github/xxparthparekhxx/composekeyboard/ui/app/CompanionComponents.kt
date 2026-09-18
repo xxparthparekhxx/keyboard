@@ -1,4 +1,4 @@
-package com.example.composekeyboard.ui.app
+package io.github.xxparthparekhxx.composekeyboard.ui.app
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -40,9 +40,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.composekeyboard.data.CustomThemeColors
-import com.example.composekeyboard.data.KeyboardThemeType
-import com.example.composekeyboard.theme.getKeyboardColors
+import io.github.xxparthparekhxx.composekeyboard.data.CustomThemeColors
+import io.github.xxparthparekhxx.composekeyboard.data.KeyboardThemeType
+import io.github.xxparthparekhxx.composekeyboard.theme.getKeyboardColors
 import kotlin.math.abs
 import kotlin.math.round
 

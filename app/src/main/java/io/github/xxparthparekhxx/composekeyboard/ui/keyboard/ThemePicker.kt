@@ -1,4 +1,4 @@
-package com.example.composekeyboard.ui.keyboard
+package io.github.xxparthparekhxx.composekeyboard.ui.keyboard
 
 import android.view.HapticFeedbackConstants
 import androidx.compose.foundation.background
@@ -31,14 +31,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.composekeyboard.data.CustomThemeColors
-import com.example.composekeyboard.data.KeyboardThemeType
-import com.example.composekeyboard.theme.LocalKeyboardColors
-import com.example.composekeyboard.theme.getKeyboardColors
+import io.github.xxparthparekhxx.composekeyboard.R
+import io.github.xxparthparekhxx.composekeyboard.data.CustomThemeColors
+import io.github.xxparthparekhxx.composekeyboard.data.KeyboardThemeType
+import io.github.xxparthparekhxx.composekeyboard.theme.LocalKeyboardColors
+import io.github.xxparthparekhxx.composekeyboard.theme.getKeyboardColors
 
 @Composable
 fun ThemePicker(
@@ -82,7 +84,7 @@ fun ThemePicker(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Select Theme",
+                    text = stringResource(R.string.theme_select),
                     color = colors.keyTextColor,
                     fontWeight = FontWeight.Bold,
                     fontSize = 15.sp
@@ -102,7 +104,7 @@ fun ThemePicker(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "Done",
+                    text = stringResource(R.string.action_done),
                     color = colors.actionKeyTextColor,
                     fontWeight = FontWeight.Bold,
                     fontSize = 13.sp
@@ -185,7 +187,7 @@ fun ThemePicker(
                     if (isSelected) {
                         Icon(
                             imageVector = Icons.Default.Check,
-                            contentDescription = "Selected",
+                            contentDescription = stringResource(R.string.theme_selected),
                             tint = colors.actionKeyBackground,
                             modifier = Modifier.size(18.dp)
                         )

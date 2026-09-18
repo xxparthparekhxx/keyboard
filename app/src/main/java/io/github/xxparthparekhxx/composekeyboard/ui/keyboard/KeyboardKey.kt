@@ -1,4 +1,4 @@
-package com.example.composekeyboard.ui.keyboard
+package io.github.xxparthparekhxx.composekeyboard.ui.keyboard
 
 import android.view.HapticFeedbackConstants
 import android.view.inputmethod.EditorInfo
@@ -44,6 +44,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.semantics.contentDescription
@@ -55,10 +56,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
-import com.example.composekeyboard.data.KeyModel
-import com.example.composekeyboard.data.KeyType
-import com.example.composekeyboard.data.KeyboardMode
-import com.example.composekeyboard.theme.LocalKeyboardColors
+import io.github.xxparthparekhxx.composekeyboard.R
+import io.github.xxparthparekhxx.composekeyboard.data.KeyModel
+import io.github.xxparthparekhxx.composekeyboard.data.KeyType
+import io.github.xxparthparekhxx.composekeyboard.data.KeyboardMode
+import io.github.xxparthparekhxx.composekeyboard.theme.LocalKeyboardColors
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -327,7 +329,7 @@ fun KeyboardKey(
                 }
                 Icon(
                     imageVector = icon,
-                    contentDescription = "Shift",
+                    contentDescription = stringResource(R.string.desc_shift),
                     tint = fg,
                     modifier = Modifier.size(iconSize)
                 )
@@ -335,7 +337,7 @@ fun KeyboardKey(
             is KeyType.Backspace -> {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.Backspace,
-                    contentDescription = "Backspace",
+                    contentDescription = stringResource(R.string.desc_backspace),
                     tint = fg,
                     modifier = Modifier.size(iconSize)
                 )
@@ -352,14 +354,14 @@ fun KeyboardKey(
                 }
                 Icon(
                     imageVector = icon,
-                    contentDescription = "Action",
+                    contentDescription = stringResource(R.string.desc_enter_key),
                     tint = fg,
                     modifier = Modifier.size(iconSize)
                 )
             }
             is KeyType.Space -> {
                 Text(
-                    text = "Space",
+                    text = stringResource(R.string.key_space),
                     color = colors.spaceBarText,
                     fontSize = (14.5 * fontScale).sp,
                     fontWeight = FontWeight.Medium
@@ -400,7 +402,7 @@ fun KeyboardKey(
             is KeyType.EmojiToggle -> {
                 Icon(
                     imageVector = Icons.Default.SentimentSatisfiedAlt,
-                    contentDescription = "Emoji",
+                    contentDescription = stringResource(R.string.desc_emoji),
                     tint = fg,
                     modifier = Modifier.size(iconSize)
                 )

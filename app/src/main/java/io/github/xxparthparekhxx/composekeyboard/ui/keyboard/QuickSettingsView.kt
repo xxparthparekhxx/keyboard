@@ -1,4 +1,4 @@
-package com.example.composekeyboard.ui.keyboard
+package io.github.xxparthparekhxx.composekeyboard.ui.keyboard
 
 import android.view.HapticFeedbackConstants
 import androidx.compose.foundation.background
@@ -40,12 +40,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.composekeyboard.data.KeyboardSettings
-import com.example.composekeyboard.theme.LocalKeyboardColors
+import io.github.xxparthparekhxx.composekeyboard.R
+import io.github.xxparthparekhxx.composekeyboard.data.KeyboardSettings
+import io.github.xxparthparekhxx.composekeyboard.theme.LocalKeyboardColors
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -98,7 +100,7 @@ fun QuickSettingsView(
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = "Quick Settings",
+                    text = stringResource(R.string.quick_settings),
                     color = colors.keyTextColor,
                     fontWeight = FontWeight.Bold,
                     fontSize = 14.sp
@@ -118,7 +120,7 @@ fun QuickSettingsView(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "Done",
+                    text = stringResource(R.string.action_done),
                     color = colors.actionKeyTextColor,
                     fontWeight = FontWeight.Bold,
                     fontSize = 12.sp
@@ -137,7 +139,7 @@ fun QuickSettingsView(
             // Keyboard Height adjustment
             QuickSettingScaleRow(
                 icon = Icons.Default.Height,
-                title = "Keyboard Height",
+                title = stringResource(R.string.qs_height),
                 currentValue = settings.heightMultiplier,
                 valueRange = 0.75f..1.35f,
                 presets = listOf(
@@ -154,7 +156,7 @@ fun QuickSettingsView(
             // Key Font Size adjustment
             QuickSettingScaleRow(
                 icon = Icons.Default.TextFields,
-                title = "Key Font Size",
+                title = stringResource(R.string.qs_font_size),
                 currentValue = settings.fontScale,
                 valueRange = 0.80f..1.40f,
                 presets = listOf(
@@ -171,7 +173,7 @@ fun QuickSettingsView(
             // Emoji Display Size adjustment
             QuickSettingScaleRow(
                 icon = Icons.Default.Check,
-                title = "Emoji Display Size",
+                title = stringResource(R.string.qs_emoji_size),
                 currentValue = settings.emojiScale,
                 valueRange = 0.80f..1.40f,
                 presets = listOf(
@@ -188,8 +190,8 @@ fun QuickSettingsView(
             // Glide (swipe) typing toggle
             QuickSettingToggleRow(
                 icon = Icons.Default.Gesture,
-                title = "Glide Typing",
-                description = "Swipe across letters with neural decoder",
+                title = stringResource(R.string.qs_glide),
+                description = stringResource(R.string.qs_glide_desc),
                 checked = settings.swipeTypingEnabled,
                 onCheckedChange = {
                     triggerHaptic()
@@ -200,8 +202,8 @@ fun QuickSettingsView(
             // Number Row Toggle
             QuickSettingToggleRow(
                 icon = Icons.Default.Keyboard,
-                title = "Number Row",
-                description = "Show dedicated 1-0 numbers above letters",
+                title = stringResource(R.string.qs_number_row),
+                description = stringResource(R.string.qs_number_row_desc),
                 checked = settings.showNumberRow,
                 onCheckedChange = {
                     triggerHaptic()
@@ -212,8 +214,8 @@ fun QuickSettingsView(
             // Haptic Feedback Toggle
             QuickSettingToggleRow(
                 icon = Icons.Default.Vibration,
-                title = "Haptic Vibration",
-                description = "Vibrate lightly on keypress & swipe completion",
+                title = stringResource(R.string.qs_haptic),
+                description = stringResource(R.string.qs_haptic_desc),
                 checked = settings.hapticFeedback,
                 onCheckedChange = {
                     triggerHaptic()
@@ -224,8 +226,8 @@ fun QuickSettingsView(
             // Sound Toggle
             QuickSettingToggleRow(
                 icon = Icons.AutoMirrored.Filled.VolumeUp,
-                title = "Key Sounds",
-                description = "Play audio click when pressing keys",
+                title = stringResource(R.string.qs_sounds),
+                description = stringResource(R.string.qs_sounds_desc),
                 checked = settings.soundFeedback,
                 onCheckedChange = {
                     triggerHaptic()
@@ -236,8 +238,8 @@ fun QuickSettingsView(
             // Auto-Caps Toggle
             QuickSettingToggleRow(
                 icon = Icons.Default.TextFields,
-                title = "Auto-Capitalize",
-                description = "Capitalize first letter of new sentences",
+                title = stringResource(R.string.qs_autocaps),
+                description = stringResource(R.string.qs_autocaps_desc),
                 checked = settings.autoCapitalization,
                 onCheckedChange = {
                     triggerHaptic()
@@ -268,7 +270,7 @@ fun QuickSettingsView(
                     )
                     Spacer(modifier = Modifier.width(10.dp))
                     Text(
-                        text = "Open Full Settings App",
+                        text = stringResource(R.string.qs_open_full),
                         color = colors.actionKeyBackground,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 13.sp

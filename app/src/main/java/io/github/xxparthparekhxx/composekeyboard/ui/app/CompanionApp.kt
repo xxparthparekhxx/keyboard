@@ -1,4 +1,4 @@
-package com.example.composekeyboard.ui.app
+package io.github.xxparthparekhxx.composekeyboard.ui.app
 
 import android.Manifest
 import android.content.Context
@@ -48,24 +48,26 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.composekeyboard.data.ClipboardItem
-import com.example.composekeyboard.data.CustomThemeColors
-import com.example.composekeyboard.data.KeyboardPreferences
-import com.example.composekeyboard.data.KeyboardSettings
+import io.github.xxparthparekhxx.composekeyboard.R
+import io.github.xxparthparekhxx.composekeyboard.data.ClipboardItem
+import io.github.xxparthparekhxx.composekeyboard.data.CustomThemeColors
+import io.github.xxparthparekhxx.composekeyboard.data.KeyboardPreferences
+import io.github.xxparthparekhxx.composekeyboard.data.KeyboardSettings
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private enum class CompanionDestination(
-    val label: String,
-    val title: String,
+    val labelRes: Int,
+    val titleRes: Int,
     val icon: ImageVector
 ) {
-    HOME("Home", "Compose Keyboard", Icons.Default.Home),
-    THEMES("Themes", "Themes", Icons.Default.Palette),
-    CLIPBOARD("Clipboard", "Clipboard", Icons.Default.ContentPaste),
-    SETTINGS("Settings", "Settings", Icons.Default.Settings)
+    HOME(R.string.nav_home, R.string.title_home, Icons.Default.Home),
+    THEMES(R.string.nav_themes, R.string.title_themes, Icons.Default.Palette),
+    CLIPBOARD(R.string.nav_clipboard, R.string.title_clipboard, Icons.Default.ContentPaste),
+    SETTINGS(R.string.nav_settings, R.string.title_settings, Icons.Default.Settings)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -86,6 +88,7 @@ fun CompanionApp(
     onVoiceSetupConsumed: () -> Unit = {}
 ) {
     val context = LocalContext.current
+    val copiedMessage = stringResource(R.string.copied_to_clipboard)
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     var destination by rememberSaveable { mutableStateOf(CompanionDestination.HOME.name) }
@@ -125,7 +128,7 @@ fun CompanionApp(
                             Spacer(modifier = Modifier.width(12.dp))
                         }
                         Text(
-                            text = current.title,
+                            text = stringResource(current.titleRes),
                             fontWeight = FontWeight.Bold
                         )
                     }
@@ -152,13 +155,13 @@ fun CompanionApp(
                                         }
                                     }
                                 ) {
-                                    Icon(dest.icon, contentDescription = dest.label)
+                                    Icon(dest.icon, contentDescription = stringResource(dest.labelRes))
                                 }
                             } else {
-                                Icon(dest.icon, contentDescription = dest.label)
+                                Icon(dest.icon, contentDescription = stringResource(dest.labelRes))
                             }
                         },
-                        label = { Text(dest.label) }
+                        label = { Text(stringResource(dest.labelRes)) }
                     )
                 }
             }
@@ -206,7 +209,7 @@ fun CompanionApp(
                     onCopyClip = { text ->
                         onCopyClip(text)
                         scope.launch {
-                            snackbarHostState.showSnackbar("Copied to clipboard")
+                            snackbarHostState.showSnackbar(copiedMessage)
                         }
                     }
                 )
