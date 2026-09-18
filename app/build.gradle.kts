@@ -7,26 +7,27 @@ plugins {
 }
 
 android {
-    namespace = "com.example.composekeyboard"
+    namespace = "io.github.xxparthparekhxx.composekeyboard"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.example.composekeyboard"
+        applicationId = "io.github.xxparthparekhxx.composekeyboard"
         minSdk = 24
         targetSdk = 35
         versionCode = 3
         versionName = "1.2.0"
+
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         vectorDrawables {
             useSupportLibrary = true
         }
     }
 
-    testOptions {
-        unitTests {
-            isReturnDefaultValues = true
-        }
-    }
+    // NOTE: unitTests.isReturnDefaultValues used to be true here. It was
+    // removed deliberately: silently returning defaults for un-mocked
+    // framework calls hides real failures in future tests. Tests must provide
+    // fakes (see SwipeDictionaryTest.DummyContext) instead.
 
     val keystorePropsFile = rootProject.file("keystore.properties").takeIf { it.exists() }
         ?: rootProject.file("app/keystore.properties").takeIf { it.exists() }
@@ -39,25 +40,78 @@ android {
         }
     }
 
-    signingConfigs {
-        if (keystorePropsFile != null) {
-            create("release") {
-                val storeFilePath = keystoreProps.getProperty("storeFile")
-                val resolvedStoreFile = if (storeFilePath != null) {
-                    val directFile = file(storeFilePath)
-                    if (directFile.exists()) directFile else rootProject.file(storeFilePath)
-                } else null
+    // Store path is resolved once, up front, so the guard below can tell the
+    // difference between "no keystore configured" and "configured but broken".
+    val storeFilePath: String? = keystoreProps.getProperty("storeFile")
+    val resolvedStoreFile: File? = storeFilePath?.let { path ->
+        val direct = file(path)
+        if (direct.exists()) direct else rootProject.file(path).takeIf { it.exists() }
+    }
+    val missingCredentials: List<String> =
+        listOf("storePassword", "keyAlias", "keyPassword")
+            .filter { keystoreProps.getProperty(it).isNullOrBlank() }
 
-                if (resolvedStoreFile != null && resolvedStoreFile.exists()) {
-                    storeFile = resolvedStoreFile
-                    storePassword = keystoreProps.getProperty("storePassword")
-                    keyAlias = keystoreProps.getProperty("keyAlias")
-                    keyPassword = keystoreProps.getProperty("keyPassword")
-                    enableV1Signing = true
-                    enableV2Signing = true
-                    enableV3Signing = true
-                }
+    signingConfigs {
+        if (resolvedStoreFile != null && missingCredentials.isEmpty()) {
+            create("release") {
+                storeFile = resolvedStoreFile
+                storePassword = keystoreProps.getProperty("storePassword")
+                keyAlias = keystoreProps.getProperty("keyAlias")
+                keyPassword = keystoreProps.getProperty("keyPassword")
+                enableV1Signing = true
+                enableV2Signing = true
+                enableV3Signing = true
             }
+        }
+    }
+
+    // ---- Release signing guard --------------------------------------------
+    //
+    // assembleRelease used to print BUILD SUCCESSFUL while emitting an UNSIGNED
+    // APK whenever keystore.properties was missing -- which is exactly how an
+    // unsigned release once got as far as a passing verification run. A release
+    // that cannot be signed is a failed build, not a quiet fallback.
+    //
+    // Escape hatch for deliberately unsigned local builds:
+    //     ./gradlew assembleRelease -PallowUnsignedRelease
+    // It only covers a *missing* keystore.properties. A file that is present but
+    // broken always fails, because that is a misconfiguration and never intent.
+    val allowUnsignedRelease = providers.gradleProperty("allowUnsignedRelease").isPresent
+    val releaseTaskPattern = Regex("^(assemble|bundle|package).*Release.*")
+
+    gradle.taskGraph.whenReady {
+        if (allTasks.none { releaseTaskPattern.matches(it.name) }) return@whenReady
+
+        val hint = "Recover it from your password manager, or mint a new one with " +
+            "keytool -genkeypair -keystore app/release.keystore -storetype PKCS12 " +
+            "-alias composekeyboard -keyalg RSA -keysize 4096 -validity 10000"
+
+        when {
+            keystorePropsFile == null && allowUnsignedRelease ->
+                logger.warn(
+                    "WARNING: no keystore.properties; building an UNSIGNED release " +
+                        "because -PallowUnsignedRelease was passed. Do not distribute this APK."
+                )
+
+            keystorePropsFile == null -> throw GradleException(
+                "Release build requested but no keystore.properties was found at " +
+                    "${rootProject.file("keystore.properties")} (or app/keystore.properties).\n" +
+                    "$hint\nOr pass -PallowUnsignedRelease to build an unsigned APK on purpose."
+            )
+
+            storeFilePath.isNullOrBlank() -> throw GradleException(
+                "${keystorePropsFile.path} has no storeFile= entry. See keystore.properties.example."
+            )
+
+            resolvedStoreFile == null -> throw GradleException(
+                "${keystorePropsFile.path} points at storeFile=$storeFilePath, which does not " +
+                    "exist (looked in ${project.projectDir} and ${rootProject.projectDir}).\n$hint"
+            )
+
+            missingCredentials.isNotEmpty() -> throw GradleException(
+                "${keystorePropsFile.path} is missing or has blank: " +
+                    "${missingCredentials.joinToString(", ")}. See keystore.properties.example."
+            )
         }
     }
 
@@ -73,29 +127,29 @@ android {
         }
     }
 
-    // One APK per ABI plus a universal fallback. The app itself is pure Kotlin,
-    // but splitting keeps installs lean once native libs land (and lets stores
-    // deliver only what a device can run). Per-ABI version code overrides are no
-    // longer supported by AGP 8's variant API; Play multi-APK delivery handles
-    // ordering server-side.
+    // Single universal APK.
+    //
+    // ABI splits were removed deliberately. whisper-android ships arm64-v8a
+    // only, so armeabi-v7a/x86/x86_64 splits came out byte-identical
+    // (~4.3 MB, zero native code) — three redundant artifacts for zero benefit.
+    // Worse, AGP 8's variant API offers no per-ABI versionCode override, so
+    // every split shipped versionCode=3 and Play rejects multi-APK releases
+    // with duplicate version codes ("Play handles ordering server-side" is
+    // not true; distinct versionCodes are a hard requirement). If splits ever
+    // return they need distinct versionCodes via the androidComponents
+    // versionCode-override API, plus a universal fallback with the lowest code.
     splits {
         abi {
-            isEnable = true
-            reset()
-            include("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
+            isEnable = false
             isUniversalApk = true
         }
     }
 
     applicationVariants.all {
+        val variantName = name
         outputs.all {
             val output = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
-            val abi = output.getFilter(com.android.build.api.variant.FilterConfiguration.FilterType.ABI.name)
-            if (abi != null) {
-                output.outputFileName = "composekeyboard-${name}-${abi}.apk"
-            } else {
-                output.outputFileName = "composekeyboard-${name}-universal.apk"
-            }
+            output.outputFileName = "composekeyboard-$variantName.apk"
         }
     }
 
@@ -135,6 +189,13 @@ dependencies {
     implementation(libs.whisper.android)
 
     debugImplementation(libs.androidx.compose.ui.tooling)
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
 
     testImplementation(libs.junit)
+    testImplementation(libs.robolectric)
+
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.espresso.core)
 }
