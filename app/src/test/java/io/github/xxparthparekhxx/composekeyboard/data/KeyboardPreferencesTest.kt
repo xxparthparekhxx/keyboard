@@ -1,4 +1,4 @@
-package com.example.composekeyboard.data
+package io.github.xxparthparekhxx.composekeyboard.data
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull

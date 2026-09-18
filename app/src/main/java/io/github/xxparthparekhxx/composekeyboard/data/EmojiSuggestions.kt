@@ -1,4 +1,4 @@
-package com.example.composekeyboard.data
+package io.github.xxparthparekhxx.composekeyboard.data
 
 /**
  * Maps common English words to the emojis people usually mean by them, so the

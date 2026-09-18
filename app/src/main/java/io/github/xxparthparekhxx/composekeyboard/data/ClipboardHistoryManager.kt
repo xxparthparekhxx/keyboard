@@ -1,4 +1,4 @@
-package com.example.composekeyboard.data
+package io.github.xxparthparekhxx.composekeyboard.data
 
 import android.content.ClipData
 import android.content.ClipDescription

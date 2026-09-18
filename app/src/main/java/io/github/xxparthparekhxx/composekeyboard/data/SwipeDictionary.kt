@@ -1,4 +1,4 @@
-package com.example.composekeyboard.data
+package io.github.xxparthparekhxx.composekeyboard.data
 
 import android.content.Context
 import android.util.Log
@@ -123,7 +123,7 @@ class SwipeDictionary private constructor(private val appContext: Context) {
      *
      * Returns the word's new score when it was already part of the lexicon (so
      * a caller can push that bump into the neural decoder's beam immediately,
-     * via [com.example.composekeyboard.input.swipe.nn.SwipeNeuralDecoder.bumpScore],
+     * via [io.github.xxparthparekhxx.composekeyboard.input.swipe.nn.SwipeNeuralDecoder.bumpScore],
      * instead of waiting for the next full trie rebuild), or null when the word
      * is brand new to the lexicon (or not yet promoted into it) — that case is
      * only reflected once [lexiconVersion] moves and the trie is rebuilt.

@@ -1,4 +1,4 @@
-package com.example.composekeyboard.data
+package io.github.xxparthparekhxx.composekeyboard.data
 
 import android.content.Context
 import android.content.SharedPreferences

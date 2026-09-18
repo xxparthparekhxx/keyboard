@@ -1,4 +1,4 @@
-package com.example.composekeyboard.data
+package io.github.xxparthparekhxx.composekeyboard.data
 
 /**
  * Backspace helpers that delete one user-perceived character, not one UTF-16
