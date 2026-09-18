@@ -77,10 +77,19 @@ android {
     // It only covers a *missing* keystore.properties. A file that is present but
     // broken always fails, because that is a misconfiguration and never intent.
     val allowUnsignedRelease = providers.gradleProperty("allowUnsignedRelease").isPresent
+    // NOTE: this intentionally inspects startParameter.taskNames (what was typed
+    // on the command line), NOT taskGraph.allTasks. lintVitalRelease and similar
+    // analysis tasks pull packageRelease/bundle tasks into the execution graph
+    // as dependencies, so gating on the graph fails `testDebugUnitTest
+    // lintVitalRelease` on machines with no keystore (e.g. the CI unit job).
+    // Only an explicit request to package a release APK counts.
     val releaseTaskPattern = Regex("^(assemble|bundle|package).*Release.*")
 
     gradle.taskGraph.whenReady {
-        if (allTasks.none { releaseTaskPattern.matches(it.name) }) return@whenReady
+        val requestedReleaseTask = gradle.startParameter.taskNames.any { name ->
+            releaseTaskPattern.matches(name.substringAfterLast(":"))
+        }
+        if (!requestedReleaseTask) return@whenReady
 
         val hint = "Recover it from your password manager, or mint a new one with " +
             "keytool -genkeypair -keystore app/release.keystore -storetype PKCS12 " +
