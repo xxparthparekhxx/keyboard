@@ -71,6 +71,10 @@ import os
 print(f"wrote {A.out}: {len(T)} tensors, {total:,} floats, {os.path.getsize(A.out)/1e6:.2f} MB")
 
 # ---- reference vectors so the Kotlin port can be checked against torch ----
+# runs/reference.npz is the full torch dump (gitignored). The small flat
+# fixture below is checked in at app/src/test/resources/swipe_reference.bin
+# and consumed by SwipeNetParityTest — re-exporting the weights must also
+# refresh it, otherwise the parity test guards a stale model.
 torch.manual_seed(0)
 xy = torch.rand(1, 2, 64)
 keys = torch.rand(1, 26, 2)
@@ -82,3 +86,19 @@ np.savez("runs/reference.npz", xy=xy.numpy(), keys=keys.numpy(),
 print("reference vectors -> runs/reference.npz")
 print(f"  logp[0,0,:4] = {lp[0,0,:4].tolist()}")
 print(f"  N_DCT={N_DCT}")
+
+def _write_parity_fixture(path):
+    import pathlib
+    out = pathlib.Path(path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with open(out, "wb") as f:
+        f.write(b"SWRF")
+        f.write(struct.pack("<i", 1))
+        for arr in [np.ascontiguousarray(a.numpy().astype(np.float32))
+                    for a in (xy, keys, feats, lp, gate)]:
+            flat = arr.ravel()
+            f.write(struct.pack("<i", flat.size))
+            f.write(flat.tobytes())
+    print(f"parity fixture -> {out} ({out.stat().st_size} bytes)")
+
+_write_parity_fixture("../app/src/test/resources/swipe_reference.bin")
