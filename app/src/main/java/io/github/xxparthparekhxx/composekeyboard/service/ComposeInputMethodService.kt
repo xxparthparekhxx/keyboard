@@ -1,11 +1,10 @@
-package com.example.composekeyboard.service
+package io.github.xxparthparekhxx.composekeyboard.service
 
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.inputmethodservice.InputMethodService
 import android.media.AudioManager
-import android.os.Build
 import android.text.InputType
 import android.util.Log
 import android.view.KeyEvent
@@ -30,17 +29,17 @@ import androidx.savedstate.SavedStateRegistry
 import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
-import com.example.composekeyboard.MainActivity
-import com.example.composekeyboard.data.Capitalization
-import com.example.composekeyboard.data.ClipboardHistoryManager
-import com.example.composekeyboard.data.FieldInputKind
-import com.example.composekeyboard.data.GraphemeClusters
-import com.example.composekeyboard.data.KeyboardPreferences
-import com.example.composekeyboard.data.SwipeDictionary
-import com.example.composekeyboard.input.swipe.SwipeConstants
-import com.example.composekeyboard.input.swipe.nn.SwipeNeuralDecoder
-import com.example.composekeyboard.input.voice.VoiceInputController
-import com.example.composekeyboard.ui.keyboard.KeyboardScreen
+import io.github.xxparthparekhxx.composekeyboard.MainActivity
+import io.github.xxparthparekhxx.composekeyboard.data.Capitalization
+import io.github.xxparthparekhxx.composekeyboard.data.ClipboardHistoryManager
+import io.github.xxparthparekhxx.composekeyboard.data.FieldInputKind
+import io.github.xxparthparekhxx.composekeyboard.data.GraphemeClusters
+import io.github.xxparthparekhxx.composekeyboard.data.KeyboardPreferences
+import io.github.xxparthparekhxx.composekeyboard.data.SwipeDictionary
+import io.github.xxparthparekhxx.composekeyboard.input.swipe.SwipeConstants
+import io.github.xxparthparekhxx.composekeyboard.input.swipe.nn.SwipeNeuralDecoder
+import io.github.xxparthparekhxx.composekeyboard.input.voice.VoiceInputController
+import io.github.xxparthparekhxx.composekeyboard.ui.keyboard.KeyboardScreen
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -309,6 +308,14 @@ class ComposeInputMethodService : InputMethodService(),
         saveLearnedWordsNow()
     }
 
+    /**
+     * Never use fullscreen extract mode. A Compose IME has no extract view, so
+     * in landscape the system would otherwise replace the keyboard with a
+     * blank fullscreen editor — a well-known breakage. Rendering the keyboard
+     * itself in the (shorter) landscape window is always the better trade.
+     */
+    override fun onEvaluateFullscreenMode(): Boolean = false
+
     override fun onUpdateSelection(
         oldSelStart: Int,
         oldSelEnd: Int,
@@ -385,8 +392,7 @@ class ComposeInputMethodService : InputMethodService(),
         // The user overruled the decoder, which is the strongest signal we get
         // about what they meant. Weight it straight away if the field allows learning.
         if (shouldLearnFromField(currentInputEditorInfo)) {
-            swipeDictionary.learn(word)
-            scheduleLearnedWordSave()
+            learnWord(word)
         }
         refreshCursorCaps()
     }
@@ -408,8 +414,7 @@ class ComposeInputMethodService : InputMethodService(),
         selfEditsPending++
 
         if (shouldLearnFromField(currentInputEditorInfo)) {
-            swipeDictionary.learn(word)
-            scheduleLearnedWordSave()
+            learnWord(word)
         }
         typedWord.setLength(0)
         refreshCursorCaps()
@@ -509,7 +514,29 @@ class ComposeInputMethodService : InputMethodService(),
         typedWord.setLength(0)
         if (!shouldLearnFromField(currentInputEditorInfo)) return
         if (SwipeDictionary.normalize(word) == null) return
-        swipeDictionary.learn(word)
+        learnWord(word)
+    }
+
+    /**
+     * Offers a word to the dictionary and pushes an in-lexicon score bump
+     * straight into the live beam.
+     *
+     * [SwipeDictionary.learn] returns the word's new score when it was already
+     * part of the lexicon; forwarding that to
+     * [SwipeNeuralDecoder.bumpScore] is an O(1) map write on the calling
+     * thread, so a reused word wins its ranking boost immediately instead of
+     * waiting for the next genuinely-new word to trigger a ~70 MB trie
+     * rebuild. A null return means the word is new (or not yet promoted) and
+     * only the debounced [updateBeam] path can reflect it.
+     */
+    private fun learnWord(rawWord: String) {
+        val newScore = swipeDictionary.learn(rawWord)
+        if (newScore != null) {
+            val normalized = SwipeDictionary.normalize(rawWord)
+            if (normalized != null) {
+                neuralDecoder.value?.bumpScore(normalized, newScore)
+            }
+        }
         scheduleLearnedWordSave()
     }
 
@@ -574,11 +601,7 @@ class ComposeInputMethodService : InputMethodService(),
                     putExtra(MainActivity.EXTRA_REQUEST_MIC, true)
                 }
             }
-            val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-            } else {
-                PendingIntent.FLAG_UPDATE_CURRENT
-            }
+            val flags = PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
             val pendingIntent = PendingIntent.getActivity(
                 this,
                 if (requestMic) 1 else 0,

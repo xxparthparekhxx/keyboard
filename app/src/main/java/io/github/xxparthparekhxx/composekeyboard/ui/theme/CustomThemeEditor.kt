@@ -1,4 +1,4 @@
-package com.example.composekeyboard.ui.theme
+package io.github.xxparthparekhxx.composekeyboard.ui.theme
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -37,17 +37,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.composekeyboard.data.CustomThemeColors
+import io.github.xxparthparekhxx.composekeyboard.R
+import io.github.xxparthparekhxx.composekeyboard.data.CustomThemeColors
 
-enum class ColorSlot(val title: String, val description: String) {
-    BACKGROUND("Keyboard Background", "Main surface backdrop behind all keys"),
-    KEY_BG("Key Background", "Standard character key button color"),
-    KEY_TEXT("Letter / Text Color", "Character and symbol font color"),
-    ACCENT_BG("Accent Keys Background", "Shift, Backspace, ?123 button color"),
-    ACTION_BG("Action Key (Enter / Send)", "Primary action button color")
+enum class ColorSlot(val titleRes: Int, val descriptionRes: Int) {
+    BACKGROUND(R.string.slot_background, R.string.slot_background_desc),
+    KEY_BG(R.string.slot_key_bg, R.string.slot_key_bg_desc),
+    KEY_TEXT(R.string.slot_key_text, R.string.slot_key_text_desc),
+    ACCENT_BG(R.string.slot_accent_bg, R.string.slot_accent_bg_desc),
+    ACTION_BG(R.string.slot_action_bg, R.string.slot_action_bg_desc)
 }
 
 @Composable
@@ -95,7 +97,7 @@ fun CustomThemeEditorCard(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Custom Theme Creator",
+                        text = stringResource(R.string.custom_theme_title),
                         fontWeight = FontWeight.Bold,
                         fontSize = 16.sp
                     )
@@ -117,13 +119,13 @@ fun CustomThemeEditorCard(
                 ) {
                     Icon(
                         imageVector = Icons.Default.RestartAlt,
-                        contentDescription = "Reset",
+                        contentDescription = stringResource(R.string.desc_reset),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(14.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "Reset",
+                        text = stringResource(R.string.action_reset),
                         fontSize = 11.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -236,7 +238,7 @@ fun CustomThemeEditorCard(
                                 .background(keyBg),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(text = "Space", color = keyText.copy(alpha = 0.5f), fontSize = 9.sp)
+                            Text(text = stringResource(R.string.key_space), color = keyText.copy(alpha = 0.5f), fontSize = 9.sp)
                         }
                         Box(
                             modifier = Modifier
@@ -297,7 +299,7 @@ fun CustomThemeEditorCard(
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(text = "Save & Apply Custom Theme", fontWeight = FontWeight.Bold)
+                Text(text = stringResource(R.string.custom_theme_save), fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -313,7 +315,7 @@ fun CustomThemeEditorCard(
         }
 
         ColorPickerDialog(
-            title = "Choose ${slot.title}",
+            title = stringResource(R.string.slot_title, stringResource(slot.titleRes)),
             initialColor = currentSlotColor,
             onColorSelected = { selected ->
                 when (slot) {
@@ -350,13 +352,13 @@ private fun ColorSlotItem(
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = slot.title,
+                text = stringResource(slot.titleRes),
                 fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface
             )
             Text(
-                text = slot.description,
+                text = stringResource(slot.descriptionRes),
                 fontSize = 11.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

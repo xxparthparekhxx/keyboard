@@ -1,4 +1,4 @@
-package com.example.composekeyboard.input.voice
+package io.github.xxparthparekhxx.composekeyboard.input.voice
 
 import java.io.File
 import java.nio.ByteBuffer

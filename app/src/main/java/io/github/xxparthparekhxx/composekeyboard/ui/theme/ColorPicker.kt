@@ -1,4 +1,4 @@
-package com.example.composekeyboard.ui.theme
+package io.github.xxparthparekhxx.composekeyboard.ui.theme
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -41,9 +41,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import io.github.xxparthparekhxx.composekeyboard.R
 
 val PresetColorSwatches = listOf(
     Color(0xFF181824), Color(0xFF242436), Color(0xFF000000), Color(0xFF1E1E2E),
@@ -137,7 +139,7 @@ fun ColorPickerDialog(
 
                 // Hue Slider
                 Text(
-                    text = "Hue",
+                    text = stringResource(R.string.color_hue),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -169,7 +171,7 @@ fun ColorPickerDialog(
 
                 // Saturation Slider
                 Text(
-                    text = "Saturation",
+                    text = stringResource(R.string.color_saturation),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -183,7 +185,7 @@ fun ColorPickerDialog(
 
                 // Brightness / Value Slider
                 Text(
-                    text = "Brightness",
+                    text = stringResource(R.string.color_brightness),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -199,7 +201,7 @@ fun ColorPickerDialog(
 
                 // Quick Palette Swatches
                 Text(
-                    text = "Palette Presets",
+                    text = stringResource(R.string.color_presets),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -244,13 +246,13 @@ fun ColorPickerDialog(
                     horizontalArrangement = Arrangement.End
                 ) {
                     OutlinedButton(onClick = onDismiss) {
-                        Text("Cancel")
+                        Text(stringResource(R.string.action_cancel))
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(onClick = {
                         onColorSelected(currentColor)
                     }) {
-                        Text("Apply")
+                        Text(stringResource(R.string.action_apply))
                     }
                 }
             }

@@ -1,4 +1,4 @@
-package com.example.composekeyboard.theme
+package io.github.xxparthparekhxx.composekeyboard.theme
 
 import androidx.compose.ui.graphics.Color
 

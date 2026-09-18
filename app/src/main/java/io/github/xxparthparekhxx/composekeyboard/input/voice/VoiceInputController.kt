@@ -1,4 +1,4 @@
-package com.example.composekeyboard.input.voice
+package io.github.xxparthparekhxx.composekeyboard.input.voice
 
 import android.Manifest
 import android.content.Context
@@ -70,16 +70,31 @@ class VoiceInputController(context: Context) {
                     }
                 }
             }
-            store.download()
-            collectJob.cancel()
-            _state.value = if (store.isReady()) {
-                VoiceUiState.Idle
-            } else {
-                val failed = store.state.value as? WhisperModelState.Failed
-                VoiceUiState.Failed(failed?.message ?: "Download failed")
+            try {
+                store.download()
+                _state.value = if (store.isReady()) {
+                    VoiceUiState.Idle
+                } else {
+                    val failed = store.state.value as? WhisperModelState.Failed
+                    VoiceUiState.Failed(failed?.message ?: appContext.getString(io.github.xxparthparekhxx.composekeyboard.R.string.voice_download_failed))
+                }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                // User cancelled: back to the pre-download prompt.
+                _state.value = initialState()
+                throw e
+            } finally {
+                collectJob.cancel()
             }
         }
     }
+
+    /** Cancels an in-flight model download; a no-op otherwise. */
+    fun cancelModelDownload() {
+        store.cancelDownload()
+    }
+
+    /** True when a download now would go over a metered connection. */
+    fun isMeteredDownload(): Boolean = store.isActiveNetworkMetered()
 
     fun startRecording(onText: (String) -> Unit) {
         this.onText = onText
@@ -103,7 +118,7 @@ class VoiceInputController(context: Context) {
                 Log.e(TAG, "Recording failed", e)
                 withContext(Dispatchers.Main.immediate) {
                     _state.value = VoiceUiState.Failed(
-                        e.message?.takeIf { it.isNotBlank() } ?: "Could not record audio"
+                        e.message?.takeIf { it.isNotBlank() } ?: appContext.getString(io.github.xxparthparekhxx.composekeyboard.R.string.voice_record_failed)
                     )
                 }
             }
@@ -130,7 +145,7 @@ class VoiceInputController(context: Context) {
         scope.launch {
             recordJob?.join()
             if (!rec.hasAudio()) {
-                _state.value = VoiceUiState.Failed("That was too short — try speaking a bit longer.")
+                _state.value = VoiceUiState.Failed(appContext.getString(io.github.xxparthparekhxx.composekeyboard.R.string.voice_too_short))
                 return@launch
             }
             _state.value = VoiceUiState.Transcribing
@@ -141,7 +156,7 @@ class VoiceInputController(context: Context) {
                     engine.transcribe(wav.absolutePath)
                 }
                 if (text.isBlank()) {
-                    _state.value = VoiceUiState.Failed("Didn't catch that. Try again.")
+                    _state.value = VoiceUiState.Failed(appContext.getString(io.github.xxparthparekhxx.composekeyboard.R.string.voice_empty_result))
                 } else {
                     val committed = if (text.endsWith(" ")) text else "$text "
                     commit?.invoke(committed)
@@ -150,7 +165,7 @@ class VoiceInputController(context: Context) {
             } catch (e: Exception) {
                 Log.e(TAG, "Transcription failed", e)
                 _state.value = VoiceUiState.Failed(
-                    e.message?.takeIf { it.isNotBlank() } ?: "Transcription failed"
+                    e.message?.takeIf { it.isNotBlank() } ?: appContext.getString(io.github.xxparthparekhxx.composekeyboard.R.string.voice_transcribe_failed)
                 )
             }
         }

@@ -1,4 +1,4 @@
-package com.example.composekeyboard.theme
+package io.github.xxparthparekhxx.composekeyboard.theme
 
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -14,8 +14,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import com.example.composekeyboard.data.CustomThemeColors
-import com.example.composekeyboard.data.KeyboardThemeType
+import io.github.xxparthparekhxx.composekeyboard.data.CustomThemeColors
+import io.github.xxparthparekhxx.composekeyboard.data.KeyboardThemeType
 
 @Immutable
 data class KeyboardColors(

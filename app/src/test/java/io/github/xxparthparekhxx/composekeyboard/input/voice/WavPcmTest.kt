@@ -1,4 +1,4 @@
-package com.example.composekeyboard.input.voice
+package io.github.xxparthparekhxx.composekeyboard.input.voice
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
