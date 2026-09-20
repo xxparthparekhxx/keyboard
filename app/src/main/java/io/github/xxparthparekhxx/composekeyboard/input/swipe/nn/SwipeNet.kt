@@ -50,6 +50,8 @@ class SwipeNet private constructor(private val w: Map<String, Tensor>) {
     private val coeff = FloatArray(T_OUT * N_COEFF)
     private val gate = FloatArray(T_OUT)
     private val norms = FloatArray(EXPAND / 2)
+    /** Scratch for [emit]'s key logits; sized to a 26-key layout. */
+    private val z = FloatArray(ALPHABET)
 
     /** Per-timestep log emissions over 26 letters + blank, row-major [t][27]. */
     val emissions = FloatArray(T_OUT * (ALPHABET + 1))
@@ -174,7 +176,8 @@ class SwipeNet private constructor(private val w: Map<String, Tensor>) {
     private fun emit(basis: FloatArray) {
         val keys = basis.size / N_COEFF
         val stride = ALPHABET + 1
-        val z = FloatArray(keys)
+        // Reused across forward passes; a non-26-key layout allocates once instead.
+        val z = if (keys == this.z.size) this.z else FloatArray(keys)
         for (t in 0 until T_OUT) {
             val cBase = t * N_COEFF
             var maxZ = Float.NEGATIVE_INFINITY

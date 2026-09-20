@@ -30,11 +30,11 @@ class SwipeBeam(
     private val words: Array<String>,
     private val wordScore: IntArray,
     private val childStart: IntArray,
-    private val childLetter: IntArray,
+    private val childLetter: ByteArray,
     private val childNode: IntArray,
     private val nodeWord: IntArray,
-    private val nodeDepth: IntArray,
-    private val nodeLast: IntArray
+    private val nodeDepth: ByteArray,
+    private val nodeLast: ByteArray
 ) {
 
     private val nodeCount = nodeWord.size
@@ -102,7 +102,7 @@ class SwipeBeam(
                 val pb = curBlank[i]
                 val pnb = curNon[i]
                 val total = logAddExp(pb, pnb)
-                val last = nodeLast[node]
+                val last = nodeLast[node].toInt()
 
                 // stay put, emitting blank
                 push(node, total + lpBlank, NEG_INF)
@@ -113,7 +113,7 @@ class SwipeBeam(
                 var c = childStart[node]
                 val end = childStart[node + 1]
                 while (c < end) {
-                    val letter = childLetter[c]
+                    val letter = childLetter[c].toInt()
                     // a repeat may only grow out of blank-ending mass
                     val src = if (letter == last) pb else total
                     if (src > NEG_INF_HALF) {
@@ -180,7 +180,7 @@ class SwipeBeam(
             return
         }
         for (i in 0 until nxtSize) {
-            val d = nodeDepth[nxtNode[i]]
+            val d = nodeDepth[nxtNode[i]].toInt()
             val s = logAddExp(nxtBlank[i], nxtNon[i])
             val denom = if (d < 1) 1f else d.toFloat().pow(gammaPrune)
             pruneScore[i] = s / denom + betaPrune * d
@@ -295,26 +295,59 @@ class SwipeBeam(
         /**
          * Builds the compact trie. Children live in one flat array indexed by
          * [childStart], so walking a node's edges is a contiguous scan.
+         *
+         * Construction uses a linked edge list over growable primitive arrays
+         * instead of `Array<IntArray>` per node — the latter peaked around
+         * 70 MB for a 150k-word lexicon because every child append copied a
+         * tiny array. The finished beam is a handful of packed arrays.
          */
         fun build(words: List<String>, scores: IntArray): SwipeBeam {
-            // growable node table during construction
-            var cap = 1 shl 16
-            var kids = Array(cap) { IntArray(0) }
-            var kidNode = Array(cap) { IntArray(0) }
-            var word = IntArray(cap) { -1 }
-            var depth = IntArray(cap)
-            var last = IntArray(cap) { -1 }
-            var count = 1
+            var nodeCap = 1 shl 16
+            var firstChild = IntArray(nodeCap) { -1 }
+            var wordAt = IntArray(nodeCap) { -1 }
+            var depth = ByteArray(nodeCap)
+            var last = ByteArray(nodeCap) { (-1).toByte() }
+            var nodeCount = 1
 
-            fun grow() {
-                val n = cap * 2
-                val old = cap
-                kids = Array(n) { if (it < old) kids[it] else IntArray(0) }
-                kidNode = Array(n) { if (it < old) kidNode[it] else IntArray(0) }
-                word = word.copyOf(n).also { java.util.Arrays.fill(it, old, n, -1) }
+            var edgeCap = 1 shl 16
+            var edgeLetter = ByteArray(edgeCap)
+            var edgeNode = IntArray(edgeCap)
+            var edgeNext = IntArray(edgeCap) { -1 }
+            var edgeCount = 0
+
+            fun growNodes() {
+                val n = nodeCap * 2
+                firstChild = firstChild.copyOf(n).also { java.util.Arrays.fill(it, nodeCap, n, -1) }
+                wordAt = wordAt.copyOf(n).also { java.util.Arrays.fill(it, nodeCap, n, -1) }
                 depth = depth.copyOf(n)
-                last = last.copyOf(n).also { java.util.Arrays.fill(it, old, n, -1) }
-                cap = n
+                last = last.copyOf(n).also { java.util.Arrays.fill(it, nodeCap, n, (-1).toByte()) }
+                nodeCap = n
+            }
+
+            fun growEdges() {
+                val n = edgeCap * 2
+                edgeLetter = edgeLetter.copyOf(n)
+                edgeNode = edgeNode.copyOf(n)
+                edgeNext = edgeNext.copyOf(n).also { java.util.Arrays.fill(it, edgeCap, n, -1) }
+                edgeCap = n
+            }
+
+            fun findChild(parent: Int, letter: Int): Int {
+                var e = firstChild[parent]
+                while (e >= 0) {
+                    if (edgeLetter[e].toInt() == letter) return edgeNode[e]
+                    e = edgeNext[e]
+                }
+                return -1
+            }
+
+            fun addChild(parent: Int, letter: Int, child: Int) {
+                if (edgeCount >= edgeCap) growEdges()
+                val e = edgeCount++
+                edgeLetter[e] = letter.toByte()
+                edgeNode[e] = child
+                edgeNext[e] = firstChild[parent]
+                firstChild[parent] = e
             }
 
             for ((wi, w) in words.withIndex()) {
@@ -323,37 +356,57 @@ class SwipeBeam(
                 for (ch in w) {
                     if (ch < 'a' || ch > 'z') continue
                     val letter = ch - 'a'
-                    var next = -1
-                    val arr = kids[node]
-                    for (j in arr.indices) if (arr[j] == letter) { next = kidNode[node][j]; break }
+                    var next = findChild(node, letter)
                     if (next < 0) {
-                        if (count >= cap) grow()
-                        next = count++
-                        kids[node] = arr + letter
-                        kidNode[node] = kidNode[node] + next
-                        depth[next] = d + 1
-                        last[next] = letter
+                        if (nodeCount >= nodeCap) growNodes()
+                        next = nodeCount++
+                        depth[next] = (d + 1).toByte()
+                        last[next] = letter.toByte()
+                        addChild(node, letter, next)
                     }
                     node = next
                     d++
                 }
-                if (node != 0 && (word[node] < 0 || scores[wi] > scores[word[node]])) {
-                    word[node] = wi
+                if (node != 0 && (wordAt[node] < 0 || scores[wi] > scores[wordAt[node]])) {
+                    wordAt[node] = wi
                 }
             }
 
-            val start = IntArray(count + 1)
-            for (i in 0 until count) start[i + 1] = start[i] + kids[i].size
-            val cl = IntArray(start[count])
-            val cn = IntArray(start[count])
-            for (i in 0 until count) {
-                val b = start[i]
-                for (j in kids[i].indices) { cl[b + j] = kids[i][j]; cn[b + j] = kidNode[i][j] }
+            val childCount = IntArray(nodeCount)
+            for (n in 0 until nodeCount) {
+                var edge = firstChild[n]
+                var c = 0
+                while (edge >= 0) {
+                    c++
+                    edge = edgeNext[edge]
+                }
+                childCount[n] = c
+            }
+
+            val start = IntArray(nodeCount + 1)
+            for (i in 0 until nodeCount) start[i + 1] = start[i] + childCount[i]
+            val cl = ByteArray(start[nodeCount])
+            val cn = IntArray(start[nodeCount])
+            for (i in 0 until nodeCount) {
+                var slot = start[i + 1]
+                var edge = firstChild[i]
+                while (edge >= 0) {
+                    slot--
+                    cl[slot] = edgeLetter[edge]
+                    cn[slot] = edgeNode[edge]
+                    edge = edgeNext[edge]
+                }
             }
 
             return SwipeBeam(
-                words.toTypedArray(), scores, start, cl, cn,
-                word.copyOf(count), depth.copyOf(count), last.copyOf(count)
+                words.toTypedArray(),
+                scores,
+                start,
+                cl,
+                cn,
+                wordAt.copyOf(nodeCount),
+                depth.copyOf(nodeCount),
+                last.copyOf(nodeCount)
             )
         }
     }

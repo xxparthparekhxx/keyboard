@@ -143,7 +143,7 @@ class SwipeDictionary private constructor(private val appContext: Context) {
                 val first = keySequenceOf(word)?.get(0)?.toInt()
                 if (first != null && first in buckets.indices) {
                     val next = buckets.copyOf()
-                    next[first] = buckets[first].sortedByDescending { it.score }
+                    next[first] = reinsertByScore(buckets[first], existing)
                     buckets = next
                 }
                 return existing.score
@@ -162,7 +162,7 @@ class SwipeDictionary private constructor(private val appContext: Context) {
             // Copy-on-write: only the one bucket is rebuilt, and the new array is
             // published atomically so an in-flight decode never sees a torn list.
             val next = buckets.copyOf()
-            next[first] = (buckets[first] + entry).sortedByDescending { it.score }
+            next[first] = reinsertByScore(buckets[first], entry)
             buckets = next
             return null
         }
@@ -281,6 +281,26 @@ class SwipeDictionary private constructor(private val appContext: Context) {
             Log.e(TAG, "Failed to read learned words", e)
         }
         return loaded
+    }
+
+    /**
+     * Puts [entry] into [current] in descending-score order without sorting the
+     * whole bucket. Called from [learn] on the main thread; a full sort of a
+     * several-thousand-word letter bucket would jank the IME.
+     */
+    private fun reinsertByScore(current: List<Entry>, entry: Entry): List<Entry> {
+        val out = ArrayList<Entry>(current.size + 1)
+        var inserted = false
+        for (existing in current) {
+            if (existing === entry) continue
+            if (!inserted && entry.score >= existing.score) {
+                out.add(entry)
+                inserted = true
+            }
+            out.add(existing)
+        }
+        if (!inserted) out.add(entry)
+        return out
     }
 
     private fun addStaging(

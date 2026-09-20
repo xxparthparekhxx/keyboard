@@ -8,11 +8,12 @@ import android.util.Log
 import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.max
+import kotlin.math.min
 
 class VoiceRecorder(private val cacheDir: File) {
 
     private val recording = AtomicBoolean(false)
-    private val samples = ArrayList<Short>(WavPcm.SAMPLE_RATE * 8)
+    private val samples = ShortArray(WavPcm.SAMPLE_RATE * MAX_SECONDS)
 
     @Volatile
     private var sampleCount: Int = 0
@@ -20,7 +21,6 @@ class VoiceRecorder(private val cacheDir: File) {
     @SuppressLint("MissingPermission")
     fun start() {
         if (!recording.compareAndSet(false, true)) return
-        samples.clear()
         sampleCount = 0
         val minBuf = AudioRecord.getMinBufferSize(
             WavPcm.SAMPLE_RATE,
@@ -48,16 +48,13 @@ class VoiceRecorder(private val cacheDir: File) {
         }
 
         val chunk = ShortArray(bufferSize / 2)
-        val maxSamples = WavPcm.SAMPLE_RATE * MAX_SECONDS
         recorder.startRecording()
         try {
-            while (recording.get() && samples.size < maxSamples) {
-                val n = recorder.read(chunk, 0, chunk.size)
+            while (recording.get() && sampleCount < samples.size) {
+                val n = recorder.read(chunk, 0, min(chunk.size, samples.size - sampleCount))
                 if (n > 0) {
-                    for (i in 0 until n) {
-                        samples.add(chunk[i])
-                    }
-                    sampleCount = samples.size
+                    System.arraycopy(chunk, 0, samples, sampleCount, n)
+                    sampleCount += n
                 } else if (n < 0) {
                     break
                 }
@@ -77,11 +74,7 @@ class VoiceRecorder(private val cacheDir: File) {
 
     fun writeWav(): File {
         val file = File(cacheDir, "voice-input.wav")
-        val pcm = ShortArray(samples.size)
-        for (i in samples.indices) {
-            pcm[i] = samples[i]
-        }
-        WavPcm.writeMono16(file, pcm)
+        WavPcm.writeMono16(file, samples.copyOf(sampleCount))
         return file
     }
 

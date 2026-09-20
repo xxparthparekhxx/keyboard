@@ -26,6 +26,14 @@ object EmojiCatalog {
     @Volatile
     private var snapshot: Snapshot? = null
 
+    val empty: Snapshot = Snapshot(emptyList(), emptyList())
+
+    fun peek(): Snapshot? = snapshot
+
+    fun preload(context: Context) {
+        get(context)
+    }
+
     fun get(context: Context): Snapshot {
         snapshot?.let { return it }
         return synchronized(this) {

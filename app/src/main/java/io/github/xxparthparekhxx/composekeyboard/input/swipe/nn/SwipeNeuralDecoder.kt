@@ -82,6 +82,9 @@ class SwipeNeuralDecoder private constructor(
     fun bumpScore(word: String, score: Int): Boolean = beam.bumpScore(word, score)
 
     private val xy = FloatArray(SwipeNet.T_IN * 2)
+    /** 60 Hz intermediate grid from [resampleUniformTime], grown to fit. */
+    private var x60 = FloatArray(0)
+    private var y60 = FloatArray(0)
     private val keyX = FloatArray(SwipeDictionary.ALPHABET)
     private val keyY = FloatArray(SwipeDictionary.ALPHABET)
     private val results = arrayOfNulls<String>(MAX_RESULTS)
@@ -173,8 +176,10 @@ class SwipeNeuralDecoder private constructor(
         val invH = 1f / box[3]
 
         val n60 = ((duration / 1000f * RESAMPLE_HZ).toInt() + 1).coerceAtLeast(2)
-        val x60 = FloatArray(n60)
-        val y60 = FloatArray(n60)
+        if (x60.size < n60) {
+            x60 = FloatArray(n60)
+            y60 = FloatArray(n60)
+        }
 
         var src = 0
         for (i in 0 until n60) {
