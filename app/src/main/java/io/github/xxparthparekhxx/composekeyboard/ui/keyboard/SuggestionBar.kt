@@ -25,6 +25,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import android.os.Build
+import android.util.Size
+import android.view.inputmethod.InlineSuggestion
+import android.widget.FrameLayout
+import androidx.core.content.ContextCompat
 import io.github.xxparthparekhxx.composekeyboard.R
 import io.github.xxparthparekhxx.composekeyboard.theme.LocalKeyboardColors
 
@@ -49,10 +55,14 @@ fun SuggestionBar(
     isSwiping: Boolean,
     hapticEnabled: Boolean,
     fontScale: Float = 1.0f,
+    otpCode: String? = null,
+    inlineSuggestions: List<InlineSuggestion> = emptyList(),
+    onOtpSelected: (String) -> Unit = {},
     onSuggestionSelected: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val colors = LocalKeyboardColors.current
+    val view = androidx.compose.ui.platform.LocalView.current
 
     Row(
         modifier = modifier
@@ -80,6 +90,50 @@ fun SuggestionBar(
                 )
             }
             return@Row
+        }
+
+        val showOtp = !otpCode.isNullOrEmpty()
+        val showInline = inlineSuggestions.isNotEmpty() && Build.VERSION.SDK_INT >= 30
+        if (showOtp || showInline) {
+            if (showInline) {
+                inlineSuggestions.forEach { suggestion ->
+                    InlineSuggestionChip(
+                        suggestion = suggestion,
+                        modifier = Modifier.padding(end = 6.dp)
+                    )
+                }
+            }
+            if (showOtp) {
+                val code = otpCode!!
+                val otpDesc = stringResource(R.string.desc_otp, code)
+                Box(
+                    modifier = Modifier
+                        .padding(end = 6.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(colors.actionKeyBackground)
+                        .semantics {
+                            role = Role.Button
+                            contentDescription = otpDesc
+                        }
+                        .clickable {
+                            if (hapticEnabled) {
+                                view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                            }
+                            onOtpSelected(code)
+                        }
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = stringResource(R.string.otp_paste, code),
+                        color = colors.actionKeyTextColor,
+                        fontSize = (16 * fontScale).sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1
+                    )
+                }
+            }
+            if (suggestions.isEmpty()) return@Row
         }
 
         suggestions.forEachIndexed { index, word ->
@@ -143,4 +197,42 @@ private fun SuggestionCell(
             overflow = TextOverflow.Ellipsis
         )
     }
+}
+
+@Composable
+private fun InlineSuggestionChip(
+    suggestion: InlineSuggestion,
+    modifier: Modifier = Modifier
+) {
+    if (Build.VERSION.SDK_INT < 30) return
+    AndroidView(
+        modifier = modifier
+            .height(40.dp)
+            .width(160.dp),
+        factory = { context ->
+            FrameLayout(context)
+        },
+        update = { host ->
+            if (host.tag === suggestion) return@AndroidView
+            host.tag = suggestion
+            host.removeAllViews()
+            val height = host.height.coerceAtLeast(40)
+            suggestion.inflate(
+                host.context,
+                Size(host.width.coerceAtLeast(160), height),
+                ContextCompat.getMainExecutor(host.context)
+            ) { content ->
+                host.removeAllViews()
+                if (content != null) {
+                    host.addView(
+                        content,
+                        FrameLayout.LayoutParams(
+                            FrameLayout.LayoutParams.WRAP_CONTENT,
+                            FrameLayout.LayoutParams.MATCH_PARENT
+                        )
+                    )
+                }
+            }
+        }
+    )
 }

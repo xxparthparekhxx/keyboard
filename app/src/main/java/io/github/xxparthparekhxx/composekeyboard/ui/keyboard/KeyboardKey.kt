@@ -7,12 +7,17 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material.icons.filled.Language
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -76,6 +81,7 @@ fun KeyboardKey(
     showSecondaryHints: Boolean = true,
     onKeyPress: (KeyType) -> Unit,
     onKeyLongPress: (KeyType) -> Unit = {},
+    onPopupSelected: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val colors = LocalKeyboardColors.current
@@ -83,19 +89,12 @@ fun KeyboardKey(
     val scope = rememberCoroutineScope()
     var isPressed by remember { mutableStateOf(false) }
     var isLongPressed by remember { mutableStateOf(false) }
-
-    // The gesture detector below is keyed on `key.type`, which never changes for
-    // a given key, so its node is never restarted and it keeps invoking whatever
-    // it captured on the composition that created it. KeyboardScreen rebuilds
-    // `suggestions`, `typedPrefix` and `mode` on every input session
-    // (`remember(inputSession)`), so a captured handler would go on writing to
-    // the previous session's orphaned MutableStates and taps would stop having
-    // any visible effect. Routing through rememberUpdatedState keeps the
-    // detector pointed at the current handlers, the same way
-    // [swipeTypingGestures] does for its own long-lived pointerInput.
+    var pickerVisible by remember { mutableStateOf(false) }
     val currentOnKeyPress by rememberUpdatedState(onKeyPress)
     val currentOnKeyLongPress by rememberUpdatedState(onKeyLongPress)
+    val currentOnPopupSelected by rememberUpdatedState(onPopupSelected)
     val currentHapticEnabled by rememberUpdatedState(hapticEnabled)
+    val density = LocalDensity.current
 
     val scale by animateFloatAsState(
         targetValue = if (isPressed) 0.94f else 1.0f,
@@ -143,16 +142,17 @@ fun KeyboardKey(
             else -> type.primary
         }
         is KeyType.Shift ->
-            if (mode == KeyboardMode.CAPS_LOCKED) "Caps lock on" else "Shift"
-        is KeyType.Backspace -> "Backspace"
-        is KeyType.Space -> "Space"
-        is KeyType.Enter -> "Action"
-        is KeyType.SymbolToggle -> "Symbols"
-        is KeyType.SymbolMoreToggle -> "More symbols"
-        is KeyType.AlphabetToggle -> "Letters"
-        is KeyType.NumpadToggle -> "Number pad"
-        is KeyType.EmojiToggle -> "Emoji"
-        is KeyType.LanguageSwitch -> "Switch language"
+            if (mode == KeyboardMode.CAPS_LOCKED) stringResource(R.string.desc_caps_lock)
+            else stringResource(R.string.desc_shift)
+        is KeyType.Backspace -> stringResource(R.string.desc_backspace)
+        is KeyType.Space -> stringResource(R.string.key_space)
+        is KeyType.Enter -> stringResource(R.string.desc_enter_key)
+        is KeyType.SymbolToggle -> stringResource(R.string.desc_symbols)
+        is KeyType.SymbolMoreToggle -> stringResource(R.string.desc_more_symbols)
+        is KeyType.AlphabetToggle -> stringResource(R.string.desc_letters)
+        is KeyType.NumpadToggle -> stringResource(R.string.desc_number_pad)
+        is KeyType.EmojiToggle -> stringResource(R.string.desc_emoji)
+        is KeyType.LanguageSwitch -> stringResource(R.string.desc_language_switch)
     }
 
     val iconSize = (24 * fontScale.coerceIn(0.85f, 1.25f)).dp
@@ -171,53 +171,87 @@ fun KeyboardKey(
             ),
         contentAlignment = Alignment.Center
     ) {
-        // Floating Magnifier Bubble above the key (Gboard style) - 100% aligned with key
-        if (showKeyPopups && isPressed && key.type is KeyType.Character) {
-            val popupText = if (isLongPressed && key.type.popup.isNotEmpty()) {
-                key.type.popup.first()
-            } else {
-                when (mode) {
-                    KeyboardMode.UPPERCASE, KeyboardMode.CAPS_LOCKED -> key.type.primary.uppercase()
-                    else -> key.type.primary
+        val popupChars = (key.type as? KeyType.Character)?.popup.orEmpty()
+        val previewText = if (key.type is KeyType.Character) {
+            if (isLongPressed && popupChars.isNotEmpty()) popupChars.first()
+            else when (mode) {
+                KeyboardMode.UPPERCASE, KeyboardMode.CAPS_LOCKED -> key.type.primary.uppercase()
+                else -> key.type.primary
+            }
+        } else ""
+
+        if (showKeyPopups && isPressed && key.type is KeyType.Character && !pickerVisible) {
+            Popup(
+                alignment = Alignment.TopCenter,
+                offset = IntOffset(0, with(density) { -52.dp.toPx().toInt() }),
+                properties = PopupProperties(focusable = false, clippingEnabled = false)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .width(48.dp)
+                        .height(48.dp)
+                        .shadow(
+                            elevation = 8.dp,
+                            shape = RoundedCornerShape(10.dp),
+                            spotColor = colors.keyShadow,
+                            ambientColor = colors.keyShadow
+                        )
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(colors.keyBackground)
+                        .border(
+                            width = 1.5.dp,
+                            color = if (isLongPressed) colors.actionKeyBackground else colors.accentKeyBackground.copy(alpha = 0.8f),
+                            shape = RoundedCornerShape(10.dp)
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = previewText,
+                        color = if (isLongPressed && popupChars.isNotEmpty()) colors.actionKeyBackground else colors.keyTextColor,
+                        fontSize = (26 * fontScale).sp,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
+        }
 
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp)
-                    .offset(y = (-48).dp)
-                    .shadow(
-                        elevation = 8.dp,
-                        shape = RoundedCornerShape(10.dp),
-                        spotColor = colors.keyShadow,
-                        ambientColor = colors.keyShadow
-                    )
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(colors.keyBackground)
-                    .border(
-                        width = 1.5.dp,
-                        color = if (isLongPressed) colors.actionKeyBackground else colors.accentKeyBackground.copy(alpha = 0.8f),
-                        shape = RoundedCornerShape(10.dp)
-                    ),
-                contentAlignment = Alignment.Center
+        if (pickerVisible && popupChars.isNotEmpty()) {
+            Popup(
+                alignment = Alignment.TopCenter,
+                offset = IntOffset(0, with(density) { -56.dp.toPx().toInt() }),
+                onDismissRequest = { pickerVisible = false },
+                properties = PopupProperties(focusable = true, clippingEnabled = false)
             ) {
-                Text(
-                    text = popupText,
-                    color = if (isLongPressed && key.type.popup.isNotEmpty()) colors.actionKeyBackground else colors.keyTextColor,
-                    fontSize = (26 * fontScale).sp,
-                    fontWeight = FontWeight.Bold
-                )
-                if (key.type.popup.isNotEmpty() && !isLongPressed) {
-                    Text(
-                        text = key.type.popup.first(),
-                        color = colors.actionKeyBackground,
-                        fontSize = (10 * fontScale).sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(top = 2.dp, end = 3.dp)
-                    )
+                Row(
+                    modifier = Modifier
+                        .horizontalScroll(rememberScrollState())
+                        .shadow(8.dp, RoundedCornerShape(10.dp), spotColor = colors.keyShadow, ambientColor = colors.keyShadow)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(colors.keyBackground)
+                        .padding(horizontal = 6.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    popupChars.forEach { alt ->
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(colors.accentKeyBackground)
+                                .clickable {
+                                    triggerHaptic()
+                                    currentOnPopupSelected(alt)
+                                    pickerVisible = false
+                                }
+                                .padding(horizontal = 10.dp, vertical = 8.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = alt,
+                                color = colors.keyTextColor,
+                                fontSize = (20 * fontScale).sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -263,7 +297,14 @@ fun KeyboardKey(
                                 if (isPressed && key.type !is KeyType.Backspace) {
                                     isLongPressed = true
                                     triggerHaptic()
-                                    currentOnKeyLongPress(key.type)
+                                    val type = key.type
+                                    if (type is KeyType.Character && type.popup.size > 1) {
+                                        pickerVisible = true
+                                    } else if (type is KeyType.Character && type.popup.isNotEmpty()) {
+                                        currentOnPopupSelected(type.popup.first())
+                                    } else {
+                                        currentOnKeyLongPress(type)
+                                    }
                                 }
                             }
                             val released = tryAwaitRelease()
@@ -385,7 +426,7 @@ fun KeyboardKey(
             }
             is KeyType.AlphabetToggle -> {
                 Text(
-                    text = "ABC",
+                    text = stringResource(R.string.key_abc),
                     color = fg,
                     fontSize = (15.5 * fontScale).sp,
                     fontWeight = FontWeight.Bold
@@ -408,11 +449,11 @@ fun KeyboardKey(
                 )
             }
             is KeyType.LanguageSwitch -> {
-                Text(
-                    text = "EN",
-                    color = fg,
-                    fontSize = (14.5 * fontScale).sp,
-                    fontWeight = FontWeight.Bold
+                Icon(
+                    imageVector = Icons.Default.Language,
+                    contentDescription = stringResource(R.string.desc_language_switch),
+                    tint = fg,
+                    modifier = Modifier.size(iconSize)
                 )
             }
         }

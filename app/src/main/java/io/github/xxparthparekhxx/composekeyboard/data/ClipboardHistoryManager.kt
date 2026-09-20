@@ -60,29 +60,38 @@ class ClipboardHistoryManager(private val context: Context) {
 
     fun captureCurrentClip() {
         try {
-            val cm = clipboardManager ?: return
-            val desc = cm.primaryClipDescription ?: return
-            if (isSensitiveClip(desc)) {
-                return
-            }
-            if (cm.hasPrimaryClip() &&
-                desc.hasMimeType(ClipDescription.MIMETYPE_TEXT_PLAIN)
-            ) {
-                val clip = cm.primaryClip
-                if (clip != null && clip.itemCount > 0) {
-                    val text = clip.getItemAt(0)?.coerceToText(context)?.toString()
-                    if (!text.isNullOrBlank()) {
-                        addClip(text.trim())
-                    }
-                }
-            }
+            val text = peekPlainText() ?: return
+            if (OtpCodes.isBareOtpCode(text)) return
+            addClip(text)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to capture clipboard contents", e)
         }
     }
 
+    /**
+     * Current plain-text clip, or null. Does not persist anything — used to
+     * offer an OTP chip without writing the code into clipboard history.
+     */
+    fun peekPlainText(): String? {
+        return try {
+            val cm = clipboardManager ?: return null
+            val desc = cm.primaryClipDescription ?: return null
+            if (isSensitiveClip(desc)) return null
+            if (!cm.hasPrimaryClip() || !desc.hasMimeType(ClipDescription.MIMETYPE_TEXT_PLAIN)) {
+                return null
+            }
+            val clip = cm.primaryClip ?: return null
+            if (clip.itemCount <= 0) return null
+            clip.getItemAt(0)?.coerceToText(context)?.toString()?.trim()?.takeIf { it.isNotEmpty() }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to read clipboard contents", e)
+            null
+        }
+    }
+
     fun addClip(text: String) {
         if (text.isBlank()) return
+        if (OtpCodes.isBareOtpCode(text)) return
         scope.launch {
             mutex.withLock {
                 val current = _history.value.toMutableList()

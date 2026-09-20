@@ -36,9 +36,9 @@ class KeyboardPreferencesTest {
     }
 
     @Test
-    fun keyboardThemeType_displayNamesAreNonEmpty() {
+    fun keyboardThemeType_titleResourcesAreSet() {
         for (theme in KeyboardThemeType.entries) {
-            assertTrue(theme.displayName.isNotBlank())
+            assertTrue(theme.titleRes != 0)
         }
     }
 }

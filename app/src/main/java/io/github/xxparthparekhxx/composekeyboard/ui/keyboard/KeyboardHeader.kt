@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.ContentPaste
 import androidx.compose.material.icons.filled.Dialpad
 import androidx.compose.material.icons.filled.Mic
@@ -40,6 +41,7 @@ fun KeyboardHeader(
     onVoiceClick: () -> Unit = {},
     onThemeClick: () -> Unit,
     onSettingsClick: () -> Unit,
+    isIncognito: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val colors = LocalKeyboardColors.current
@@ -129,6 +131,15 @@ fun KeyboardHeader(
             },
             onClick = onSettingsClick
         )
+
+        if (isIncognito) {
+            Icon(
+                imageVector = Icons.Default.VisibilityOff,
+                contentDescription = stringResource(R.string.desc_incognito),
+                tint = colors.accentKeyTextColor,
+                modifier = Modifier.size(18.dp)
+            )
+        }
     }
 }
 

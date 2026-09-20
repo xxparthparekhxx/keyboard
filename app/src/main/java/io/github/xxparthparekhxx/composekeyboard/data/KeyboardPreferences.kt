@@ -8,16 +8,16 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-enum class KeyboardThemeType(val displayName: String) {
-    MATERIAL_DARK("Dark Slate"),
-    MATERIAL_LIGHT("Clean Light"),
-    AMOLED("Pitch Black AMOLED"),
-    DYNAMIC_DARK("Material You (Dark)"),
-    DYNAMIC_LIGHT("Material You (Light)"),
-    NORD("Nordic Frost"),
-    SUNSET("Sunset Glow"),
-    CYBERPUNK("Cyber Neon"),
-    CUSTOM("Custom Theme")
+enum class KeyboardThemeType(@androidx.annotation.StringRes val titleRes: Int) {
+    MATERIAL_DARK(io.github.xxparthparekhxx.composekeyboard.R.string.theme_material_dark),
+    MATERIAL_LIGHT(io.github.xxparthparekhxx.composekeyboard.R.string.theme_material_light),
+    AMOLED(io.github.xxparthparekhxx.composekeyboard.R.string.theme_amoled),
+    DYNAMIC_DARK(io.github.xxparthparekhxx.composekeyboard.R.string.theme_dynamic_dark),
+    DYNAMIC_LIGHT(io.github.xxparthparekhxx.composekeyboard.R.string.theme_dynamic_light),
+    NORD(io.github.xxparthparekhxx.composekeyboard.R.string.theme_nord),
+    SUNSET(io.github.xxparthparekhxx.composekeyboard.R.string.theme_sunset),
+    CYBERPUNK(io.github.xxparthparekhxx.composekeyboard.R.string.theme_cyberpunk),
+    CUSTOM(io.github.xxparthparekhxx.composekeyboard.R.string.theme_custom)
 }
 
 data class CustomThemeColors(

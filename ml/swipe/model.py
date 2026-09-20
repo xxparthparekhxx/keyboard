@@ -35,6 +35,9 @@ def _savgol_kernels(window: int = 7, order: int = 2) -> torch.Tensor:
     p = torch.arange(-half, half + 1, dtype=torch.float64)
     A = torch.stack([p ** j for j in range(order + 1)], dim=1)     # (window, order+1)
     pinv = torch.linalg.pinv(A)                                    # (order+1, window)
+    # The second-derivative row is scaled by 2! so it holds the true d²/dx² of
+    # the fitted quadratic, not just its polynomial coefficient. The Kotlin
+    # port reads this row verbatim from the export — do not "fix" it.
     return torch.stack([pinv[0], pinv[1], pinv[2] * 2.0]).float()  # d0, d1, d2*2!
 
 

@@ -84,4 +84,21 @@ class FieldInputKindTest {
         assertFalse(FieldInputKind.PHONE.allowsSuggestions)
         assertFalse(FieldInputKind.DATETIME.allowsSwipe)
     }
+
+    @Test
+    fun otpNumberField_opensAsNumpad() {
+        val otp = FieldInputKind.from(InputType.TYPE_CLASS_NUMBER, isOtp = true)
+        assertEquals(FieldInputKind.OTP, otp)
+        assertTrue(otp.opensAsNumpad)
+        assertFalse(otp.allowsSuggestions)
+        assertFalse(otp.allowsSwipe)
+    }
+
+    @Test
+    fun noSuggestionsFlag_hidesWordCompletions() {
+        val flagged = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+        assertFalse(FieldInputKind.allowsWordSuggestions(flagged, FieldInputKind.TEXT))
+        assertTrue(FieldInputKind.allowsWordSuggestions(InputType.TYPE_CLASS_TEXT, FieldInputKind.TEXT))
+        assertFalse(FieldInputKind.allowsWordSuggestions(InputType.TYPE_CLASS_TEXT, FieldInputKind.PASSWORD))
+    }
 }

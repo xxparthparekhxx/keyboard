@@ -109,7 +109,7 @@ fun SettingsScreen(
         }
 
         item {
-            SectionHeader("Feedback")
+            SectionHeader(stringResource(R.string.set_section_feedback))
             Spacer(modifier = Modifier.height(8.dp))
             CompanionCard {
                 SettingSwitchRow(

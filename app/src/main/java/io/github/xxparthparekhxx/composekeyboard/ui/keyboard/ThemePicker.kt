@@ -176,7 +176,7 @@ fun ThemePicker(
                     Spacer(modifier = Modifier.width(6.dp))
 
                     Text(
-                        text = theme.displayName.replace(" (Dark)", "").replace(" (Light)", ""),
+                        text = stringResource(theme.titleRes),
                         color = colors.keyTextColor,
                         fontSize = 12.sp,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,

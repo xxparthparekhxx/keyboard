@@ -1,11 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- supportsInlineSuggestions was removed deliberately: it is API 30+, and
-     advertising it without overriding onCreateInlineSuggestionsRequest /
-     onInlineSuggestionsResponse means autofill chips never appear. Re-add it
-     (with tools:targetApi="30") only together with a real implementation. -->
+<!-- supportsInlineSuggestions is API 30+: Autofill (Gboard-style OTP chips)
+     only arrives if we both advertise it and implement
+     onCreateInlineSuggestionsRequest / onInlineSuggestionsResponse. -->
 <input-method xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:settingsActivity="io.github.xxparthparekhxx.composekeyboard.MainActivity"
-    android:supportsSwitchingToNextInputMethod="true">
+    android:supportsSwitchingToNextInputMethod="true"
+    android:supportsInlineSuggestions="true"
+    tools:targetApi="30">
     <subtype
         android:label="@string/subtype_en_us"
         android:imeSubtypeLocale="en_US"

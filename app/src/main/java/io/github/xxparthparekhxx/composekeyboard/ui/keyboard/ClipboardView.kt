@@ -256,7 +256,7 @@ fun ClipboardView(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "ABC",
+                            text = stringResource(R.string.key_abc),
                             color = colors.actionKeyTextColor,
                             fontWeight = FontWeight.Bold,
                             fontSize = 12.sp

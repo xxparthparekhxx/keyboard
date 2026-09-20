@@ -17,14 +17,16 @@ enum class FieldInputKind {
     DECIMAL,
     NUMBER_PASSWORD,
     PHONE,
-    DATETIME;
+    DATETIME,
+    OTP;
 
     val opensAsNumpad: Boolean
         get() = this == NUMBER ||
             this == DECIMAL ||
             this == NUMBER_PASSWORD ||
             this == PHONE ||
-            this == DATETIME
+            this == DATETIME ||
+            this == OTP
 
     val allowsSuggestions: Boolean
         get() = this == TEXT || this == EMAIL || this == URI
@@ -33,7 +35,26 @@ enum class FieldInputKind {
         get() = this == TEXT
 
     companion object {
-        fun from(inputType: Int): FieldInputKind {
+        /**
+         * Word completions / swipe suggestions. Password, PIN, and
+         * [InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS] all suppress the strip;
+         * OTP chips are independent and still shown via [OtpCodes].
+         */
+        fun allowsWordSuggestions(inputType: Int, kind: FieldInputKind): Boolean {
+            if (!kind.allowsSuggestions) return false
+            if (inputType and InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS != 0) return false
+            return true
+        }
+
+        fun from(inputType: Int, isOtp: Boolean = false): FieldInputKind {
+            if (isOtp) {
+                val klass = inputType and InputType.TYPE_MASK_CLASS
+                if (klass == InputType.TYPE_CLASS_NUMBER ||
+                    klass == InputType.TYPE_CLASS_PHONE
+                ) {
+                    return OTP
+                }
+            }
             return when (inputType and InputType.TYPE_MASK_CLASS) {
                 InputType.TYPE_CLASS_NUMBER -> {
                     val variation = inputType and InputType.TYPE_MASK_VARIATION

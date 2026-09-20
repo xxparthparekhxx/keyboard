@@ -88,6 +88,26 @@
     <!-- Theme picker -->
     <string name="theme_select">Select Theme</string>
     <string name="theme_selected">Selected</string>
+    <string name="theme_material_dark">Dark Slate</string>
+    <string name="theme_material_light">Clean Light</string>
+    <string name="theme_amoled">Pitch Black AMOLED</string>
+    <string name="theme_dynamic_dark">Material You</string>
+    <string name="theme_dynamic_light">Material You</string>
+    <string name="theme_nord">Nordic Frost</string>
+    <string name="theme_sunset">Sunset Glow</string>
+    <string name="theme_cyberpunk">Cyber Neon</string>
+    <string name="theme_custom">Custom Theme</string>
+
+    <string name="desc_language_switch">Switch keyboard</string>
+    <string name="desc_caps_lock">Caps lock on</string>
+    <string name="desc_symbols">Symbols</string>
+    <string name="desc_more_symbols">More symbols</string>
+    <string name="desc_letters">Letters</string>
+    <string name="desc_number_pad">Number pad</string>
+    <string name="desc_otp">One-time code: %1$s</string>
+    <string name="otp_paste">OTP %1$s</string>
+    <string name="desc_incognito">Incognito — suggestions and learning are off</string>
+    <string name="set_section_feedback">Feedback</string>
 
     <!-- Custom theme editor -->
     <string name="custom_theme_title">Custom Theme Creator</string>
@@ -138,6 +158,7 @@
     <string name="emoji_recently_used">Recently Used</string>
     <string name="desc_search_emojis">Search Emojis</string>
     <string name="key_space">Space</string>
+    <string name="key_abc">ABC</string>
     <string name="desc_shift">Shift</string>
     <string name="desc_backspace">Backspace</string>
     <string name="desc_enter_key">Action</string>

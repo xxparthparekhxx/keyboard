@@ -75,6 +75,26 @@
 
     <string name="theme_select">Elegir tema</string>
     <string name="theme_selected">Seleccionado</string>
+    <string name="theme_material_dark">Pizarra oscura</string>
+    <string name="theme_material_light">Luz limpia</string>
+    <string name="theme_amoled">Negro AMOLED</string>
+    <string name="theme_dynamic_dark">Material You</string>
+    <string name="theme_dynamic_light">Material You</string>
+    <string name="theme_nord">Escarcha nórdica</string>
+    <string name="theme_sunset">Atardecer</string>
+    <string name="theme_cyberpunk">Ciber neón</string>
+    <string name="theme_custom">Tema personalizado</string>
+
+    <string name="desc_language_switch">Cambiar teclado</string>
+    <string name="desc_caps_lock">Bloq Mayús activado</string>
+    <string name="desc_symbols">Símbolos</string>
+    <string name="desc_more_symbols">Más símbolos</string>
+    <string name="desc_letters">Letras</string>
+    <string name="desc_number_pad">Teclado numérico</string>
+    <string name="desc_otp">Código de un solo uso: %1$s</string>
+    <string name="otp_paste">OTP %1$s</string>
+    <string name="desc_incognito">Incógnito: sin sugerencias ni aprendizaje</string>
+    <string name="set_section_feedback">Respuesta</string>
 
     <string name="custom_theme_title">Creador de temas</string>
     <string name="desc_reset">Restablecer</string>
@@ -121,6 +141,7 @@
     <string name="emoji_recently_used">Usados recientemente</string>
     <string name="desc_search_emojis">Buscar emojis</string>
     <string name="key_space">Espacio</string>
+    <string name="key_abc">ABC</string>
     <string name="desc_shift">Mayús</string>
     <string name="desc_backspace">Retroceso</string>
     <string name="desc_enter_key">Acción</string>

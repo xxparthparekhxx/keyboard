@@ -77,6 +77,12 @@ fun KeyboardScreen(
     inputSession: Int = 0,
     cursorWantsShift: Boolean = false,
     fieldInputKind: FieldInputKind = FieldInputKind.TEXT,
+    fieldAllowsSuggestions: Boolean = true,
+    isOtpField: Boolean = false,
+    isIncognito: Boolean = false,
+    otpCode: String? = null,
+    inlineSuggestions: List<android.view.inputmethod.InlineSuggestion> = emptyList(),
+    showLanguageSwitch: Boolean = false,
     onTextInput: (String) -> Unit,
     onDelete: () -> Unit,
     onAction: (Int) -> Unit,
@@ -95,6 +101,8 @@ fun KeyboardScreen(
     onEmojiScaleChanged: (Float) -> Unit = {},
     onOpenFullSettings: () -> Unit,
     onRequestMicPermission: () -> Unit = {},
+    onOtpSelected: (String) -> Unit = {},
+    onSwitchIme: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     ComposeKeyboardTheme(
@@ -200,7 +208,7 @@ fun KeyboardScreen(
 
         /** Word completions plus matching emojis, for the suggestion strip. */
         fun refreshSuggestions(prefix: String) {
-            if (!fieldInputKind.allowsSuggestions) {
+            if (!fieldAllowsSuggestions) {
                 suggestions = emptyList()
                 return
             }
@@ -208,25 +216,26 @@ fun KeyboardScreen(
                     EmojiSuggestions.emojisFor(prefix, maxCount = 2)
         }
 
-        fun dispatchLongPress(type: KeyType) {
+        fun dispatchPopup(alt: String) {
             if (mode == KeyboardMode.EMOJI && emojiSearching) {
-                if (type is KeyType.Character && type.popup.isNotEmpty()) {
-                    emojiSearchQuery += type.popup.first()
-                }
+                emojiSearchQuery += alt
                 return
             }
+            onTextInput(alt)
+            lastCommitted = alt.firstOrNull() ?: lastCommitted
+            lastNonSpaceChar = lastCommitted
+            lastSpaceTapTime = 0L
+            typedPrefix = ""
+            suggestions = emptyList()
+            isSwipeResult = false
+            if (settings.autoCapitalization && isAlphaMode && mode == KeyboardMode.UPPERCASE) {
+                mode = KeyboardMode.LOWERCASE
+            }
+        }
+
+        fun dispatchLongPress(type: KeyType) {
             if (type is KeyType.Character && type.popup.isNotEmpty()) {
-                val alt = type.popup.first()
-                onTextInput(alt)
-                lastCommitted = alt[0]
-                lastNonSpaceChar = alt[0]
-                lastSpaceTapTime = 0L
-                typedPrefix = ""
-                suggestions = emptyList()
-                isSwipeResult = false
-                if (settings.autoCapitalization && isAlphaMode && mode == KeyboardMode.UPPERCASE) {
-                    mode = KeyboardMode.LOWERCASE
-                }
+                dispatchPopup(type.popup.first())
             }
         }
 
@@ -390,6 +399,9 @@ fun KeyboardScreen(
                     isSwipeResult = false
                     lastSpaceTapTime = 0L
                 }
+                is KeyType.LanguageSwitch -> {
+                    onSwitchIme()
+                }
                 else -> {
                     typedPrefix = ""
                     suggestions = emptyList()
@@ -399,6 +411,16 @@ fun KeyboardScreen(
             }
         }
 
+        val keyPressRef = remember { arrayOf<(KeyType) -> Unit>({}) }
+        val keyLongPressRef = remember { arrayOf<(KeyType) -> Unit>({}) }
+        val popupRef = remember { arrayOf<(String) -> Unit>({}) }
+        keyPressRef[0] = { dispatchKey(it) }
+        keyLongPressRef[0] = { dispatchLongPress(it) }
+        popupRef[0] = { dispatchPopup(it) }
+        val stableKeyPress = remember { { type: KeyType -> keyPressRef[0](type) } }
+        val stableKeyLongPress = remember { { type: KeyType -> keyLongPressRef[0](type) } }
+        val stablePopup = remember { { alt: String -> popupRef[0](alt) } }
+
         Column(
             modifier = modifier
                 .fillMaxWidth()
@@ -406,7 +428,9 @@ fun KeyboardScreen(
         ) {
             // The suggestion strip stands in for the toolbar rather than adding a
             // row, so suggestions never shift the keys under the finger.
-            if (swipeController.isSwiping || suggestions.isNotEmpty()) {
+            if (swipeController.isSwiping || suggestions.isNotEmpty() ||
+                !otpCode.isNullOrEmpty() || inlineSuggestions.isNotEmpty()
+            ) {
                 SuggestionBar(
                     suggestions = suggestions,
                     selectedIndex = selectedSuggestion,
@@ -416,6 +440,12 @@ fun KeyboardScreen(
                     isSwiping = swipeController.isSwiping,
                     hapticEnabled = settings.hapticFeedback,
                     fontScale = settings.fontScale,
+                    otpCode = otpCode,
+                    inlineSuggestions = inlineSuggestions,
+                    onOtpSelected = { code ->
+                        onOtpSelected(code)
+                        clearSuggestions()
+                    },
                     onSuggestionSelected = { index ->
                         val word = suggestions.getOrNull(index) ?: return@SuggestionBar
                         if (isSwipeResult) {
@@ -435,6 +465,7 @@ fun KeyboardScreen(
             } else {
                 KeyboardHeader(
                     currentMode = mode,
+                    isIncognito = isIncognito,
                     onNumpadClick = {
                         mode = if (mode == KeyboardMode.NUMPAD) lettersMode() else KeyboardMode.NUMPAD
                     },
@@ -495,8 +526,8 @@ fun KeyboardScreen(
                                 settings = settings,
                                 imeAction = imeAction,
                                 rowHeight = rowHeight,
-                                onKeyPress = { type -> dispatchKey(type) },
-                                onKeyLongPress = { type -> dispatchLongPress(type) }
+                                onKeyPress = stableKeyPress,
+                                onKeyLongPress = stableKeyLongPress
                             )
                         }
                     }
@@ -592,7 +623,7 @@ fun KeyboardScreen(
                         Column(modifier = Modifier.fillMaxWidth()) {
                             // Number row if enabled
                             AnimatedVisibility(
-                                visible = settings.showNumberRow && isAlphaMode,
+                                visible = (settings.showNumberRow || isOtpField) && isAlphaMode,
                                 enter = fadeIn(),
                                 exit = fadeOut()
                             ) {
@@ -611,8 +642,9 @@ fun KeyboardScreen(
                                             hapticEnabled = settings.hapticFeedback,
                                             fontScale = settings.fontScale,
                                             showKeyPopups = settings.showKeyPopups,
-                                            onKeyPress = { type -> dispatchKey(type) },
-                                            onKeyLongPress = { type -> dispatchLongPress(type) },
+                                            onKeyPress = stableKeyPress,
+                                            onKeyLongPress = stableKeyLongPress,
+                                            onPopupSelected = stablePopup,
                                             modifier = Modifier.weight(key.weight)
                                         )
                                     }
@@ -635,10 +667,10 @@ fun KeyboardScreen(
                                     KeyboardLayouts.moreSymbolsBottomRow
                                 )
                                 else -> listOf(
-                                    KeyboardLayouts.getQwertyRow1(settings.showNumberRow),
+                                    KeyboardLayouts.getQwertyRow1(settings.showNumberRow || isOtpField),
                                     KeyboardLayouts.qwertyRow2,
                                     KeyboardLayouts.qwertyRow3,
-                                    KeyboardLayouts.qwertyBottomRowFor(fieldInputKind)
+                                    KeyboardLayouts.qwertyBottomRowFor(fieldInputKind, showLanguageSwitch)
                                 )
                             }
 
@@ -658,8 +690,9 @@ fun KeyboardScreen(
                                         hapticEnabled = settings.hapticFeedback,
                                         fontScale = settings.fontScale,
                                         showKeyPopups = settings.showKeyPopups,
-                                        onKeyPress = { type -> dispatchKey(type) },
-                                        onKeyLongPress = { type -> dispatchLongPress(type) },
+                                        onKeyPress = stableKeyPress,
+                                        onKeyLongPress = stableKeyLongPress,
+                                        onPopupSelected = stablePopup,
                                         modifier = Modifier
                                             .weight(key.weight)
                                             .trackLetterKey(key, geometry)
@@ -686,8 +719,9 @@ fun KeyboardScreen(
                                         hapticEnabled = settings.hapticFeedback,
                                         fontScale = settings.fontScale,
                                         showKeyPopups = settings.showKeyPopups,
-                                        onKeyPress = { type -> dispatchKey(type) },
-                                        onKeyLongPress = { type -> dispatchLongPress(type) },
+                                        onKeyPress = stableKeyPress,
+                                        onKeyLongPress = stableKeyLongPress,
+                                        onPopupSelected = stablePopup,
                                         modifier = Modifier
                                             .weight(key.weight)
                                             .trackLetterKey(key, geometry)
@@ -714,8 +748,9 @@ fun KeyboardScreen(
                                         hapticEnabled = settings.hapticFeedback,
                                         fontScale = settings.fontScale,
                                         showKeyPopups = settings.showKeyPopups,
-                                        onKeyPress = { type -> dispatchKey(type) },
-                                        onKeyLongPress = { type -> dispatchLongPress(type) },
+                                        onKeyPress = stableKeyPress,
+                                        onKeyLongPress = stableKeyLongPress,
+                                        onPopupSelected = stablePopup,
                                         modifier = Modifier
                                             .weight(key.weight)
                                             .trackLetterKey(key, geometry)
@@ -774,8 +809,9 @@ fun KeyboardScreen(
                                             hapticEnabled = settings.hapticFeedback,
                                             fontScale = settings.fontScale,
                                             showKeyPopups = settings.showKeyPopups,
-                                            onKeyPress = { type -> dispatchKey(type) },
-                                            onKeyLongPress = { type -> dispatchLongPress(type) },
+                                            onKeyPress = stableKeyPress,
+                                            onKeyLongPress = stableKeyLongPress,
+                                            onPopupSelected = stablePopup,
                                             modifier = Modifier.weight(key.weight)
                                         )
                                     }
@@ -869,15 +905,16 @@ private fun EmojiSearchKeyboard(
                     Spacer(modifier = Modifier.width(8.dp))
                 }
                 row.forEach { key ->
-                    KeyboardKey(
-                        key = key,
-                        mode = KeyboardMode.LOWERCASE,
-                        imeAction = imeAction,
-                        hapticEnabled = settings.hapticFeedback,
-                        fontScale = settings.fontScale,
-                        showKeyPopups = settings.showKeyPopups,
-                        onKeyPress = onKeyPress,
-                        onKeyLongPress = onKeyLongPress,
+                                        KeyboardKey(
+                                            key = key,
+                                            mode = KeyboardMode.LOWERCASE,
+                                            imeAction = imeAction,
+                                            hapticEnabled = settings.hapticFeedback,
+                                            fontScale = settings.fontScale,
+                                            showKeyPopups = settings.showKeyPopups,
+                                            onKeyPress = onKeyPress,
+                                            onKeyLongPress = onKeyLongPress,
+                                            onPopupSelected = { alt -> onKeyLongPress(KeyType.Character(alt)) },
                         modifier = Modifier.weight(key.weight)
                     )
                 }

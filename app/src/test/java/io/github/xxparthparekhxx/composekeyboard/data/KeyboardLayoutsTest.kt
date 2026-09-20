@@ -149,6 +149,9 @@ class KeyboardLayoutsTest {
         assertEquals(KeyboardLayouts.emailBottomRow, KeyboardLayouts.qwertyBottomRowFor(FieldInputKind.EMAIL))
         assertEquals(KeyboardLayouts.uriBottomRow, KeyboardLayouts.qwertyBottomRowFor(FieldInputKind.URI))
         assertEquals(KeyboardLayouts.qwertyBottomRow, KeyboardLayouts.qwertyBottomRowFor(FieldInputKind.TEXT))
+        val withGlobe = KeyboardLayouts.qwertyBottomRowFor(FieldInputKind.TEXT, showLanguageSwitch = true)
+        assertTrue(withGlobe.any { it.type is KeyType.LanguageSwitch })
+        assertTrue(withGlobe.any { it.type is KeyType.Space })
     }
 
     @Test

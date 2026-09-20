@@ -36,10 +36,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.github.xxparthparekhxx.composekeyboard.R
 import io.github.xxparthparekhxx.composekeyboard.data.CustomThemeColors
 import io.github.xxparthparekhxx.composekeyboard.data.KeyboardThemeType
 import io.github.xxparthparekhxx.composekeyboard.theme.getKeyboardColors
@@ -281,7 +283,7 @@ fun ThemePreviewCard(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Check,
-                        contentDescription = "Selected",
+                        contentDescription = stringResource(R.string.theme_selected),
                         tint = MaterialTheme.colorScheme.onPrimary,
                         modifier = Modifier.size(12.dp)
                     )
@@ -292,7 +294,7 @@ fun ThemePreviewCard(
         Spacer(modifier = Modifier.height(8.dp))
 
         Text(
-            text = theme.displayName,
+            text = stringResource(theme.titleRes),
             fontSize = 11.sp,
             fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
             color = MaterialTheme.colorScheme.onSurface,

@@ -129,10 +129,36 @@ object KeyboardLayouts {
         KeyModel(KeyType.Enter, weight = 1.4f, isAccent = true)
     )
 
-    fun qwertyBottomRowFor(kind: FieldInputKind): List<KeyModel> = when (kind) {
-        FieldInputKind.EMAIL -> emailBottomRow
-        FieldInputKind.URI -> uriBottomRow
-        else -> qwertyBottomRow
+    fun qwertyBottomRowFor(kind: FieldInputKind, showLanguageSwitch: Boolean = false): List<KeyModel> {
+        val base = when (kind) {
+            FieldInputKind.EMAIL -> emailBottomRow
+            FieldInputKind.URI -> uriBottomRow
+            else -> qwertyBottomRow
+        }
+        return if (showLanguageSwitch) withLanguageSwitch(base) else base
+    }
+
+    /**
+     * Globe key to the right of ?123, shrinking space so the row still fills.
+     * Only used when [InputMethodService.shouldOfferSwitchingToNextInputMethod]
+     * is true — otherwise the extra key is wasted width.
+     */
+    fun withLanguageSwitch(row: List<KeyModel>): List<KeyModel> {
+        val out = ArrayList<KeyModel>(row.size + 1)
+        var inserted = false
+        for (key in row) {
+            when {
+                !inserted && (key.type is KeyType.SymbolToggle || key.type is KeyType.AlphabetToggle) -> {
+                    out.add(key)
+                    out.add(KeyModel(KeyType.LanguageSwitch, weight = 0.85f, isAccent = true))
+                    inserted = true
+                }
+                key.type is KeyType.Space ->
+                    out.add(key.copy(weight = (key.weight - 0.85f).coerceAtLeast(2.4f)))
+                else -> out.add(key)
+            }
+        }
+        return out
     }
 
     // Symbols Page 1

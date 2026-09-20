@@ -9,8 +9,17 @@ import android.text.InputType
 import android.util.Log
 import android.view.KeyEvent
 import android.view.View
+import android.os.Build
+import android.os.Bundle
+import android.os.SystemClock
+import android.util.Size
 import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InlineSuggestion
+import android.view.inputmethod.InlineSuggestionsRequest
+import android.view.inputmethod.InlineSuggestionsResponse
 import android.view.inputmethod.InputConnection
+import android.view.inputmethod.InputMethodManager
+import android.widget.inline.InlinePresentationSpec
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -34,6 +43,8 @@ import io.github.xxparthparekhxx.composekeyboard.data.Capitalization
 import io.github.xxparthparekhxx.composekeyboard.data.ClipboardHistoryManager
 import io.github.xxparthparekhxx.composekeyboard.data.FieldInputKind
 import io.github.xxparthparekhxx.composekeyboard.data.GraphemeClusters
+import io.github.xxparthparekhxx.composekeyboard.data.EmojiCatalog
+import io.github.xxparthparekhxx.composekeyboard.data.OtpCodes
 import io.github.xxparthparekhxx.composekeyboard.data.KeyboardPreferences
 import io.github.xxparthparekhxx.composekeyboard.data.SwipeDictionary
 import io.github.xxparthparekhxx.composekeyboard.input.swipe.SwipeConstants
@@ -98,6 +109,14 @@ class ComposeInputMethodService : InputMethodService(),
 
     /** Layout the focused field asked for (text, email, phone, number, …). */
     private var fieldInputKind by mutableStateOf(FieldInputKind.TEXT)
+    private var fieldAllowsSuggestions by mutableStateOf(true)
+    private var isOtpField by mutableStateOf(false)
+    private var isIncognito by mutableStateOf(false)
+    private var otpCode by mutableStateOf<String?>(null)
+    private var inlineSuggestions by mutableStateOf<List<InlineSuggestion>>(emptyList())
+    private var showLanguageSwitch by mutableStateOf(false)
+    private var inputViewVisible = false
+    private var lastSelfEditAt = 0L
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var dictionarySaveJob: Job? = null
@@ -130,7 +149,10 @@ class ComposeInputMethodService : InputMethodService(),
         // until it lands, which takes a fraction of the time it takes the user
         // to focus a field and start swiping.
         serviceScope.launch {
-            withContext(Dispatchers.IO) { swipeDictionary.load() }
+            withContext(Dispatchers.IO) {
+                swipeDictionary.load()
+                EmojiCatalog.preload(this@ComposeInputMethodService)
+            }
             // The trie is built from the dictionary, so this has to follow it.
             neuralDecoder.value = withContext(Dispatchers.IO) {
                 SwipeNeuralDecoder.load(this@ComposeInputMethodService, swipeDictionary)
@@ -168,6 +190,12 @@ class ComposeInputMethodService : InputMethodService(),
                 inputSession = inputSession,
                 cursorWantsShift = cursorWantsShift,
                 fieldInputKind = fieldInputKind,
+                fieldAllowsSuggestions = fieldAllowsSuggestions,
+                isOtpField = isOtpField,
+                isIncognito = isIncognito,
+                otpCode = otpCode,
+                inlineSuggestions = inlineSuggestions,
+                showLanguageSwitch = showLanguageSwitch,
                 onTextInput = { text ->
                     playKeySound(AudioManager.FX_KEYPRESS_STANDARD)
                     val ic = currentInputConnection
@@ -184,17 +212,15 @@ class ComposeInputMethodService : InputMethodService(),
                                 ic.beginBatchEdit()
                                 ic.commitText(" $text", 1)
                                 ic.endBatchEdit()
-                                selfEditsPending++
+                                markSelfEdit()
                                 trackTypedText(text)
-                                refreshCursorCaps()
                                 return@KeyboardScreen
                             }
                         }
 
                         ic.commitText(text, 1)
-                        selfEditsPending++
+                        markSelfEdit()
                         trackTypedText(text)
-                        refreshCursorCaps()
                     }
                 },
                 onDelete = {
@@ -206,13 +232,11 @@ class ComposeInputMethodService : InputMethodService(),
                     flushTypedWord()
                     lastSwipeCommit = null
                     handleEditorAction(actionId)
-                    refreshCursorCaps()
                 },
                 onMoveCursor = { offset ->
                     lastSwipeCommit = null
                     typedWord.setLength(0)
                     moveCursor(offset)
-                    refreshCursorCaps()
                 },
                 onSwipeWord = { word ->
                     playKeySound(AudioManager.FX_KEYPRESS_SPACEBAR)
@@ -258,7 +282,16 @@ class ComposeInputMethodService : InputMethodService(),
                 },
                 onRequestMicPermission = {
                     launchSettingsActivity(requestMic = true)
-                }
+                },
+                onOtpSelected = { code ->
+                    playKeySound(AudioManager.FX_KEYPRESS_STANDARD)
+                    val ic = currentInputConnection ?: return@KeyboardScreen
+                    ic.commitText(code, 1)
+                    markSelfEdit()
+                    otpCode = null
+                    inlineSuggestions = emptyList()
+                },
+                onSwitchIme = { switchIme() }
             )
         }
 
@@ -267,12 +300,10 @@ class ComposeInputMethodService : InputMethodService(),
 
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         super.onStartInputView(info, restarting)
-        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_START)
-        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
+        enterInputViewLifecycle()
 
         resetInputState()
 
-        // Capture newly copied items when keyboard opens
         clipboardHistoryManager.captureCurrentClip()
 
         info?.let {
@@ -282,11 +313,31 @@ class ComposeInputMethodService : InputMethodService(),
             } else {
                 EditorInfo.IME_ACTION_UNSPECIFIED
             }
+            isOtpField = OtpCodes.isOtpField(it)
+            isIncognito = it.imeOptions and EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING != 0
             fieldAllowsCaps = Capitalization.fieldAllowsAutoCaps(it)
-            fieldInputKind = FieldInputKind.from(it.inputType)
+            fieldInputKind = FieldInputKind.from(it.inputType, isOtp = isOtpField)
+            fieldAllowsSuggestions = FieldInputKind.allowsWordSuggestions(it.inputType, fieldInputKind)
+            otpCode = if (isOtpField) {
+                OtpCodes.fromClipboardText(clipboardHistoryManager.peekPlainText())
+            } else {
+                null
+            }
         } ?: run {
             fieldAllowsCaps = false
             fieldInputKind = FieldInputKind.TEXT
+            fieldAllowsSuggestions = true
+            isOtpField = false
+            isIncognito = false
+            otpCode = null
+        }
+        showLanguageSwitch = if (Build.VERSION.SDK_INT >= 28) {
+            shouldOfferSwitchingToNextInputMethod()
+        } else {
+            true
+        }
+        if (!restarting) {
+            inlineSuggestions = emptyList()
         }
         refreshCursorCaps()
         inputSession++
@@ -297,8 +348,7 @@ class ComposeInputMethodService : InputMethodService(),
         flushTypedWord()
         resetInputState()
         saveLearnedWordsNow()
-        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_PAUSE)
-        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_STOP)
+        leaveInputViewLifecycle()
     }
 
     override fun onWindowHidden() {
@@ -306,6 +356,7 @@ class ComposeInputMethodService : InputMethodService(),
         flushTypedWord()
         resetInputState()
         saveLearnedWordsNow()
+        leaveInputViewLifecycle()
     }
 
     /**
@@ -315,6 +366,24 @@ class ComposeInputMethodService : InputMethodService(),
      * itself in the (shorter) landscape window is always the better trade.
      */
     override fun onEvaluateFullscreenMode(): Boolean = false
+
+    @androidx.annotation.RequiresApi(30)
+    override fun onCreateInlineSuggestionsRequest(uiExtras: Bundle): InlineSuggestionsRequest? {
+        if (Build.VERSION.SDK_INT < 30) return null
+        val spec = InlinePresentationSpec.Builder(Size(120, 48), Size(640, 48))
+            .setStyle(uiExtras)
+            .build()
+        return InlineSuggestionsRequest.Builder(listOf(spec, spec, spec, spec, spec, spec))
+            .setMaxSuggestionCount(6)
+            .build()
+    }
+
+    @androidx.annotation.RequiresApi(30)
+    override fun onInlineSuggestionsResponse(response: InlineSuggestionsResponse): Boolean {
+        if (Build.VERSION.SDK_INT < 30) return false
+        inlineSuggestions = response.inlineSuggestions
+        return true
+    }
 
     override fun onUpdateSelection(
         oldSelStart: Int,
@@ -332,6 +401,9 @@ class ComposeInputMethodService : InputMethodService(),
         refreshCursorCaps()
         if (selfEditsPending > 0) {
             selfEditsPending--
+            return
+        }
+        if (SystemClock.uptimeMillis() - lastSelfEditAt < SELF_EDIT_ECHO_MS) {
             return
         }
         // The caret moved on its own — the user tapped elsewhere, or the app
@@ -370,10 +442,9 @@ class ComposeInputMethodService : InputMethodService(),
         ic.beginBatchEdit()
         ic.commitText(if (needsSpace) " $word" else word, 1)
         ic.endBatchEdit()
-        selfEditsPending++
+        markSelfEdit()
 
         lastSwipeCommit = SwipeCommit(word, needsSpace)
-        refreshCursorCaps()
     }
 
     /** Swaps the word the last gesture committed for one the user picked instead. */
@@ -385,7 +456,7 @@ class ComposeInputMethodService : InputMethodService(),
         ic.deleteSurroundingText(previous.word.length, 0)
         ic.commitText(word, 1)
         ic.endBatchEdit()
-        selfEditsPending++
+        markSelfEdit()
 
         lastSwipeCommit = previous.copy(word = word)
 
@@ -394,7 +465,6 @@ class ComposeInputMethodService : InputMethodService(),
         if (shouldLearnFromField(currentInputEditorInfo)) {
             learnWord(word)
         }
-        refreshCursorCaps()
     }
 
     /**
@@ -411,13 +481,12 @@ class ComposeInputMethodService : InputMethodService(),
         }
         ic.commitText("$word ", 1)
         ic.endBatchEdit()
-        selfEditsPending++
+        markSelfEdit()
 
         if (shouldLearnFromField(currentInputEditorInfo)) {
             learnWord(word)
         }
         typedWord.setLength(0)
-        refreshCursorCaps()
     }
 
     private fun handleDelete() {
@@ -430,10 +499,9 @@ class ComposeInputMethodService : InputMethodService(),
                 swipe.word.length + if (swipe.precededBySpace) 1 else 0,
                 0
             )
-            selfEditsPending++
+            markSelfEdit()
             lastSwipeCommit = null
             typedWord.setLength(0)
-            refreshCursorCaps()
             return
         }
 
@@ -443,15 +511,14 @@ class ComposeInputMethodService : InputMethodService(),
             val selectedText = ic.getSelectedText(0)
             if (!selectedText.isNullOrEmpty()) {
                 ic.commitText("", 1)
-                selfEditsPending++
+                markSelfEdit()
             } else if (deleteLastGrapheme(ic)) {
-                selfEditsPending++
+                markSelfEdit()
             }
         } catch (e: Exception) {
             Log.w(TAG, "Delete failed in the editor; falling back to KEYCODE_DEL", e)
             sendDownUpKeyEvents(KeyEvent.KEYCODE_DEL)
         }
-        refreshCursorCaps()
     }
 
     /**
@@ -660,6 +727,46 @@ class ComposeInputMethodService : InputMethodService(),
         return true
     }
 
+    private fun markSelfEdit() {
+        selfEditsPending++
+        lastSelfEditAt = SystemClock.uptimeMillis()
+    }
+
+    private fun enterInputViewLifecycle() {
+        if (inputViewVisible) return
+        if (lifecycleRegistry.currentState < Lifecycle.State.STARTED) {
+            lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_START)
+        }
+        if (lifecycleRegistry.currentState < Lifecycle.State.RESUMED) {
+            lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
+        }
+        inputViewVisible = true
+    }
+
+    private fun leaveInputViewLifecycle() {
+        if (!inputViewVisible) return
+        if (lifecycleRegistry.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+            lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_PAUSE)
+        }
+        if (lifecycleRegistry.currentState.isAtLeast(Lifecycle.State.STARTED)) {
+            lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_STOP)
+        }
+        inputViewVisible = false
+    }
+
+    private fun switchIme() {
+        if (Build.VERSION.SDK_INT >= 28) {
+            switchToNextInputMethod(false)
+            return
+        }
+        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+        val token = window?.window?.attributes?.token
+        if (imm != null && token != null) {
+            @Suppress("DEPRECATION")
+            imm.switchToNextInputMethod(token, false)
+        }
+    }
+
     /**
      * Re-reads auto-shift from the editor's caret. [android.view.inputmethod.InputConnection.getCursorCapsMode]
      * looks at the actual surrounding text, so a dismissed-and-reshown keyboard
@@ -689,5 +796,6 @@ class ComposeInputMethodService : InputMethodService(),
         const val SAVE_DEBOUNCE_MS = SwipeConstants.SAVE_DEBOUNCE_MS
         /** Long enough for family ZWJ sequences and subdivision-flag tags. */
         private const val GRAPHEME_LOOKBACK = 64
+        private const val SELF_EDIT_ECHO_MS = 48L
     }
 }

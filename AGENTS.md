@@ -44,6 +44,7 @@ keyboard/
 │       │   │   │   ├── GraphemeClusters.kt          # User-visible character segmentation for delete
 │       │   │   │   ├── KeyboardData.kt              # Key layouts, symbols, emoji matrices, KeyType
 │       │   │   │   ├── KeyboardPreferences.kt       # SharedPreferences + StateFlow settings
+│       │   │   │   ├── OtpCodes.kt                  # One-time-passcode field & clipboard detection
 │       │   │   │   ├── RecentEmojiManager.kt        # Recently-used emoji tracking
 │       │   │   │   └── SwipeDictionary.kt           # Bucketed word lexicon & user-learning engine
 │       │   │   ├── input/swipe/
@@ -122,7 +123,7 @@ keyboard/
 - Uses `currentInputConnection` to perform batched text commits (`beginBatchEdit()`, `commitText()`, `deleteSurroundingText()`, `endBatchEdit()`).
 - Tracks `selfEditsPending` to differentiate internal text updates from external user caret movements.
 - Opts out of fullscreen extract mode (`onEvaluateFullscreenMode() = false`); the Compose UI has no extract view, so landscape renders the keyboard itself.
-- Inline suggestions are deliberately *not* advertised in `method.xml` (no `supportsInlineSuggestions`): re-add it only together with a real `onCreateInlineSuggestionsRequest` implementation.
+- Inline suggestions are advertised in `method.xml` (`supportsInlineSuggestions`, API 30+) and implemented via `onCreateInlineSuggestionsRequest` / `onInlineSuggestionsResponse`. This is what drives the Gboard-style OTP paste chip. Keep the attribute and the two overrides in lockstep: removing either one disables autofill chips, and advertising the attribute without the overrides means chips never appear.
 
 ### B. Glide / Swipe Typing Engine (`input/swipe/`, `input/swipe/nn/`)
 Two decode paths share the gesture; the neural path is preferred, the geometric path is the fallback (and always drives the live preview):

@@ -226,7 +226,7 @@ private fun ClipboardHistoryRow(
         IconButton(onClick = onDelete) {
             Icon(
                 imageVector = Icons.Default.Delete,
-                contentDescription = "Delete",
+                contentDescription = stringResource(R.string.desc_delete),
                 tint = MaterialTheme.colorScheme.error.copy(alpha = 0.85f)
             )
         }
