@@ -635,21 +635,22 @@ private fun EmojiBottomBar(
                         onPress = {
                             isPressed = true
                             triggerHaptic()
-                            var repeatJob: Job? = null
-                            repeatJob = scope.launch {
+                            // onTap would also fire after a long hold, deleting
+                            // one extra character once auto-repeat has run.
+                            var repeated = false
+                            val repeatJob: Job = scope.launch {
                                 delay(400)
                                 while (isPressed) {
+                                    repeated = true
                                     triggerHaptic()
                                     onDelete()
                                     delay(50)
                                 }
                             }
-                            tryAwaitRelease()
+                            val released = tryAwaitRelease()
                             repeatJob.cancel()
                             isPressed = false
-                        },
-                        onTap = {
-                            onDelete()
+                            if (released && !repeated) onDelete()
                         }
                     )
                 }

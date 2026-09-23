@@ -282,10 +282,14 @@ fun KeyboardKey(
                             isLongPressed = false
                             triggerHaptic()
                             var repeatJob: Job? = null
+                            // Once auto-repeat has fired, lifting the finger must
+                            // not delete one more character on top.
+                            var repeated = false
                             if (key.type is KeyType.Backspace) {
                                 repeatJob = scope.launch {
                                     delay(350L)
                                     while (isPressed) {
+                                        repeated = true
                                         triggerHaptic()
                                         currentOnKeyPress(key.type)
                                         delay(50L)
@@ -310,7 +314,7 @@ fun KeyboardKey(
                             val released = tryAwaitRelease()
                             longPressJob.cancel()
                             repeatJob?.cancel()
-                            if (released && !isLongPressed) {
+                            if (released && !isLongPressed && !repeated) {
                                 currentOnKeyPress(key.type)
                             }
                             isPressed = false
