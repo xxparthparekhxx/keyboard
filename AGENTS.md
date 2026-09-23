@@ -121,7 +121,7 @@ keyboard/
 - Implements `LifecycleOwner`, `ViewModelStoreOwner`, and `SavedStateRegistryOwner` to support Compose within an Android Service window.
 - Renders `ComposeView` with `ViewCompositionStrategy.DisposeOnLifecycleDestroyed`.
 - Uses `currentInputConnection` to perform batched text commits (`beginBatchEdit()`, `commitText()`, `deleteSurroundingText()`, `endBatchEdit()`).
-- Tracks `selfEditsPending` to differentiate internal text updates from external user caret movements.
+- `SelectionTracker` (`data/`) predicts where each of our own edits leaves the caret, so `onUpdateSelection` can tell their echoes (including belated ones during a burst) from external caret moves. It replaced an edit counter that drifted in editors that never report selection changes (Termux, some web views).
 - Opts out of fullscreen extract mode (`onEvaluateFullscreenMode() = false`); the Compose UI has no extract view, so landscape renders the keyboard itself.
 - Inline suggestions are advertised in `method.xml` (`supportsInlineSuggestions`, API 30+) and implemented via `onCreateInlineSuggestionsRequest` / `onInlineSuggestionsResponse`. This is what drives the Gboard-style OTP paste chip. Keep the attribute and the two overrides in lockstep: removing either one disables autofill chips, and advertising the attribute without the overrides means chips never appear.
 
@@ -245,7 +245,7 @@ python tools/export_weights.py --ckpt runs/encoder/best.pt \
 
 ### 2. InputConnection & Editing Conventions
 - Always wrap compound edits (e.g. deleting a word and inserting replacement) in `beginBatchEdit()` and `endBatchEdit()`.
-- Increment `selfEditsPending` for internal edits to prevent `onUpdateSelection` from clearing candidate state unintentionally.
+- Report every internal edit to `selection` (`onCommitText(len)` / `onDeleteBefore(len)`), and send key events through `sendKeyEdit()` so the tracker knows their outcome is unpredictable. An unreported edit makes its echo look like a user caret move and clears candidate state.
 - Maintain single-word backspace logic: pressing backspace immediately following a swipe removes the whole committed word and preceding auto-space.
 - Route all dictionary learning through `learnWord()` so the beam gets its immediate `bumpScore`; never call `swipeDictionary.learn()` and drop the return value.
 

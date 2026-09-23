@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
@@ -45,6 +46,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.xxparthparekhxx.composekeyboard.data.Capitalization
 import io.github.xxparthparekhxx.composekeyboard.data.ClipboardHistoryManager
@@ -75,6 +77,7 @@ fun KeyboardScreen(
     neuralDecoder: SwipeNeuralDecoder? = null,
     imeAction: Int = EditorInfo.IME_ACTION_UNSPECIFIED,
     inputSession: Int = 0,
+    externalCaretMoves: Int = 0,
     cursorWantsShift: Boolean = false,
     fieldInputKind: FieldInputKind = FieldInputKind.TEXT,
     fieldAllowsSuggestions: Boolean = true,
@@ -188,6 +191,11 @@ fun KeyboardScreen(
             }
         }
 
+        // A new field: a gesture decoded for the old one must not land here.
+        LaunchedEffect(inputSession) {
+            swipeController.reset()
+        }
+
         // Symbol and emoji layouts do not report letter positions, so anything
         // recorded for them would be stale by the time we came back.
         LaunchedEffect(isAlphaMode) {
@@ -204,6 +212,17 @@ fun KeyboardScreen(
             typedPrefix = ""
             isSwipeResult = false
             selectedSuggestion = -1
+        }
+
+        // The caret moved without us (tap elsewhere, app rewrote the field):
+        // the typed prefix is no longer the text before the cursor, so picking
+        // a completion now would delete the wrong characters.
+        LaunchedEffect(externalCaretMoves) {
+            if (externalCaretMoves != 0) {
+                clearSuggestions()
+                lastCommitted = ' '
+                lastSpaceTapTime = 0L
+            }
         }
 
         /** Word completions plus matching emojis, for the suggestion strip. */
@@ -402,12 +421,6 @@ fun KeyboardScreen(
                 is KeyType.LanguageSwitch -> {
                     onSwitchIme()
                 }
-                else -> {
-                    typedPrefix = ""
-                    suggestions = emptyList()
-                    isSwipeResult = false
-                    lastSpaceTapTime = 0L
-                }
             }
         }
 
@@ -527,7 +540,8 @@ fun KeyboardScreen(
                                 imeAction = imeAction,
                                 rowHeight = rowHeight,
                                 onKeyPress = stableKeyPress,
-                                onKeyLongPress = stableKeyLongPress
+                                onKeyLongPress = stableKeyLongPress,
+                                onPopupSelected = stablePopup
                             )
                         }
                     }
@@ -621,34 +635,62 @@ fun KeyboardScreen(
                             }
                     ) {
                         Column(modifier = Modifier.fillMaxWidth()) {
+                            // Space doubles as a cursor trackpad: horizontal drags move the caret.
+                            var accumulatedDrag by remember { mutableFloatStateOf(0f) }
+                            val dragThreshold = SwipeConstants.DRAG_THRESHOLD_PX
+                            val dragState = rememberDraggableState { delta ->
+                                accumulatedDrag += delta
+                                if (abs(accumulatedDrag) >= dragThreshold) {
+                                    val steps = (accumulatedDrag / dragThreshold).toInt()
+                                    clearSuggestions()
+                                    onMoveCursor(steps)
+                                    accumulatedDrag -= steps * dragThreshold
+                                }
+                            }
+                            val spaceKey: @Composable RowScope.(KeyModel) -> Unit = { key ->
+                                Box(
+                                    modifier = Modifier
+                                        .weight(key.weight)
+                                        .draggable(
+                                            orientation = Orientation.Horizontal,
+                                            state = dragState,
+                                            onDragStopped = { accumulatedDrag = 0f }
+                                        )
+                                ) {
+                                    KeyboardKey(
+                                        key = key,
+                                        mode = mode,
+                                        imeAction = imeAction,
+                                        hapticEnabled = settings.hapticFeedback,
+                                        fontScale = settings.fontScale,
+                                        showKeyPopups = settings.showKeyPopups,
+                                        onKeyPress = stableKeyPress,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                }
+                            }
+
+                            val keyRow: @Composable (KeyRowSpec) -> Unit = { spec ->
+                                KeyRow(
+                                    spec = spec,
+                                    mode = mode,
+                                    imeAction = imeAction,
+                                    settings = settings,
+                                    geometry = geometry,
+                                    onKeyPress = stableKeyPress,
+                                    onKeyLongPress = stableKeyLongPress,
+                                    onPopupSelected = stablePopup,
+                                    spaceKey = spaceKey
+                                )
+                            }
+
                             // Number row if enabled
                             AnimatedVisibility(
                                 visible = (settings.showNumberRow || isOtpField) && isAlphaMode,
                                 enter = fadeIn(),
                                 exit = fadeOut()
                             ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(numberRowHeight)
-                                        .padding(horizontal = 2.dp, vertical = 1.dp),
-                                    horizontalArrangement = Arrangement.Center
-                                ) {
-                                    KeyboardLayouts.numberRow.forEach { key ->
-                                        KeyboardKey(
-                                            key = key,
-                                            mode = mode,
-                                            imeAction = imeAction,
-                                            hapticEnabled = settings.hapticFeedback,
-                                            fontScale = settings.fontScale,
-                                            showKeyPopups = settings.showKeyPopups,
-                                            onKeyPress = stableKeyPress,
-                                            onKeyLongPress = stableKeyLongPress,
-                                            onPopupSelected = stablePopup,
-                                            modifier = Modifier.weight(key.weight)
-                                        )
-                                    }
-                                }
+                                keyRow(KeyRowSpec(KeyboardLayouts.numberRow, numberRowHeight, 2.dp))
                             }
 
                             // Main keyboard rows based on current mode
@@ -674,149 +716,11 @@ fun KeyboardScreen(
                                 )
                             }
 
-                            // Row 1
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(rowHeight)
-                                    .padding(horizontal = keyRowHorizontalPadding, vertical = 1.dp),
-                                horizontalArrangement = Arrangement.Center
-                            ) {
-                                row1.forEach { key ->
-                                    KeyboardKey(
-                                        key = key,
-                                        mode = mode,
-                                        imeAction = imeAction,
-                                        hapticEnabled = settings.hapticFeedback,
-                                        fontScale = settings.fontScale,
-                                        showKeyPopups = settings.showKeyPopups,
-                                        onKeyPress = stableKeyPress,
-                                        onKeyLongPress = stableKeyLongPress,
-                                        onPopupSelected = stablePopup,
-                                        modifier = Modifier
-                                            .weight(key.weight)
-                                            .trackLetterKey(key, geometry)
-                                    )
-                                }
-                            }
-
-                            // Row 2
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(rowHeight)
-                                    .padding(horizontal = keyRowHorizontalPadding, vertical = 1.dp),
-                                horizontalArrangement = Arrangement.Center
-                            ) {
-                                if (isAlphaMode) {
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                }
-                                row2.forEach { key ->
-                                    KeyboardKey(
-                                        key = key,
-                                        mode = mode,
-                                        imeAction = imeAction,
-                                        hapticEnabled = settings.hapticFeedback,
-                                        fontScale = settings.fontScale,
-                                        showKeyPopups = settings.showKeyPopups,
-                                        onKeyPress = stableKeyPress,
-                                        onKeyLongPress = stableKeyLongPress,
-                                        onPopupSelected = stablePopup,
-                                        modifier = Modifier
-                                            .weight(key.weight)
-                                            .trackLetterKey(key, geometry)
-                                    )
-                                }
-                                if (isAlphaMode) {
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                }
-                            }
-
-                            // Row 3 (Shift, letters/symbols, Backspace)
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(rowHeight)
-                                    .padding(horizontal = keyRowHorizontalPadding, vertical = 1.dp),
-                                horizontalArrangement = Arrangement.Center
-                            ) {
-                                row3.forEach { key ->
-                                    KeyboardKey(
-                                        key = key,
-                                        mode = mode,
-                                        imeAction = imeAction,
-                                        hapticEnabled = settings.hapticFeedback,
-                                        fontScale = settings.fontScale,
-                                        showKeyPopups = settings.showKeyPopups,
-                                        onKeyPress = stableKeyPress,
-                                        onKeyLongPress = stableKeyLongPress,
-                                        onPopupSelected = stablePopup,
-                                        modifier = Modifier
-                                            .weight(key.weight)
-                                            .trackLetterKey(key, geometry)
-                                    )
-                                }
-                            }
-
-                            // Bottom Row (123, Emoji, Space, Period, Enter)
-                            var accumulatedDrag by remember { mutableFloatStateOf(0f) }
-                            val dragThreshold = SwipeConstants.DRAG_THRESHOLD_PX
-
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(rowHeight)
-                                    .padding(horizontal = keyRowHorizontalPadding, vertical = 1.dp),
-                                horizontalArrangement = Arrangement.Center
-                            ) {
-                                bottomRow.forEach { key ->
-                                    if (key.type is KeyType.Space) {
-                                        Box(
-                                            modifier = Modifier
-                                                .weight(key.weight)
-                                                .draggable(
-                                                    orientation = Orientation.Horizontal,
-                                                    state = rememberDraggableState { delta ->
-                                                        accumulatedDrag += delta
-                                                        if (abs(accumulatedDrag) >= dragThreshold) {
-                                                            val steps = (accumulatedDrag / dragThreshold).toInt()
-                                                            clearSuggestions()
-                                                            onMoveCursor(steps)
-                                                            accumulatedDrag -= steps * dragThreshold
-                                                        }
-                                                    },
-                                                    onDragStopped = {
-                                                        accumulatedDrag = 0f
-                                                    }
-                                                )
-                                        ) {
-                                            KeyboardKey(
-                                                key = key,
-                                                mode = mode,
-                                                imeAction = imeAction,
-                                                hapticEnabled = settings.hapticFeedback,
-                                                fontScale = settings.fontScale,
-                                                showKeyPopups = settings.showKeyPopups,
-                                                onKeyPress = { dispatchKey(KeyType.Space) },
-                                                modifier = Modifier.fillMaxSize()
-                                            )
-                                        }
-                                    } else {
-                                        KeyboardKey(
-                                            key = key,
-                                            mode = mode,
-                                            imeAction = imeAction,
-                                            hapticEnabled = settings.hapticFeedback,
-                                            fontScale = settings.fontScale,
-                                            showKeyPopups = settings.showKeyPopups,
-                                            onKeyPress = stableKeyPress,
-                                            onKeyLongPress = stableKeyLongPress,
-                                            onPopupSelected = stablePopup,
-                                            modifier = Modifier.weight(key.weight)
-                                        )
-                                    }
-                                }
-                            }
+                            keyRow(KeyRowSpec(row1, rowHeight, keyRowHorizontalPadding))
+                            // Alpha rows stagger the home row in from both edges.
+                            keyRow(KeyRowSpec(row2, rowHeight, keyRowHorizontalPadding, sideInset = if (isAlphaMode) 8.dp else 0.dp))
+                            keyRow(KeyRowSpec(row3, rowHeight, keyRowHorizontalPadding))
+                            keyRow(KeyRowSpec(bottomRow, rowHeight, keyRowHorizontalPadding))
                         }
                     }
                 }
@@ -882,9 +786,10 @@ fun KeyboardScreen(
 private fun EmojiSearchKeyboard(
     settings: KeyboardSettings,
     imeAction: Int,
-    rowHeight: androidx.compose.ui.unit.Dp,
+    rowHeight: Dp,
     onKeyPress: (KeyType) -> Unit,
-    onKeyLongPress: (KeyType) -> Unit
+    onKeyLongPress: (KeyType) -> Unit,
+    onPopupSelected: (String) -> Unit
 ) {
     val rows = listOf(
         KeyboardLayouts.getQwertyRow1(showNumberRow = true),
@@ -893,36 +798,75 @@ private fun EmojiSearchKeyboard(
         KeyboardLayouts.emojiSearchBottomRow
     )
     Column(modifier = Modifier.fillMaxWidth()) {
-        rows.forEachIndexed { index, row ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(rowHeight)
-                    .padding(horizontal = 2.dp, vertical = 1.dp),
-                horizontalArrangement = Arrangement.Center
-            ) {
-                if (index == 1) {
-                    Spacer(modifier = Modifier.width(8.dp))
-                }
-                row.forEach { key ->
-                                        KeyboardKey(
-                                            key = key,
-                                            mode = KeyboardMode.LOWERCASE,
-                                            imeAction = imeAction,
-                                            hapticEnabled = settings.hapticFeedback,
-                                            fontScale = settings.fontScale,
-                                            showKeyPopups = settings.showKeyPopups,
-                                            onKeyPress = onKeyPress,
-                                            onKeyLongPress = onKeyLongPress,
-                                            onPopupSelected = { alt -> onKeyLongPress(KeyType.Character(alt)) },
-                        modifier = Modifier.weight(key.weight)
-                    )
-                }
-                if (index == 1) {
-                    Spacer(modifier = Modifier.width(8.dp))
-                }
+        rows.forEachIndexed { index, keys ->
+            KeyRow(
+                spec = KeyRowSpec(keys, rowHeight, 2.dp, sideInset = if (index == 1) 8.dp else 0.dp),
+                mode = KeyboardMode.LOWERCASE,
+                imeAction = imeAction,
+                settings = settings,
+                geometry = null,
+                onKeyPress = onKeyPress,
+                onKeyLongPress = onKeyLongPress,
+                onPopupSelected = onPopupSelected
+            )
+        }
+    }
+}
+
+/** One row of keys: its keys, height, horizontal padding and stagger inset. */
+private data class KeyRowSpec(
+    val keys: List<KeyModel>,
+    val height: Dp,
+    val horizontalPadding: Dp,
+    val sideInset: Dp = 0.dp
+)
+
+/**
+ * A row of [KeyboardKey]s. Letter keys report their cells to [geometry] for
+ * swipe typing; [spaceKey], when given, renders the space bar instead of the
+ * default key (the main layout uses it for the cursor-drag trackpad).
+ */
+@Composable
+private fun KeyRow(
+    spec: KeyRowSpec,
+    mode: KeyboardMode,
+    imeAction: Int,
+    settings: KeyboardSettings,
+    geometry: SwipeKeyGeometry?,
+    onKeyPress: (KeyType) -> Unit,
+    onKeyLongPress: (KeyType) -> Unit,
+    onPopupSelected: (String) -> Unit,
+    spaceKey: (@Composable RowScope.(KeyModel) -> Unit)? = null
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(spec.height)
+            .padding(horizontal = spec.horizontalPadding, vertical = 1.dp),
+        horizontalArrangement = Arrangement.Center
+    ) {
+        if (spec.sideInset > 0.dp) Spacer(modifier = Modifier.width(spec.sideInset))
+        spec.keys.forEach { key ->
+            if (key.type is KeyType.Space && spaceKey != null) {
+                spaceKey(key)
+            } else {
+                KeyboardKey(
+                    key = key,
+                    mode = mode,
+                    imeAction = imeAction,
+                    hapticEnabled = settings.hapticFeedback,
+                    fontScale = settings.fontScale,
+                    showKeyPopups = settings.showKeyPopups,
+                    onKeyPress = onKeyPress,
+                    onKeyLongPress = onKeyLongPress,
+                    onPopupSelected = onPopupSelected,
+                    modifier = Modifier
+                        .weight(key.weight)
+                        .let { if (geometry != null) it.trackLetterKey(key, geometry) else it }
+                )
             }
         }
+        if (spec.sideInset > 0.dp) Spacer(modifier = Modifier.width(spec.sideInset))
     }
 }
 

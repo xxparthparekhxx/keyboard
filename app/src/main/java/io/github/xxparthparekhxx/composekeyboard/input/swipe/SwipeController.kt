@@ -96,6 +96,17 @@ class SwipeController(
     /** Drops any in-flight gesture, e.g. when the keyboard layout changes. */
     fun cancel() = finish(decode = false)
 
+    /**
+     * Drops the gesture in flight *and* any decode still running for the last
+     * one, so a word decoded for the previous field is never committed into
+     * the next. [cancel] keeps a finished gesture's decode alive on purpose.
+     */
+    fun reset() {
+        decodeJob?.cancel()
+        decodeJob = null
+        finish(decode = false)
+    }
+
     private fun finish(decode: Boolean) {
         previewJob?.cancel()
         previewJob = null

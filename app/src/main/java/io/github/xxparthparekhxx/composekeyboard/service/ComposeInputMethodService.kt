@@ -11,7 +11,6 @@ import android.view.KeyEvent
 import android.view.View
 import android.os.Build
 import android.os.Bundle
-import android.os.SystemClock
 import android.util.Size
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InlineSuggestion
@@ -45,6 +44,7 @@ import io.github.xxparthparekhxx.composekeyboard.data.FieldInputKind
 import io.github.xxparthparekhxx.composekeyboard.data.GraphemeClusters
 import io.github.xxparthparekhxx.composekeyboard.data.EmojiCatalog
 import io.github.xxparthparekhxx.composekeyboard.data.OtpCodes
+import io.github.xxparthparekhxx.composekeyboard.data.SelectionTracker
 import io.github.xxparthparekhxx.composekeyboard.data.KeyboardPreferences
 import io.github.xxparthparekhxx.composekeyboard.data.SwipeDictionary
 import io.github.xxparthparekhxx.composekeyboard.input.swipe.SwipeConstants
@@ -115,8 +115,14 @@ class ComposeInputMethodService : InputMethodService(),
     private var otpCode by mutableStateOf<String?>(null)
     private var inlineSuggestions by mutableStateOf<List<InlineSuggestion>>(emptyList())
     private var showLanguageSwitch by mutableStateOf(false)
+
+    /**
+     * Bumped whenever the caret moves for a reason other than our own edits.
+     * The UI keys its typed prefix and suggestions off it: a completion picked
+     * after the caret moved would otherwise delete text at the new position.
+     */
+    private var externalCaretMoves by mutableIntStateOf(0)
     private var inputViewVisible = false
-    private var lastSelfEditAt = 0L
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var dictionarySaveJob: Job? = null
@@ -127,11 +133,11 @@ class ComposeInputMethodService : InputMethodService(),
     private var lastSwipeCommit: SwipeCommit? = null
 
     /**
-     * Edits we made ourselves, awaiting their `onUpdateSelection` echo. Anything
-     * left over is the user moving the caret, which invalidates the gesture
-     * state at the cursor.
+     * Predicts where our own edits leave the caret, so `onUpdateSelection`
+     * can tell their echoes from the user moving it — which invalidates the
+     * gesture state at the cursor. See [SelectionTracker].
      */
-    private var selfEditsPending = 0
+    private val selection = SelectionTracker()
 
     /** Letters tapped since the last word boundary, for dictionary learning. */
     private val typedWord = StringBuilder()
@@ -188,6 +194,7 @@ class ComposeInputMethodService : InputMethodService(),
                 neuralDecoder = neural,
                 imeAction = currentImeAction,
                 inputSession = inputSession,
+                externalCaretMoves = externalCaretMoves,
                 cursorWantsShift = cursorWantsShift,
                 fieldInputKind = fieldInputKind,
                 fieldAllowsSuggestions = fieldAllowsSuggestions,
@@ -212,14 +219,14 @@ class ComposeInputMethodService : InputMethodService(),
                                 ic.beginBatchEdit()
                                 ic.commitText(" $text", 1)
                                 ic.endBatchEdit()
-                                markSelfEdit()
+                                selection.onCommitText(text.length + 1)
                                 trackTypedText(text)
                                 return@KeyboardScreen
                             }
                         }
 
                         ic.commitText(text, 1)
-                        markSelfEdit()
+                        selection.onCommitText(text.length)
                         trackTypedText(text)
                     }
                 },
@@ -287,7 +294,7 @@ class ComposeInputMethodService : InputMethodService(),
                     playKeySound(AudioManager.FX_KEYPRESS_STANDARD)
                     val ic = currentInputConnection ?: return@KeyboardScreen
                     ic.commitText(code, 1)
-                    markSelfEdit()
+                    selection.onCommitText(code.length)
                     otpCode = null
                     inlineSuggestions = emptyList()
                 },
@@ -303,12 +310,17 @@ class ComposeInputMethodService : InputMethodService(),
         enterInputViewLifecycle()
 
         resetInputState()
+        selection.reset(info?.initialSelStart ?: -1, info?.initialSelEnd ?: -1)
 
         clipboardHistoryManager.captureCurrentClip()
 
         info?.let {
             val action = it.imeOptions and EditorInfo.IME_MASK_ACTION
-            currentImeAction = if (action != EditorInfo.IME_ACTION_NONE && action != EditorInfo.IME_ACTION_UNSPECIFIED) {
+            // Multi-line EditTexts get IME_ACTION_DONE/NEXT *plus* this flag,
+            // meaning "Enter inserts a newline". Honouring the action there
+            // would make newlines impossible to type in notes, chats, etc.
+            val noEnterAction = it.imeOptions and EditorInfo.IME_FLAG_NO_ENTER_ACTION != 0
+            currentImeAction = if (!noEnterAction && action != EditorInfo.IME_ACTION_NONE && action != EditorInfo.IME_ACTION_UNSPECIFIED) {
                 action
             } else {
                 EditorInfo.IME_ACTION_UNSPECIFIED
@@ -345,6 +357,7 @@ class ComposeInputMethodService : InputMethodService(),
 
     override fun onFinishInputView(finishingInput: Boolean) {
         super.onFinishInputView(finishingInput)
+        VoiceInputController.getInstance(this).cancelRecording()
         flushTypedWord()
         resetInputState()
         saveLearnedWordsNow()
@@ -353,6 +366,7 @@ class ComposeInputMethodService : InputMethodService(),
 
     override fun onWindowHidden() {
         super.onWindowHidden()
+        VoiceInputController.getInstance(this).cancelRecording()
         flushTypedWord()
         resetInputState()
         saveLearnedWordsNow()
@@ -369,7 +383,6 @@ class ComposeInputMethodService : InputMethodService(),
 
     @androidx.annotation.RequiresApi(30)
     override fun onCreateInlineSuggestionsRequest(uiExtras: Bundle): InlineSuggestionsRequest? {
-        if (Build.VERSION.SDK_INT < 30) return null
         val spec = InlinePresentationSpec.Builder(Size(120, 48), Size(640, 48))
             .setStyle(uiExtras)
             .build()
@@ -380,7 +393,6 @@ class ComposeInputMethodService : InputMethodService(),
 
     @androidx.annotation.RequiresApi(30)
     override fun onInlineSuggestionsResponse(response: InlineSuggestionsResponse): Boolean {
-        if (Build.VERSION.SDK_INT < 30) return false
         inlineSuggestions = response.inlineSuggestions
         return true
     }
@@ -399,18 +411,13 @@ class ComposeInputMethodService : InputMethodService(),
         // Caps follows the caret, including after our own commits and after
         // the user taps into the middle of a sentence.
         refreshCursorCaps()
-        if (selfEditsPending > 0) {
-            selfEditsPending--
-            return
-        }
-        if (SystemClock.uptimeMillis() - lastSelfEditAt < SELF_EDIT_ECHO_MS) {
-            return
-        }
+        if (selection.onUpdate(oldSelStart, oldSelEnd, newSelStart, newSelEnd)) return
         // The caret moved on its own — the user tapped elsewhere, or the app
         // rewrote the field. Whatever the last gesture put in is no longer
         // guaranteed to be sitting at the cursor, so neither whole-word
         // backspace nor suggestion swapping can be trusted any more.
         resetInputState()
+        externalCaretMoves++
     }
 
     override fun onDestroy() {
@@ -433,6 +440,9 @@ class ComposeInputMethodService : InputMethodService(),
      * remembered, so backspacing the word takes the space with it.
      */
     private fun commitSwipeWord(word: String) {
+        // Decoding finishes a beat after lift-off; if the keyboard went away
+        // in between, the word belongs to a field that no longer has focus.
+        if (!inputViewVisible) return
         val ic = currentInputConnection ?: return
         typedWord.setLength(0)
 
@@ -442,7 +452,7 @@ class ComposeInputMethodService : InputMethodService(),
         ic.beginBatchEdit()
         ic.commitText(if (needsSpace) " $word" else word, 1)
         ic.endBatchEdit()
-        markSelfEdit()
+        selection.onCommitText(word.length + if (needsSpace) 1 else 0)
 
         lastSwipeCommit = SwipeCommit(word, needsSpace)
     }
@@ -456,7 +466,8 @@ class ComposeInputMethodService : InputMethodService(),
         ic.deleteSurroundingText(previous.word.length, 0)
         ic.commitText(word, 1)
         ic.endBatchEdit()
-        markSelfEdit()
+        selection.onDeleteBefore(previous.word.length)
+        selection.onCommitText(word.length)
 
         lastSwipeCommit = previous.copy(word = word)
 
@@ -475,13 +486,25 @@ class ComposeInputMethodService : InputMethodService(),
         val deleteLen = prefix.length
         lastSwipeCommit = null
 
+        // Only replace the prefix if it really is what sits before the caret.
+        // Raw key editors (terminals) report no text, so they are trusted.
+        if (deleteLen > 0 && !FieldInputKind.isRawKeyEditor(currentInputEditorInfo?.inputType ?: 0)) {
+            val before = ic.getTextBeforeCursor(deleteLen, 0)
+            if (before != null && !before.toString().equals(prefix, ignoreCase = true)) {
+                Log.w(TAG, "Stale completion prefix; ignoring suggestion tap")
+                typedWord.setLength(0)
+                return
+            }
+        }
+
         ic.beginBatchEdit()
         if (deleteLen > 0) {
             ic.deleteSurroundingText(deleteLen, 0)
         }
         ic.commitText("$word ", 1)
         ic.endBatchEdit()
-        markSelfEdit()
+        selection.onDeleteBefore(deleteLen)
+        selection.onCommitText(word.length + 1)
 
         if (shouldLearnFromField(currentInputEditorInfo)) {
             learnWord(word)
@@ -495,11 +518,9 @@ class ComposeInputMethodService : InputMethodService(),
         if (swipe != null) {
             // The first backspace after a gesture takes the whole word, along
             // with the space that was inserted to separate it.
-            ic.deleteSurroundingText(
-                swipe.word.length + if (swipe.precededBySpace) 1 else 0,
-                0
-            )
-            markSelfEdit()
+            val length = swipe.word.length + if (swipe.precededBySpace) 1 else 0
+            ic.deleteSurroundingText(length, 0)
+            selection.onDeleteBefore(length)
             lastSwipeCommit = null
             typedWord.setLength(0)
             return
@@ -511,13 +532,13 @@ class ComposeInputMethodService : InputMethodService(),
             val selectedText = ic.getSelectedText(0)
             if (!selectedText.isNullOrEmpty()) {
                 ic.commitText("", 1)
-                markSelfEdit()
-            } else if (deleteLastGrapheme(ic)) {
-                markSelfEdit()
+                selection.onCommitText(0)
+            } else {
+                deleteLastGrapheme(ic)
             }
         } catch (e: Exception) {
             Log.w(TAG, "Delete failed in the editor; falling back to KEYCODE_DEL", e)
-            sendDownUpKeyEvents(KeyEvent.KEYCODE_DEL)
+            sendKeyEdit(KeyEvent.KEYCODE_DEL)
         }
     }
 
@@ -532,22 +553,38 @@ class ComposeInputMethodService : InputMethodService(),
      * `start cannot be negative` and takes down the host (this app, in the
      * companion playground).
      *
-     * @return true if an edit was sent to the connection
      */
-    private fun deleteLastGrapheme(ic: InputConnection): Boolean {
+    private fun deleteLastGrapheme(ic: InputConnection) {
+        // Terminals (Termux and friends) have no text buffer to inspect, so
+        // the text before the caret always looks empty. They only understand
+        // key events.
+        val info = currentInputEditorInfo
+        if (info != null && FieldInputKind.isRawKeyEditor(info.inputType)) {
+            sendKeyEdit(KeyEvent.KEYCODE_DEL)
+            return
+        }
         val before = ic.getTextBeforeCursor(GRAPHEME_LOOKBACK, 0)
         val units = GraphemeClusters.utf16LengthOfLastCluster(before ?: "")
         if (units > 0) {
             ic.deleteSurroundingText(units, 0)
-            return true
+            selection.onDeleteBefore(units)
+            return
         }
-        // Unknown surrounding text (some editors return null). KEYCODE_DEL is
-        // a no-op on an empty field instead of crashing Compose.
-        if (before == null) {
-            sendDownUpKeyEvents(KeyEvent.KEYCODE_DEL)
-            return true
-        }
-        return false
+        // Unknown surrounding text (some editors return null), or nothing
+        // before the caret. KEYCODE_DEL is a no-op on an empty field instead
+        // of crashing Compose, and some apps react to it there (split OTP
+        // boxes moving back, recipient chips being removed).
+        sendKeyEdit(KeyEvent.KEYCODE_DEL)
+    }
+
+    /**
+     * Sends a key the editor interprets itself. Where the caret lands is up
+     * to the editor (Enter may run an action, DPAD may stop at a line end),
+     * so the next selection update is adopted as ours.
+     */
+    private fun sendKeyEdit(keyCode: Int) {
+        selection.invalidate()
+        sendDownUpKeyEvents(keyCode)
     }
 
     /** True for characters a new word can follow without a space of its own. */
@@ -632,7 +669,6 @@ class ComposeInputMethodService : InputMethodService(),
     private fun resetInputState() {
         lastSwipeCommit = null
         typedWord.setLength(0)
-        selfEditsPending = 0
     }
 
     // --- Editing helpers ----------------------------------------------------
@@ -642,7 +678,7 @@ class ComposeInputMethodService : InputMethodService(),
         if (actionId != EditorInfo.IME_ACTION_UNSPECIFIED && actionId != EditorInfo.IME_ACTION_NONE) {
             ic.performEditorAction(actionId)
         } else {
-            sendDownUpKeyEvents(KeyEvent.KEYCODE_ENTER)
+            sendKeyEdit(KeyEvent.KEYCODE_ENTER)
         }
     }
 
@@ -650,11 +686,11 @@ class ComposeInputMethodService : InputMethodService(),
         val ic = currentInputConnection ?: return
         if (offset > 0) {
             for (i in 0 until offset) {
-                sendDownUpKeyEvents(KeyEvent.KEYCODE_DPAD_RIGHT)
+                sendKeyEdit(KeyEvent.KEYCODE_DPAD_RIGHT)
             }
         } else if (offset < 0) {
             for (i in 0 until -offset) {
-                sendDownUpKeyEvents(KeyEvent.KEYCODE_DPAD_LEFT)
+                sendKeyEdit(KeyEvent.KEYCODE_DPAD_LEFT)
             }
         }
     }
@@ -700,8 +736,8 @@ class ComposeInputMethodService : InputMethodService(),
 
     /**
      * True when the focused field allows personalized dictionary learning.
-     * Returns false for password fields, fields requesting [EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING],
-     * or when [info] is null.
+     * Returns false for password fields, terminals ([FieldInputKind.isRawKeyEditor]),
+     * fields requesting [EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING], or when [info] is null.
      */
     private fun shouldLearnFromField(info: EditorInfo?): Boolean {
         if (info == null) return false
@@ -709,6 +745,9 @@ class ComposeInputMethodService : InputMethodService(),
             return false
         }
         val inputType = info.inputType
+        // Terminals: everything typed goes to a shell, including sudo/ssh
+        // passwords, which the editor has no way to mark as such.
+        if (FieldInputKind.isRawKeyEditor(inputType)) return false
         val inputClass = inputType and InputType.TYPE_MASK_CLASS
         if (inputClass == InputType.TYPE_CLASS_TEXT) {
             val variation = inputType and InputType.TYPE_MASK_VARIATION
@@ -725,11 +764,6 @@ class ComposeInputMethodService : InputMethodService(),
             }
         }
         return true
-    }
-
-    private fun markSelfEdit() {
-        selfEditsPending++
-        lastSelfEditAt = SystemClock.uptimeMillis()
     }
 
     private fun enterInputViewLifecycle() {
@@ -796,6 +830,5 @@ class ComposeInputMethodService : InputMethodService(),
         const val SAVE_DEBOUNCE_MS = SwipeConstants.SAVE_DEBOUNCE_MS
         /** Long enough for family ZWJ sequences and subdivision-flag tags. */
         private const val GRAPHEME_LOOKBACK = 64
-        private const val SELF_EDIT_ECHO_MS = 48L
     }
 }

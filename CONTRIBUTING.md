@@ -12,8 +12,8 @@ See `AGENTS.md` for the architecture guide. The short version:
   draw phase only.
 - Heavy work (`SwipeDecoder.decode`, dictionary I/O, trie rebuilds) stays off
   the main thread; `InputConnection` edits stay on `Dispatchers.Main.immediate`.
-- Compound edits go in `beginBatchEdit()` / `endBatchEdit()` and bump
-  `selfEditsPending`.
+- Compound edits go in `beginBatchEdit()` / `endBatchEdit()` and report their
+  effect to the service's `SelectionTracker` (`onCommitText` / `onDeleteBefore`).
 - Run `./gradlew testDebugUnitTest` before pushing. If you re-export
   `swipe_encoder.bin` (`ml/tools/export_weights.py`), the parity fixture at
   `app/src/test/resources/swipe_reference.bin` refreshes automatically — commit

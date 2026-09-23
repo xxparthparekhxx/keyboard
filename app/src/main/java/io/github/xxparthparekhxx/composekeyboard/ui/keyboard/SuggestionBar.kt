@@ -104,7 +104,7 @@ fun SuggestionBar(
                 }
             }
             if (showOtp) {
-                val code = otpCode!!
+                val code = otpCode
                 val otpDesc = stringResource(R.string.desc_otp, code)
                 Box(
                     modifier = Modifier
