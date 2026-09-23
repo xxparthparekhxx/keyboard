@@ -11,10 +11,10 @@ This document provides AI coding agents and developers with essential context, a
 ### Technical Specifications
 - **Application ID / Namespace**: `io.github.xxparthparekhxx.composekeyboard`
 - **Minimum SDK**: 24 (Android 7.0 Nougat)
-- **Target / Compile SDK**: 35 (Android 15)
-- **Kotlin Version**: 2.0.21 (with Kotlin Compose Compiler Plugin)
-- **Android Gradle Plugin (AGP)**: 8.5.2
-- **Gradle Version**: 8.7
+- **Target SDK**: 36 (Android 16) · **Compile SDK**: 37 (required by current AndroidX)
+- **Kotlin Version**: 2.4.20 (AGP built-in Kotlin + Kotlin Compose Compiler Plugin; there is no `kotlin-android` plugin)
+- **Android Gradle Plugin (AGP)**: 9.4.1
+- **Gradle Version**: 9.7.1
 - **JVM Target / Compatibility**: Java 17
 
 ---

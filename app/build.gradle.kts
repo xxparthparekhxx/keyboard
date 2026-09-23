@@ -1,19 +1,23 @@
 import java.util.Properties
 
 plugins {
+    // AGP 9 compiles Kotlin itself (built-in Kotlin), so there is no
+    // org.jetbrains.kotlin.android plugin; the Compose compiler plugin's
+    // version pins the Kotlin toolchain.
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
 }
 
 android {
     namespace = "io.github.xxparthparekhxx.composekeyboard"
-    compileSdk = 35
+    // Current AndroidX (Compose 1.12, core 1.19) requires compiling against 37.
+    // Runtime behaviour follows targetSdk, not this.
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "io.github.xxparthparekhxx.composekeyboard"
         minSdk = 24
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 3
         versionName = "1.2.0"
 
@@ -154,21 +158,9 @@ android {
         }
     }
 
-    applicationVariants.all {
-        val variantName = name
-        outputs.all {
-            val output = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
-            output.outputFileName = "composekeyboard-$variantName.apk"
-        }
-    }
-
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
-    }
-
-    kotlinOptions {
-        jvmTarget = "17"
     }
 
     buildFeatures {
@@ -207,4 +199,19 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.espresso.core)
+}
+
+// APKs come out as composekeyboard-<buildType>.apk. AGP 9 removed the legacy
+// applicationVariants API that used to rename outputs; archivesName is the
+// supported way.
+base {
+    archivesName.set("composekeyboard")
+}
+
+// Kotlin bytecode matches compileOptions (Java 17); built-in Kotlin derives
+// it from there, stated here so a toolchain change cannot drift it silently.
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+    }
 }

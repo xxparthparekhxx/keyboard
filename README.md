@@ -4,7 +4,7 @@
 
 ### A Modern, Neural-Powered Android Keyboard Built Entirely with Jetpack Compose
 
-[![Kotlin](https://img.shields.io/badge/Kotlin-2.0.21-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org)
+[![Kotlin](https://img.shields.io/badge/Kotlin-2.4.20-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org)
 [![Compose](https://img.shields.io/badge/Jetpack_Compose-BOM_2024.12-4285F4?logo=jetpackcompose&logoColor=white)](https://developer.android.com/jetpack/compose)
 [![Material 3](https://img.shields.io/badge/Material_3-Dynamic_Color-E8710A?logo=materialdesign&logoColor=white)](https://m3.material.io)
 [![API](https://img.shields.io/badge/API-24%2B-brightgreen)](https://developer.android.com/about/versions/nougat)
@@ -224,11 +224,11 @@ keyboard/
 
 | Requirement | Version |
 |-------------|---------|
-| Android Studio | Hedgehog (2023.1.1) or newer |
+| Android Studio | A release that supports AGP 9.4 |
 | JDK | 17 |
-| Android SDK | API 35 (compileSdk) |
+| Android SDK | API 37 (compileSdk), API 36 (targetSdk) |
 | Min Android Version | 7.0 Nougat (API 24) |
-| Kotlin | 2.0.21 |
+| Kotlin | 2.4.20 |
 
 ### Build & Install
 
@@ -444,14 +444,14 @@ hf upload xxparthparekhxx/compose-keyboard-swipe-encoder \
 
 | Component | Technology | Version |
 |-----------|------------|---------|
-| Language | Kotlin | 2.0.21 |
-| UI Framework | Jetpack Compose | BOM 2024.12.01 |
+| Language | Kotlin | 2.4.20 |
+| UI Framework | Jetpack Compose | BOM 2026.09.00 |
 | Design System | Material 3 | Latest |
-| Build System | Gradle + AGP | 8.7 / 8.5.2 |
+| Build System | Gradle + AGP | 9.7.1 / 9.4.1 |
 | ML Training | PyTorch | Latest |
 | Dataset | FUTO Swipe Corpus | ~900K gestures |
 | Min SDK | Android 7.0 | API 24 |
-| Target SDK | Android 15 | API 35 |
+| Target SDK | Android 16 | API 36 |
 | JVM | OpenJDK | 17 |
 
 ---
