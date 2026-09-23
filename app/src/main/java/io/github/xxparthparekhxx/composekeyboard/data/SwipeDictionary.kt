@@ -132,14 +132,20 @@ class SwipeDictionary private constructor(private val appContext: Context) {
         val word = normalize(rawWord) ?: return null
         synchronized(lock) {
             if (!isLoaded) return null
-            val boost = (userBoosts[word] ?: 0) + LEARN_STEP
-            userBoosts[word] = boost.coerceAtMost(MAX_BOOST)
-            evictLearnedIfNeeded()
+            val previousBoost = userBoosts[word] ?: 0
+            val boost = (previousBoost + LEARN_STEP).coerceAtMost(MAX_BOOST)
+            userBoosts[word] = boost
+            evictLearnedIfNeeded(keep = word)
             userVersion++
 
             val existing = byWord[word]
             if (existing != null) {
-                existing.score = (existing.score + LEARN_STEP).coerceAtMost(MAX_SCORE)
+                // Apply only the boost actually recorded, so the live score
+                // matches what load() rebuilds (base + boost, boost <= MAX_BOOST)
+                // instead of creeping up without bound during a session.
+                val delta = boost - previousBoost
+                if (delta == 0) return existing.score
+                existing.score = (existing.score + delta).coerceAtMost(MAX_SCORE)
                 val first = keySequenceOf(word)?.get(0)?.toInt()
                 if (first != null && first in buckets.indices) {
                     val next = buckets.copyOf()
@@ -253,16 +259,23 @@ class SwipeDictionary private constructor(private val appContext: Context) {
      * Keeps the learned-word overlay from growing without bound over the
      * lifetime of a device: once past [MAX_LEARNED_WORDS], the weakest-boosted
      * words (least-seen, oldest signal) are forgotten first.
-     * Caller must hold [lock].
+     * Caller must hold [lock]. [keep] is the word currently being learned.
      */
-    private fun evictLearnedIfNeeded() {
+    private fun evictLearnedIfNeeded(keep: String) {
         if (userBoosts.size <= MAX_LEARNED_WORDS) return
-        val excess = userBoosts.size - MAX_LEARNED_WORDS
+        // Evict down to a low-water mark so the O(n log n) sort runs once per
+        // few hundred new words rather than on every learn() at the cap, and
+        // never evict the word being learned: at a single sighting it is always
+        // the weakest, so it would otherwise be dropped instantly and no new
+        // word could ever be learned once the overlay was full.
+        val excess = userBoosts.size - EVICT_TO
         userBoosts.entries.asSequence()
+            .filter { it.key != keep }
             .sortedBy { it.value }
             .take(excess)
+            .map { it.key }
             .toList()
-            .forEach { userBoosts.remove(it.key) }
+            .forEach { userBoosts.remove(it) }
     }
 
     private fun readUserWords(): Map<String, Int> {
@@ -331,6 +344,7 @@ class SwipeDictionary private constructor(private val appContext: Context) {
         private const val LEARN_STEP = 6
         private const val MAX_BOOST = 60
         private const val MAX_LEARNED_WORDS = 5_000
+        private const val EVICT_TO = MAX_LEARNED_WORDS * 9 / 10
 
         /** Sightings needed before an unknown word becomes gesture-reachable. */
         private const val NEW_WORD_THRESHOLD = LEARN_STEP * 2
