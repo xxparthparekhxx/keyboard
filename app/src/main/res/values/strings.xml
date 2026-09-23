@@ -45,7 +45,7 @@
     <string name="voice_download_body_metered">On-device English speech recognition. About 77 MB, stored only on this phone. You appear to be on mobile data — this download will count against it.</string>
     <string name="voice_download_action">Download model</string>
     <string name="voice_downloading_title">Downloading Whisper Tiny</string>
-    <string name="voice_downloading_body">%1$d% · about 77 MB · stays on device after this</string>
+    <string name="voice_downloading_body">%1$d%% · about 77 MB · stays on device after this</string>
     <string name="action_cancel">Cancel</string>
     <string name="voice_tap_to_dictate">Tap to dictate</string>
     <string name="voice_engine_line">Whisper Tiny · English · on-device</string>
@@ -91,8 +91,8 @@
     <string name="theme_material_dark">Dark Slate</string>
     <string name="theme_material_light">Clean Light</string>
     <string name="theme_amoled">Pitch Black AMOLED</string>
-    <string name="theme_dynamic_dark">Material You</string>
-    <string name="theme_dynamic_light">Material You</string>
+    <string name="theme_dynamic_dark">Material You Dark</string>
+    <string name="theme_dynamic_light">Material You Light</string>
     <string name="theme_nord">Nordic Frost</string>
     <string name="theme_sunset">Sunset Glow</string>
     <string name="theme_cyberpunk">Cyber Neon</string>
@@ -107,7 +107,7 @@
     <string name="desc_otp">One-time code: %1$s</string>
     <string name="otp_paste">OTP %1$s</string>
     <string name="desc_incognito">Incognito — suggestions and learning are off</string>
-    <string name="set_section_feedback">Feedback</string>
+    <string name="set_section_feedback">Sound &amp; vibration</string>
 
     <!-- Custom theme editor -->
     <string name="custom_theme_title">Custom Theme Creator</string>
@@ -147,7 +147,7 @@
     <string name="clip_empty_search_title">No matching clips found</string>
     <string name="clip_empty_search_body">Try a different search query</string>
     <string name="clip_empty_title_ime">Clipboard history is empty</string>
-    <string name="clip_empty_body_ime">Copied text will automatically appear here</string>
+    <string name="clip_empty_body_ime">Copied text shows up here for an hour. Pin a clip to keep it.</string>
     <string name="desc_pin_clip">Pin clip</string>
     <string name="desc_unpin_clip">Unpin clip</string>
 
@@ -168,7 +168,7 @@
     <!-- Home / setup -->
     <string name="home_try_it">Try it out</string>
     <string name="home_playground">Typing playground</string>
-    <string name="home_playground_hint">Tap a field type, then tap the box to open the keyboard.</string>
+    <string name="home_playground_hint">Tap the box to open the keyboard, then switch the field type or Enter key to see how it adapts.</string>
     <string name="home_field_type">Field type</string>
     <string name="home_enter_key">Enter key</string>
     <string name="home_next_field">Next field</string>
@@ -206,19 +206,18 @@
 
     <!-- Companion settings -->
     <string name="set_section_typing">Typing</string>
-    <string name="set_section_size">Size</string>
     <string name="set_number_row">Number row</string>
-    <string name="set_number_row_desc">Keep 1–0 visible above the letters. When off, numbers stay on long-press.</string>
+    <string name="set_number_row_desc">Show 1–0 above the letters</string>
     <string name="set_glide">Glide typing</string>
-    <string name="set_glide_desc">Swipe across letters to type words with on-device decoding.</string>
+    <string name="set_glide_desc">Swipe across letters to type words</string>
     <string name="set_autocaps">Auto-capitalization</string>
-    <string name="set_autocaps_desc">Capitalize the first letter of sentences and after punctuation.</string>
+    <string name="set_autocaps_desc">Capitalize the start of each sentence</string>
     <string name="set_haptic">Haptic vibration</string>
-    <string name="set_haptic_desc">Light taps on keys, swipe completions, and clipboard actions.</string>
+    <string name="set_haptic_desc">Vibrate on key presses and actions</string>
     <string name="set_sounds">Key sounds</string>
-    <string name="set_sounds_desc">Play a click when you press keys and space.</string>
+    <string name="set_sounds_desc">Click when you press a key</string>
     <string name="set_popups">Key popups</string>
-    <string name="set_popups_desc">Show an enlarged preview above each key as you press it.</string>
+    <string name="set_popups_desc">Enlarge each key as you press it</string>
     <string name="set_height">Keyboard height</string>
     <string name="set_height_desc">Vertical scale of keys and panels.</string>
     <string name="set_key_text">Key text</string>
@@ -232,13 +231,10 @@
     <string name="set_voice_unsupported">Whisper Tiny needs a 64-bit ARM phone (arm64-v8a).</string>
     <string name="set_voice_ready">Ready. Tap the mic on the keyboard to dictate in English, on-device.</string>
     <string name="set_voice_intro">On-device speech recognition with Whisper Tiny (~77 MB). Nothing is sent to a server.</string>
-    <string name="set_mic">Microphone</string>
     <string name="set_mic_allowed">Allowed</string>
-    <string name="set_mic_required">Required before the keyboard can listen</string>
-    <string name="set_downloading">Downloading model %1$d%</string>
+    <string name="set_downloading">Downloading model %1$d%%</string>
     <string name="set_model_title">Whisper Tiny model</string>
     <string name="set_model_installed">Installed (~77 MB)</string>
-    <string name="set_model_download">Download English weights to this phone</string>
     <string name="size_small">Small</string>
     <string name="size_normal">Normal</string>
     <string name="size_large">Large</string>
@@ -258,7 +254,7 @@
     <string name="action_pin">Pin</string>
     <string name="action_unpin">Unpin</string>
     <string name="clip_empty_title">Nothing copied yet</string>
-    <string name="clip_empty_body">Copy text in any app and it will show up here. Pin clips you want to keep.</string>
+    <string name="clip_empty_body">Copy text in any app and it will show up here for an hour. Pin clips you want to keep.</string>
     <string name="clip_no_matches_title">No matches</string>
     <string name="clip_no_matches_body">Nothing in clipboard history matches “%1$s”.</string>
     <plurals name="clips_saved">
@@ -270,7 +266,7 @@
     <string name="appearance_choose">Choose a look that applies to the keyboard everywhere it appears.</string>
     <string name="appearance_presets">Presets</string>
     <string name="appearance_custom">Custom</string>
-    <string name="appearance_custom_body">Build your own palette, then save it to use as the active theme.</string>
+    <string name="appearance_custom_body">Pick your own colors and apply them</string>
 
     <!-- Playground hints (mirror Android input types) -->
     <string name="pt_hint_text">QWERTY layout, swipe typing, and suggestions</string>
@@ -299,6 +295,27 @@
     <string name="ime_action_go">Go</string>
     <string name="ime_action_next">Next</string>
     <string name="ime_action_previous">Previous</string>
+
+    <!-- Companion app hierarchy -->
+    <string name="nav_back">Back</string>
+    <string name="set_section_keys">Keys</string>
+    <string name="set_size_title">Keyboard size</string>
+    <string name="set_size_summary">Height %1$d%% · Text %2$d%% · Emoji %3$d%%</string>
+    <string name="set_size_preview">Preview</string>
+    <string name="set_size_reset">Reset to default</string>
+    <string name="set_voice_summary_ready">Ready · English, on-device</string>
+    <string name="set_voice_summary_setup">Set up the microphone and speech model</string>
+    <string name="set_voice_summary_unsupported">Not available on this device</string>
+    <string name="set_voice_step_mic">Step 1 · Microphone</string>
+    <string name="set_voice_step_model">Step 2 · Speech model</string>
+    <string name="set_model_delete">Delete model</string>
+    <string name="setup_enable_desc">Turn it on in Android’s keyboard settings.</string>
+    <string name="setup_select_desc">Pick Compose Keyboard from the system picker.</string>
+    <string name="setup_step_done">Done</string>
+    <string name="setup_step_todo">Not done yet</string>
+    <string name="appearance_custom_open">Create your own theme</string>
+    <string name="clip_section_pinned">Pinned</string>
+    <string name="clip_section_recent">Recent</string>
     <string name="color_hex">Hex color</string>
     <string name="color_current">Current</string>
     <string name="color_new">New</string>

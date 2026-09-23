@@ -35,7 +35,7 @@
     <string name="voice_download_body_metered">Reconocimiento de voz en inglés en el dispositivo. Unos 77 MB, solo en este teléfono. Parece que usas datos móviles: esta descarga los consumirá.</string>
     <string name="voice_download_action">Descargar modelo</string>
     <string name="voice_downloading_title">Descargando Whisper Tiny</string>
-    <string name="voice_downloading_body">%1$d% · unos 77 MB · se queda en el dispositivo</string>
+    <string name="voice_downloading_body">%1$d%% · unos 77 MB · se queda en el dispositivo</string>
     <string name="action_cancel">Cancelar</string>
     <string name="voice_tap_to_dictate">Toca para dictar</string>
     <string name="voice_engine_line">Whisper Tiny · Inglés · en el dispositivo</string>
@@ -78,8 +78,8 @@
     <string name="theme_material_dark">Pizarra oscura</string>
     <string name="theme_material_light">Luz limpia</string>
     <string name="theme_amoled">Negro AMOLED</string>
-    <string name="theme_dynamic_dark">Material You</string>
-    <string name="theme_dynamic_light">Material You</string>
+    <string name="theme_dynamic_dark">Material You oscuro</string>
+    <string name="theme_dynamic_light">Material You claro</string>
     <string name="theme_nord">Escarcha nórdica</string>
     <string name="theme_sunset">Atardecer</string>
     <string name="theme_cyberpunk">Ciber neón</string>
@@ -94,7 +94,7 @@
     <string name="desc_otp">Código de un solo uso: %1$s</string>
     <string name="otp_paste">OTP %1$s</string>
     <string name="desc_incognito">Incógnito: sin sugerencias ni aprendizaje</string>
-    <string name="set_section_feedback">Respuesta</string>
+    <string name="set_section_feedback">Sonido y vibración</string>
 
     <string name="custom_theme_title">Creador de temas</string>
     <string name="desc_reset">Restablecer</string>
@@ -115,7 +115,7 @@
     <string name="color_hue">Tono</string>
     <string name="color_saturation">Saturación</string>
     <string name="color_brightness">Brillo</string>
-    <string name="color_presets">Ajustes predefinidos</string>
+    <string name="color_presets">Predefinidos</string>
     <string name="action_apply">Aplicar</string>
 
     <string name="desc_search">Buscar</string>
@@ -131,7 +131,7 @@
     <string name="clip_empty_search_title">Sin coincidencias</string>
     <string name="clip_empty_search_body">Prueba otra búsqueda</string>
     <string name="clip_empty_title_ime">Portapapeles vacío</string>
-    <string name="clip_empty_body_ime">Lo que copies aparecerá aquí</string>
+    <string name="clip_empty_body_ime">Lo que copies aparecerá aquí durante una hora. Fija un clip para conservarlo.</string>
     <string name="desc_pin_clip">Fijar recorte</string>
     <string name="desc_unpin_clip">Soltar recorte</string>
 
@@ -150,7 +150,7 @@
 
     <string name="home_try_it">Pruébalo</string>
     <string name="home_playground">Zona de pruebas</string>
-    <string name="home_playground_hint">Toca un tipo de campo y luego el cuadro para abrir el teclado.</string>
+    <string name="home_playground_hint">Toca el cuadro para abrir el teclado y luego cambia el tipo de campo o la tecla Intro para ver cómo se adapta.</string>
     <string name="home_field_type">Tipo de campo</string>
     <string name="home_enter_key">Tecla Intro</string>
     <string name="home_next_field">Campo siguiente</string>
@@ -186,19 +186,18 @@
     <string name="pt_datetime">Fecha/hora</string>
 
     <string name="set_section_typing">Escritura</string>
-    <string name="set_section_size">Tamaño</string>
     <string name="set_number_row">Fila de números</string>
-    <string name="set_number_row_desc">Mantén 1-0 visibles sobre las letras. Si no, los números quedan en pulsación larga.</string>
+    <string name="set_number_row_desc">Muestra 1–0 encima de las letras</string>
     <string name="set_glide">Escritura por deslizamiento</string>
-    <string name="set_glide_desc">Desliza entre letras para escribir con decodificación local.</string>
+    <string name="set_glide_desc">Desliza por las letras para escribir palabras</string>
     <string name="set_autocaps">Mayúsculas automáticas</string>
-    <string name="set_autocaps_desc">Mayúscula inicial tras punto y signos.</string>
+    <string name="set_autocaps_desc">Mayúscula al inicio de cada frase</string>
     <string name="set_haptic">Vibración háptica</string>
-    <string name="set_haptic_desc">Toques leves en teclas, gestos y portapapeles.</string>
+    <string name="set_haptic_desc">Vibra al pulsar teclas y en acciones</string>
     <string name="set_sounds">Sonidos de teclas</string>
-    <string name="set_sounds_desc">Un clic al pulsar teclas y espacio.</string>
+    <string name="set_sounds_desc">Sonido al pulsar una tecla</string>
     <string name="set_popups">Ventanas de teclas</string>
-    <string name="set_popups_desc">Vista ampliada sobre cada tecla al pulsarla.</string>
+    <string name="set_popups_desc">Amplía cada tecla al pulsarla</string>
     <string name="set_height">Altura del teclado</string>
     <string name="set_height_desc">Escala vertical de teclas y paneles.</string>
     <string name="set_key_text">Texto de teclas</string>
@@ -212,13 +211,10 @@
     <string name="set_voice_unsupported">Whisper Tiny necesita un teléfono ARM de 64 bits (arm64-v8a).</string>
     <string name="set_voice_ready">Listo. Toca el micrófono del teclado para dictar en inglés, en local.</string>
     <string name="set_voice_intro">Reconocimiento local con Whisper Tiny (~77 MB). Nada sale del teléfono.</string>
-    <string name="set_mic">Micrófono</string>
     <string name="set_mic_allowed">Permitido</string>
-    <string name="set_mic_required">Necesario para poder escuchar</string>
-    <string name="set_downloading">Descargando modelo %1$d%</string>
+    <string name="set_downloading">Descargando modelo %1$d%%</string>
     <string name="set_model_title">Modelo Whisper Tiny</string>
     <string name="set_model_installed">Instalado (~77 MB)</string>
-    <string name="set_model_download">Descargar pesos de inglés al teléfono</string>
     <string name="size_small">Pequeño</string>
     <string name="size_normal">Normal</string>
     <string name="size_large">Grande</string>
@@ -237,18 +233,19 @@
     <string name="action_pin">Fijar</string>
     <string name="action_unpin">Soltar</string>
     <string name="clip_empty_title">Nada copiado aún</string>
-    <string name="clip_empty_body">Copia texto en cualquier app y aparecerá aquí. Fija lo que quieras guardar.</string>
+    <string name="clip_empty_body">Copia texto en cualquier app y aparecerá aquí durante una hora. Fija lo que quieras guardar.</string>
     <string name="clip_no_matches_title">Sin resultados</string>
     <string name="clip_no_matches_body">Nada coincide con «%1$s».</string>
     <plurals name="clips_saved">
         <item quantity="one">%1$d guardado</item>
+        <item quantity="many">%1$d guardados</item>
         <item quantity="other">%1$d guardados</item>
     </plurals>
 
     <string name="appearance_choose">Elige un aspecto para el teclado en todas partes.</string>
     <string name="appearance_presets">Predefinidos</string>
     <string name="appearance_custom">Personalizado</string>
-    <string name="appearance_custom_body">Crea tu paleta y guárdala como tema activo.</string>
+    <string name="appearance_custom_body">Elige tus colores y aplícalos</string>
 
     <string name="pt_hint_text">QWERTY con deslizamiento y sugerencias</string>
     <string name="pt_hint_number">Cambia al teclado numérico</string>
@@ -275,7 +272,28 @@
     <string name="ime_action_go">Ir</string>
     <string name="ime_action_next">Siguiente</string>
     <string name="ime_action_previous">Anterior</string>
-    <string name="color_hex">Color hexadecimal</string>
+
+    <!-- Companion app hierarchy -->
+    <string name="nav_back">Atrás</string>
+    <string name="set_section_keys">Teclas</string>
+    <string name="set_size_title">Tamaño del teclado</string>
+    <string name="set_size_summary">Altura %1$d%% · Texto %2$d%% · Emoji %3$d%%</string>
+    <string name="set_size_preview">Vista previa</string>
+    <string name="set_size_reset">Restablecer</string>
+    <string name="set_voice_summary_ready">Listo · inglés, en el dispositivo</string>
+    <string name="set_voice_summary_setup">Configura el micrófono y el modelo de voz</string>
+    <string name="set_voice_summary_unsupported">No disponible en este dispositivo</string>
+    <string name="set_voice_step_mic">Paso 1 · Micrófono</string>
+    <string name="set_voice_step_model">Paso 2 · Modelo de voz</string>
+    <string name="set_model_delete">Eliminar modelo</string>
+    <string name="setup_enable_desc">Actívalo en los ajustes de teclado de Android.</string>
+    <string name="setup_select_desc">Elige Compose Keyboard en el selector del sistema.</string>
+    <string name="setup_step_done">Hecho</string>
+    <string name="setup_step_todo">Pendiente</string>
+    <string name="appearance_custom_open">Crea tu propio tema</string>
+    <string name="clip_section_pinned">Fijados</string>
+    <string name="clip_section_recent">Recientes</string>
+    <string name="color_hex">Color hex</string>
     <string name="color_current">Actual</string>
     <string name="color_new">Nuevo</string>
 </resources>

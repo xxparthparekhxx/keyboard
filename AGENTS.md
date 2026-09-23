@@ -151,7 +151,7 @@ Two decode paths share the gesture; the neural path is preferred, the geometric 
 - **Preset Themes**: Material Dark/Light, Pitch Black AMOLED, Dynamic Material You (Dark/Light), Nordic Frost, Sunset Glow, Cyber Neon.
 - **Custom Theme Creator**: HSV spectrum slider, hex input, saturation/brightness canvas, and live interactive preview.
 - **Header & Suggestion Strip**: The `SuggestionBar` dynamically replaces `KeyboardHeader` during active swipe or when suggestions are available, preventing keyboard height jumps.
-- **Companion App**: Bottom-nav host in `ui/app` with Home (setup + typing playground), Themes, Clipboard, and Settings. App chrome uses `CompanionTheme` so it does not inherit the keyboard palette.
+- **Companion App**: Bottom-nav host in `ui/app` with Home (setup + typing playground), Themes, Clipboard, and Settings. App chrome uses `CompanionTheme` so it does not inherit the keyboard palette. Keep the two-level hierarchy: tabs show short grouped lists (`SettingsGroup` + `SettingsSwitchItem` / `SettingsNavItem`), and anything with more than one control (keyboard size, voice setup, custom theme) is a `CompanionPage` detail screen that hides the bottom bar and handles back. Don't inline sliders or multi-step setup into a tab.
 - **Localization**: All user-visible text lives in `res/values/strings.xml` (Spanish in `values-es/`); UI code uses `stringResource()` / `pluralStringResource()` (Compose) or `getString()` (services/controllers). Never hardcode UI text. Locales are declared in `res/xml/locales_config.xml` (referenced from the manifest), and `supportsRtl="true"` is meaningful because layouts are resource-driven.
 
 ### F. Field Types & IME Actions

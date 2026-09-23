@@ -122,7 +122,7 @@ fun ClipboardScreen(
                         }
                     },
                     singleLine = true,
-                    shape = RoundedCornerShape(14.dp)
+                    shape = RoundedCornerShape(28.dp)
                 )
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -163,13 +163,27 @@ fun ClipboardScreen(
                     contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(displayedItems, key = { it.id }) { clip ->
-                        ClipboardHistoryRow(
-                            clip = clip,
-                            onCopy = { onCopyClip(clip.text) },
-                            onTogglePin = { onTogglePinClip(clip.id) },
-                            onDelete = { onDeleteClip(clip.id) }
-                        )
+                    val (pinned, recent) = displayedItems.partition { it.isPinned }
+                    listOf(
+                        R.string.clip_section_pinned to pinned,
+                        R.string.clip_section_recent to recent
+                    ).forEach { (titleRes, section) ->
+                        if (section.isEmpty()) return@forEach
+                        item(key = "header-$titleRes") {
+                            SectionHeader(
+                                title = stringResource(titleRes),
+                                modifier = Modifier.padding(top = 8.dp)
+                            )
+                        }
+                        items(section, key = { it.id }) { clip ->
+                            ClipboardHistoryRow(
+                                clip = clip,
+                                onCopy = { onCopyClip(clip.text) },
+                                onTogglePin = { onTogglePinClip(clip.id) },
+                                onDelete = { onDeleteClip(clip.id) },
+                                modifier = Modifier.animateItem()
+                            )
+                        }
                     }
                 }
             }
@@ -182,17 +196,18 @@ private fun ClipboardHistoryRow(
     clip: ClipboardItem,
     onCopy: () -> Unit,
     onTogglePin: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val formattedTime = remember(clip.timestamp) {
         SimpleDateFormat("MMM d, HH:mm", Locale.getDefault()).format(Date(clip.timestamp))
     }
 
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .clip(RoundedCornerShape(20.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
             .clickable(onClick = onCopy)
             .padding(start = 14.dp, top = 10.dp, bottom = 10.dp, end = 4.dp),
         verticalAlignment = Alignment.CenterVertically
