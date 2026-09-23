@@ -59,6 +59,7 @@ class ClipboardHistoryManager(private val context: Context) {
     }
 
     fun captureCurrentClip() {
+        pruneExpired()
         try {
             val text = peekPlainText() ?: return
             if (OtpCodes.isBareOtpCode(text)) return
@@ -77,7 +78,9 @@ class ClipboardHistoryManager(private val context: Context) {
             val cm = clipboardManager ?: return null
             val desc = cm.primaryClipDescription ?: return null
             if (isSensitiveClip(desc)) return null
-            if (!cm.hasPrimaryClip() || !desc.hasMimeType(ClipDescription.MIMETYPE_TEXT_PLAIN)) {
+            // text/* rather than text/plain: browsers copy as text/html only,
+            // and coerceToText() below yields the plain text for those.
+            if (!cm.hasPrimaryClip() || !desc.hasMimeType("text/*")) {
                 return null
             }
             val clip = cm.primaryClip ?: return null
@@ -107,6 +110,24 @@ class ClipboardHistoryManager(private val context: Context) {
                 }
                 _history.value = trim(current)
                 saveHistoryLocked(_history.value)
+            }
+        }
+    }
+
+    /**
+     * Forgets unpinned clips older than [UNPINNED_TTL_MS]. Called whenever the
+     * keyboard opens, so a copied password or address does not sit in history
+     * (and on disk) indefinitely just because its app did not mark it sensitive.
+     */
+    fun pruneExpired() {
+        scope.launch {
+            mutex.withLock {
+                val current = _history.value
+                val kept = dropExpired(current, System.currentTimeMillis())
+                if (kept.size != current.size) {
+                    _history.value = kept
+                    saveHistoryLocked(kept)
+                }
             }
         }
     }
@@ -158,7 +179,7 @@ class ClipboardHistoryManager(private val context: Context) {
      * [MAX_ITEMS], keeping the newest entries.
      */
     private fun trim(items: List<ClipboardItem>): List<ClipboardItem> =
-        trimItems(items)
+        trimItems(dropExpired(items, System.currentTimeMillis()))
 
     private fun loadHistory() {
         scope.launch {
@@ -215,6 +236,17 @@ class ClipboardHistoryManager(private val context: Context) {
 
         const val MAX_ITEMS = 50
         const val MAX_PINNED = 20
+
+        /** Unpinned clips are kept for an hour, as in Gboard. Pins never expire. */
+        const val UNPINNED_TTL_MS: Long = 60 * 60 * 1000L
+
+        /**
+         * Drops unpinned items copied more than [UNPINNED_TTL_MS] before [now].
+         * A timestamp in the future (clock moved back) counts as fresh rather
+         * than making the item immortal or deleting it early.
+         */
+        internal fun dropExpired(items: List<ClipboardItem>, now: Long): List<ClipboardItem> =
+            items.filter { it.isPinned || now - it.timestamp <= UNPINNED_TTL_MS || it.timestamp > now }
 
         /**
          * Pure trimming logic, split out of [trim] so it can be unit tested

@@ -121,4 +121,19 @@ class ClipboardHistoryManagerTest {
             tempDir.deleteRecursively()
         }
     }
+
+    @Test
+    fun dropExpired_forgetsOldUnpinnedClipsOnly() {
+        val now = 10 * ClipboardHistoryManager.UNPINNED_TTL_MS
+        val hourAgo = now - ClipboardHistoryManager.UNPINNED_TTL_MS
+        val items = listOf(
+            ClipboardItem(id = "fresh", text = "fresh", timestamp = now - 1),
+            ClipboardItem(id = "edge", text = "edge", timestamp = hourAgo),
+            ClipboardItem(id = "stale", text = "stale", timestamp = hourAgo - 1),
+            ClipboardItem(id = "pinned", text = "pinned", timestamp = 0, isPinned = true),
+            ClipboardItem(id = "future", text = "future", timestamp = now + 5_000)
+        )
+        val kept = ClipboardHistoryManager.dropExpired(items, now).map { it.id }
+        org.junit.Assert.assertEquals(listOf("fresh", "edge", "pinned", "future"), kept)
+    }
 }
