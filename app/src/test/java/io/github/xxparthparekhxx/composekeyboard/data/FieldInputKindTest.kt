@@ -35,7 +35,12 @@ class FieldInputKindTest {
             FieldInputKind.PASSWORD,
             FieldInputKind.from(InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_WEB_PASSWORD)
         )
-        assertEquals(FieldInputKind.TEXT, FieldInputKind.from(InputType.TYPE_NULL))
+        assertEquals(FieldInputKind.TERMINAL, FieldInputKind.from(InputType.TYPE_NULL))
+        // Termux "enforce char based input": variation bits, no class.
+        assertEquals(
+            FieldInputKind.TERMINAL,
+            FieldInputKind.from(InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS)
+        )
         assertEquals(FieldInputKind.NUMBER, FieldInputKind.from(InputType.TYPE_CLASS_NUMBER))
         assertEquals(
             FieldInputKind.NUMBER,
@@ -79,6 +84,9 @@ class FieldInputKindTest {
         assertTrue(FieldInputKind.TEXT.allowsSwipe)
         assertTrue(FieldInputKind.EMAIL.allowsSuggestions)
         assertFalse(FieldInputKind.EMAIL.allowsSwipe)
+        assertFalse(FieldInputKind.TERMINAL.opensAsNumpad)
+        assertFalse(FieldInputKind.TERMINAL.allowsSuggestions)
+        assertFalse(FieldInputKind.TERMINAL.allowsSwipe)
         assertTrue(FieldInputKind.URI.allowsSuggestions)
         assertFalse(FieldInputKind.URI.allowsSwipe)
         assertFalse(FieldInputKind.PHONE.allowsSuggestions)
@@ -100,5 +108,23 @@ class FieldInputKindTest {
         assertFalse(FieldInputKind.allowsWordSuggestions(flagged, FieldInputKind.TEXT))
         assertTrue(FieldInputKind.allowsWordSuggestions(InputType.TYPE_CLASS_TEXT, FieldInputKind.TEXT))
         assertFalse(FieldInputKind.allowsWordSuggestions(InputType.TYPE_CLASS_TEXT, FieldInputKind.PASSWORD))
+    }
+
+    @Test
+    fun isRawKeyEditor_matchesTerminalsOnly() {
+        // Termux default mode.
+        assertTrue(FieldInputKind.isRawKeyEditor(InputType.TYPE_NULL))
+        // Termux "enforce char based input": variation bits with no class.
+        assertTrue(
+            FieldInputKind.isRawKeyEditor(
+                InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+            )
+        )
+        assertFalse(FieldInputKind.isRawKeyEditor(InputType.TYPE_CLASS_TEXT))
+        assertFalse(
+            FieldInputKind.isRawKeyEditor(InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD)
+        )
+        assertFalse(FieldInputKind.isRawKeyEditor(InputType.TYPE_CLASS_NUMBER))
+        assertFalse(FieldInputKind.isRawKeyEditor(InputType.TYPE_CLASS_PHONE))
     }
 }

@@ -18,7 +18,14 @@ enum class FieldInputKind {
     NUMBER_PASSWORD,
     PHONE,
     DATETIME,
-    OTP;
+    OTP,
+
+    /**
+     * Terminal emulators ([isRawKeyEditor]): QWERTY, but no suggestion strip
+     * and no swipe typing. Every keystroke goes straight to a shell, where
+     * completions and auto-spaced words get in the way (as in Gboard).
+     */
+    TERMINAL;
 
     val opensAsNumpad: Boolean
         get() = this == NUMBER ||
@@ -46,6 +53,17 @@ enum class FieldInputKind {
             return true
         }
 
+        /**
+         * True for editors with no text class ([InputType.TYPE_NULL]), such as
+         * terminal emulators like Termux. They keep no text buffer, so
+         * `getTextBeforeCursor` reports nothing and edits must be sent as key
+         * events (e.g. `KEYCODE_DEL`) instead. Termux's "enforce char based
+         * input" mode sets variation bits without a class, so only the class
+         * is checked.
+         */
+        fun isRawKeyEditor(inputType: Int): Boolean =
+            inputType and InputType.TYPE_MASK_CLASS == InputType.TYPE_NULL
+
         fun from(inputType: Int, isOtp: Boolean = false): FieldInputKind {
             if (isOtp) {
                 val klass = inputType and InputType.TYPE_MASK_CLASS
@@ -66,6 +84,7 @@ enum class FieldInputKind {
                 }
                 InputType.TYPE_CLASS_PHONE -> PHONE
                 InputType.TYPE_CLASS_DATETIME -> DATETIME
+                InputType.TYPE_NULL -> TERMINAL
                 InputType.TYPE_CLASS_TEXT -> when (inputType and InputType.TYPE_MASK_VARIATION) {
                     InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS,
                     InputType.TYPE_TEXT_VARIATION_WEB_EMAIL_ADDRESS -> EMAIL

@@ -155,7 +155,7 @@ Two decode paths share the gesture; the neural path is preferred, the geometric 
 - **Localization**: All user-visible text lives in `res/values/strings.xml` (Spanish in `values-es/`); UI code uses `stringResource()` / `pluralStringResource()` (Compose) or `getString()` (services/controllers). Never hardcode UI text. Locales are declared in `res/xml/locales_config.xml` (referenced from the manifest), and `supportsRtl="true"` is meaningful because layouts are resource-driven.
 
 ### F. Field Types & IME Actions
-- **`FieldInputKind`**: Maps every `InputType.TYPE_MASK_CLASS` (text, number, phone, datetime) and the text/number variations Android defines. Email and URL get dedicated QWERTY bottom rows (`@` / `.com`, `/` / `.`); phone gets a dialer (`*`, `#`, `+`); datetime gets `/` and `:`; password and PIN disable swipe and suggestions.
+- **`FieldInputKind`**: Maps every `InputType.TYPE_MASK_CLASS` (text, number, phone, datetime) and the text/number variations Android defines. Email and URL get dedicated QWERTY bottom rows (`@` / `.com`, `/` / `.`); phone gets a dialer (`*`, `#`, `+`); datetime gets `/` and `:`; password and PIN disable swipe and suggestions. Terminals (`TYPE_NULL` class, e.g. Termux) map to `TERMINAL`: no suggestions, no swipe, no learning, and deletes are sent as `KEYCODE_DEL` because the editor exposes no text.
 - **ASCII-capable subtype**: `res/xml/method.xml` sets `android:isAsciiCapable="true"` so the system can offer this keyboard on ASCII, email, URI, and password fields. Language subtypes are still English (US) only.
 - **Enter key**: `EditorInfo.IME_MASK_ACTION` is forwarded to the Enter key (search, send, done, go, next, previous). The setup playground has chips for field types and those actions.
 
