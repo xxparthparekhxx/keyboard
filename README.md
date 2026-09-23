@@ -13,9 +13,21 @@
 **Compose Keyboard** is a high-performance Android IME featuring a **custom-trained neural swipe decoder** — a 634K-parameter temporal convolutional network trained on ~900,000 real human swipe gestures, running entirely on-device in hand-written Kotlin with **zero inference dependencies**.
 
 
-[Features](#-features) · [Neural Engine](#-neural-swipe-engine) · [Architecture](#-architecture) · [Getting Started](#-getting-started) · [Model Weights](#-model-weights-hugging-face) · [Training](#-training-the-model) · [Contributing](#-contributing)
+[Screenshots](#-screenshots) · [Features](#-features) · [Neural Engine](#-neural-swipe-engine) · [Architecture](#-architecture) · [Getting Started](#-getting-started) · [Model Weights](#-model-weights-hugging-face) · [Training](#-training-the-model) · [Contributing](#-contributing)
 
 </div>
+
+---
+
+## 📱 Screenshots
+
+| Typing & Suggestions | Cyber Neon Theme | Emoji Picker | Clipboard History |
+|:---:|:---:|:---:|:---:|
+| <img src="docs/images/keyboard_suggestions.png" width="200" alt="Typing & Suggestions" /> | <img src="docs/images/keyboard_cyber_neon.png" width="200" alt="Cyber Neon Theme" /> | <img src="docs/images/emoji_picker.png" width="200" alt="Emoji Picker" /> | <img src="docs/images/clipboard_history.png" width="200" alt="Clipboard History" /> |
+
+| Custom Theme Creator | Modern HSV Color Picker | Keyboard Sizing & Height | Voice Typing (Whisper) |
+|:---:|:---:|:---:|:---:|
+| <img src="docs/images/custom_theme_creator.png" width="200" alt="Custom Theme Creator" /> | <img src="docs/images/color_picker_dialog.png" width="200" alt="Modern HSV Color Picker" /> | <img src="docs/images/keyboard_size_scaling.png" width="200" alt="Keyboard Size & Height Scaling" /> | <img src="docs/images/voice_typing_setup.png" width="200" alt="On-Device Voice Typing" /> |
 
 ---
 
@@ -46,6 +58,11 @@
 ### 😊 Emoji Picker
 - Categorized emoji grid (Smileys, Gestures, Hearts, Animals, Food, Objects)
 - Smooth scrolling with quick category navigation
+
+### 🎙️ Private Voice Typing
+- **On-device speech recognition** powered by Whisper Tiny English (~77 MB)
+- **Zero server communication** — audio is captured and transcribed completely offline
+- **Download on first use** with SHA-256 integrity verification and metered network detection
 
 ### ⚡ Performance
 - **Zero-recomposition** swipe trail rendering — operates purely in Compose's draw phase (`drawWithContent`) via `trailVersion`, never triggering recomposition or relayout
@@ -169,12 +186,18 @@ keyboard/
 │   │   │   │       ├── SwipeNet.kt                  # TCN forward pass, pure Kotlin (430 LOC)
 │   │   │   │       ├── SwipeBeam.kt                 # Lexicon trie + CTC beam search
 │   │   │   │       └── SwipeNeuralDecoder.kt        # Preprocessing, layout basis & orchestration
+│   │   │   ├── input/voice/                         # On-device Whisper Tiny speech-to-text
+│   │   │   │   ├── VoiceInputController.kt          # Recording & transcription state machine
+│   │   │   │   ├── VoiceRecorder.kt                 # Audio capture to WAV
+│   │   │   │   ├── WhisperCppEngine.kt              # JNI bridge to libwhisper.so
+│   │   │   │   └── WhisperModelStore.kt             # Hash-verified on-demand model downloader
 │   │   │   ├── service/
 │   │   │   │   └── ComposeInputMethodService.kt     # Android InputMethodService + Compose bridge
 │   │   │   ├── theme/
 │   │   │   │   ├── Color.kt                         # Theme color palettes
 │   │   │   │   └── Theme.kt                         # Keyboard theme provider & custom colors
 │   │   │   └── ui/
+│   │   │       ├── app/                             # Companion app screens (Home, Themes, Clipboard, Settings)
 │   │   │       ├── keyboard/
 │   │   │       │   ├── ClipboardView.kt             # In-keyboard Clipboard History panel
 │   │   │       │   ├── EmojiPicker.kt               # Categorized Emoji grid
@@ -184,7 +207,8 @@ keyboard/
 │   │   │       │   ├── QuickSettingsView.kt         # In-keyboard quick settings panel
 │   │   │       │   ├── SuggestionBar.kt             # Swipe candidate predictions strip
 │   │   │       │   ├── SwipeTrail.kt                # GPU-rendered swipe gesture trail
-│   │   │       │   └── ThemePicker.kt               # Visual theme picker sheet
+│   │   │       │   ├── ThemePicker.kt               # Visual theme picker sheet
+│   │   │       │   └── VoiceInputView.kt            # In-keyboard voice dictation panel
 │   │   │       └── theme/
 │   │   │           ├── ColorPicker.kt               # HSV Color Picker Dialog with presets
 │   │   │           └── CustomThemeEditor.kt         # Live interactive custom theme editor
