@@ -40,6 +40,7 @@ class VoiceInputController(context: Context) {
     private var recorder: VoiceRecorder? = null
     private var recordJob: Job? = null
     private var tickJob: Job? = null
+    private var transcribeJob: Job? = null
     private var onText: ((String) -> Unit)? = null
 
     fun refresh() {
@@ -138,22 +139,26 @@ class VoiceInputController(context: Context) {
     }
 
     fun stopAndTranscribe() {
+        // Cleared up front so a second stop (user tap racing the 30 s cap)
+        // cannot start a second transcription and commit the text twice.
         val rec = recorder ?: return
+        recorder = null
         val commit = onText
         tickJob?.cancel()
         rec.stop()
-        scope.launch {
+        transcribeJob = scope.launch {
             recordJob?.join()
             if (!rec.hasAudio()) {
                 _state.value = VoiceUiState.Failed(appContext.getString(io.github.xxparthparekhxx.composekeyboard.R.string.voice_too_short))
                 return@launch
             }
             _state.value = VoiceUiState.Transcribing
+            var wav: java.io.File? = null
             try {
                 val text = withContext(Dispatchers.Default) {
-                    val wav = rec.writeWav()
+                    val file = rec.writeWav().also { wav = it }
                     engine.ensureLoaded(appContext, store.modelFile().absolutePath)
-                    engine.transcribe(wav.absolutePath)
+                    engine.transcribe(file.absolutePath)
                 }
                 if (text.isBlank()) {
                     _state.value = VoiceUiState.Failed(appContext.getString(io.github.xxparthparekhxx.composekeyboard.R.string.voice_empty_result))
@@ -162,11 +167,20 @@ class VoiceInputController(context: Context) {
                     commit?.invoke(committed)
                     _state.value = VoiceUiState.Idle
                 }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                // Keyboard closed mid-transcription: drop the text rather than
+                // typing it into whatever field (or app) has focus now.
+                throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Transcription failed", e)
                 _state.value = VoiceUiState.Failed(
                     e.message?.takeIf { it.isNotBlank() } ?: appContext.getString(io.github.xxparthparekhxx.composekeyboard.R.string.voice_transcribe_failed)
                 )
+            } finally {
+                // The recording is the user's voice; don't leave it in cache.
+                withContext(kotlinx.coroutines.NonCancellable + Dispatchers.IO) {
+                    wav?.delete()
+                }
             }
         }
     }
@@ -175,6 +189,8 @@ class VoiceInputController(context: Context) {
         tickJob?.cancel()
         recorder?.stop()
         recordJob?.cancel()
+        transcribeJob?.cancel()
+        transcribeJob = null
         recorder = null
         val current = _state.value
         if (current is VoiceUiState.Recording || current is VoiceUiState.Transcribing) {
