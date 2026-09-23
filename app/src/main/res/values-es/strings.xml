@@ -115,7 +115,7 @@
     <string name="color_hue">Tono</string>
     <string name="color_saturation">Saturación</string>
     <string name="color_brightness">Brillo</string>
-    <string name="color_presets">Paletas predefinidas</string>
+    <string name="color_presets">Ajustes predefinidos</string>
     <string name="action_apply">Aplicar</string>
 
     <string name="desc_search">Buscar</string>
@@ -275,4 +275,7 @@
     <string name="ime_action_go">Ir</string>
     <string name="ime_action_next">Siguiente</string>
     <string name="ime_action_previous">Anterior</string>
+    <string name="color_hex">Color hexadecimal</string>
+    <string name="color_current">Actual</string>
+    <string name="color_new">Nuevo</string>
 </resources>

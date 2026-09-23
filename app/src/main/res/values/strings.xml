@@ -130,7 +130,7 @@
     <string name="color_hue">Hue</string>
     <string name="color_saturation">Saturation</string>
     <string name="color_brightness">Brightness</string>
-    <string name="color_presets">Palette Presets</string>
+    <string name="color_presets">Presets</string>
     <string name="action_apply">Apply</string>
 
     <!-- In-keyboard clipboard -->
@@ -299,4 +299,7 @@
     <string name="ime_action_go">Go</string>
     <string name="ime_action_next">Next</string>
     <string name="ime_action_previous">Previous</string>
+    <string name="color_hex">Hex color</string>
+    <string name="color_current">Current</string>
+    <string name="color_new">New</string>
 </resources>
