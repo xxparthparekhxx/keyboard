@@ -1,6 +1,6 @@
 <div align="center">
 
-# ⌨️ Compose Keyboard
+# Compose Keyboard
 
 ### A Modern, Neural-Powered Android Keyboard Built Entirely with Jetpack Compose
 
@@ -10,16 +10,16 @@
 [![API](https://img.shields.io/badge/API-24%2B-brightgreen)](https://developer.android.com/about/versions/nougat)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-**Compose Keyboard** is a high-performance Android IME featuring a **custom-trained neural swipe decoder** — a 634K-parameter temporal convolutional network trained on ~900,000 real human swipe gestures, running entirely on-device in hand-written Kotlin with **zero inference dependencies**.
+**Compose Keyboard** is a high-performance Android IME featuring a **custom-trained neural swipe decoder**: a 634K-parameter temporal convolutional network trained on ~900,000 real human swipe gestures, running entirely on-device in hand-written Kotlin with **zero inference dependencies**.
 
 
-[Screenshots](#-screenshots) · [Features](#-features) · [Neural Engine](#-neural-swipe-engine) · [Architecture](#-architecture) · [Getting Started](#-getting-started) · [Model Weights](#-model-weights-hugging-face) · [Training](#-training-the-model) · [Contributing](#-contributing)
+[Screenshots](#screenshots) · [Features](#features) · [Neural Engine](#neural-swipe-engine) · [Architecture](#architecture) · [Getting Started](#getting-started) · [Model Weights](#model-weights-hugging-face) · [Training](#training-the-model) · [Contributing](#contributing)
 
 </div>
 
 ---
 
-## 📱 Screenshots
+## Screenshots
 
 | Typing & Suggestions | Cyber Neon Theme | Emoji Picker | Clipboard History |
 |:---:|:---:|:---:|:---:|
@@ -31,17 +31,17 @@
 
 ---
 
-## ✨ Features
+## Features
 
-### 🧠 Neural Glide / Swipe Typing
-- **Custom-trained TCN encoder** — 634K parameters, trained from scratch on the [FUTO Swipe Dataset](https://huggingface.co/datasets/futo-org/swipe.futo.org) (~900,000 real human swipes)
-- **Layout-agnostic by design** — the network emits spatial patterns via a 2D cosine basis, not per-key scores. The keyboard geometry is read at runtime, so the same weights serve any layout, screen size, or orientation with zero retraining
-- **CTC + trie-constrained beam search** — resolves doubled letters (*putt* vs *put*) from gesture **timing**, a distinction that is geometrically undecidable
-- **On-device, zero-dependency inference** — the entire forward pass is hand-written Kotlin (~430 lines), with no TFLite, ONNX, or any inference library
-- **92% top-1 accuracy** on the FUTO test set (97.7% top-3) — with automatic fallback to the geometric (SHARK²-family) decoder if the model asset is unavailable
-- **Dynamic word learning** — learns from your typing and selections, saved persistently
+### Neural Glide / Swipe Typing
+- **Custom-trained TCN encoder**: 634K parameters, trained from scratch on the [FUTO Swipe Dataset](https://huggingface.co/datasets/futo-org/swipe.futo.org) (~900,000 real human swipes)
+- **Layout-agnostic by design**: the network emits spatial patterns via a 2D cosine basis, not per-key scores. The keyboard geometry is read at runtime, so the same weights serve any layout, screen size, or orientation with zero retraining
+- **CTC + trie-constrained beam search**: resolves doubled letters (*putt* vs *put*) from gesture **timing**, a distinction that is geometrically undecidable
+- **On-device, zero-dependency inference**: the entire forward pass is hand-written Kotlin (~430 lines), with no TFLite, ONNX, or any inference library
+- **92% top-1 accuracy** on the FUTO test set (97.7% top-3), with automatic fallback to the geometric (SHARK²-family) decoder if the model asset is unavailable
+- **Dynamic word learning**: learns from your typing and selections, saved persistently
 
-### 🎨 Theming & Customization
+### Theming & Customization
 
 
 - **8 built-in themes**: Material Dark, Material Light, Pitch Black AMOLED, Dynamic Material You (Dark/Light), Nordic Frost, Sunset Glow, Cyber Neon
@@ -49,28 +49,28 @@
 - Customize 5 primary elements: Background, Key Surfaces, Text Color, Accent Keys, Action Keys
 - Smooth animated theme transitions
 
-### 📋 Clipboard Manager
+### Clipboard Manager
 - Automatic clipboard history capture across all apps
 - Up to 50 stored clips with timestamps and search
 - Pin important clips to prevent expiration
 - Quick paste directly from the keyboard header
 
-### 😊 Emoji Picker
+### Emoji Picker
 - Categorized emoji grid (Smileys, Gestures, Hearts, Animals, Food, Objects)
 - Smooth scrolling with quick category navigation
 
-### 🎙️ Private Voice Typing
+### Private Voice Typing
 - **On-device speech recognition** powered by Whisper Tiny English (~77 MB)
-- **Zero server communication** — audio is captured and transcribed completely offline
+- **Zero server communication**: audio is captured and transcribed completely offline
 - **Download on first use** with SHA-256 integrity verification and metered network detection
 
-### ⚡ Performance
-- **Zero-recomposition** swipe trail rendering — operates purely in Compose's draw phase (`drawWithContent`) via `trailVersion`, never triggering recomposition or relayout
-- **Pre-allocated buffers** in all hot loops — the neural decoder, geometric scorer, and beam search allocate nothing during a gesture
-- **Batched `InputConnection` operations** — all edits wrapped in `beginBatchEdit()` / `endBatchEdit()`
-- **~2.5 MB model** with BatchNorm folded into convolutions at export time — no normalization layers at inference
+### Performance
+- **Zero-recomposition** swipe trail rendering: operates purely in Compose's draw phase (`drawWithContent`) via `trailVersion`, never triggering recomposition or relayout
+- **Pre-allocated buffers** in all hot loops: the neural decoder, geometric scorer, and beam search allocate nothing during a gesture
+- **Batched `InputConnection` operations**: all edits wrapped in `beginBatchEdit()` / `endBatchEdit()`
+- **~2.5 MB model** with BatchNorm folded into convolutions at export time, leaving no normalization layers at inference
 
-### 🔧 More
+### More
 - Full QWERTY with long-press special character popups
 - Shift, Caps Lock, and number/symbol layer switching
 - Spacebar drag for cursor navigation
@@ -81,11 +81,11 @@
 
 ---
 
-## 🧠 Neural Swipe Engine
+## Neural Swipe Engine
 
 
 
-The swipe decoder is the core technical contribution of this project. Unlike traditional geometric decoders that compare gesture shapes against ideal polylines, this system **learns to read user intention** directly from the raw touch trajectory — including its timing.
+The swipe decoder is the core technical contribution of this project. Unlike traditional geometric decoders that compare gesture shapes against ideal polylines, this system **learns to read user intention** directly from the raw touch trajectory, including its timing.
 
 ### Architecture Overview
 
@@ -137,14 +137,14 @@ The key insight: the network never learns a parameter per key. Instead, it emits
 Φ[k, (u,v)] = cos(π · u · xₖ) · cos(π · v · yₖ)
 ```
 
-Swapping layouts — or even resizing the keyboard with the height slider — just rebuilds this fixed basis matrix. The network never needs to be retrained.
+Swapping layouts, or even resizing the keyboard with the height slider, just rebuilds this fixed basis matrix. The network never needs to be retrained.
 
 ### Why CTC + Timing?
 
 The geometric decoder resamples by **arc length**, which deliberately discards speed information. This makes shape matching speed-invariant, but also makes it *fundamentally impossible* to distinguish words that trace the same path:
 
-- **"putt" vs "put"** — same geometric path, but the finger *dwells* on the second T
-- **"on" vs "ion"** — I sits on a straight line between O and N
+- **"putt" vs "put"**: same geometric path, but the finger *dwells* on the second T
+- **"on" vs "ion"**: I sits on a straight line between O and N
 
 CTC blank semantics solve this: extending a prefix by the character it already ends with is only allowed from the blank-ending mass. The model must emit a blank between repeated letters, which it will only do if the finger actually lingered.
 
@@ -154,7 +154,7 @@ CTC blank semantics solve this: extending a prefix by the character it already e
 |---------|---------|-------|-------|--------|
 | **Neural (this project)** | App 150K + eval | **92.09%** | **97.69%** | **98.59%** |
 | Neural | App 150K | 85.78% | 91.05% | 91.88% |
-| Geometric (SHARK²-family) | App 150K | ~73% | — | — |
+| Geometric (SHARK²-family) | App 150K | ~73% | - | - |
 
 *Evaluated on 47,552 test gestures from the FUTO Swipe Dataset.*
 
@@ -162,7 +162,7 @@ CTC blank semantics solve this: extending a prefix by the character it already e
 
 ---
 
-## 📁 Architecture
+## Architecture
 
 ```
 keyboard/
@@ -242,7 +242,7 @@ keyboard/
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 
@@ -293,11 +293,11 @@ adb logcat -s ComposeKeyboard:V SwipeNeural:V AndroidRuntime:E
 
 ---
 
-## 🤗 Model Weights (Hugging Face)
+## Model Weights (Hugging Face)
 
 The trained neural swipe encoder weights are hosted on Hugging Face for easy download:
 
-### 📦 [`xxparthparekhxx/compose-keyboard-swipe-encoder`](https://huggingface.co/xxparthparekhxx/compose-keyboard-swipe-encoder)
+### [`xxparthparekhxx/compose-keyboard-swipe-encoder`](https://huggingface.co/xxparthparekhxx/compose-keyboard-swipe-encoder)
 
 | File | Size | Description |
 |------|------|-------------|
@@ -344,7 +344,7 @@ hf_hub_download(
 
 ### Upload Your Own Trained Model
 
-If you retrain the model (see [Training](#-training-the-model)), you can upload your weights:
+If you retrain the model (see [Training](#training-the-model)), you can upload your weights:
 
 ```bash
 pip install huggingface_hub
@@ -380,11 +380,11 @@ Per tensor:
   [∏dims × 4 bytes] Data (float32, little-endian)
 ```
 
-BatchNorm layers are **folded into the preceding convolution** at export time — the on-device forward pass has no normalization layers at all.
+BatchNorm layers are **folded into the preceding convolution** at export time, so the on-device forward pass has no normalization layers at all.
 
 ---
 
-## 🏋️ Training the Model
+## Training the Model
 
 ### Prerequisites
 
@@ -425,7 +425,7 @@ python -m swipe.train --epochs 120 --batch 1024 --lr 1e-3
 
 The training loop uses:
 - **CTC loss** with an emission-count penalty to prevent under-emission
-- **Co-augmentation** — trajectory and keyboard layout are augmented *jointly* (rotation, flip, scale, shear, translation, time reversal) to force the model to read intention from the gesture, not memorize key positions
+- **Co-augmentation**: trajectory and keyboard layout are augmented *jointly* (rotation, flip, scale, shear, translation, time reversal) to force the model to read intention from the gesture, not memorize key positions
 - **Cosine LR schedule** with 5% warmup
 - **Mixed precision** (bf16) with `torch.compile`
 
@@ -464,7 +464,7 @@ hf upload xxparthparekhxx/compose-keyboard-swipe-encoder \
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 | Component | Technology | Version |
 |-----------|------------|---------|
@@ -480,16 +480,16 @@ hf upload xxparthparekhxx/compose-keyboard-swipe-encoder \
 
 ---
 
-## 🧪 How It Works (Deep Dive)
+## How It Works (Deep Dive)
 
 ### Synthetic Gesture Generation
 
 The training pipeline includes a physics-based gesture synthesizer ([`ml/swipe/synth.py`](ml/swipe/synth.py)) that generates realistic training data:
 
-1. **2/3 Power Law** — finger speed falls as curvature rises (v ∝ κ⁻¹ᐟ³)
-2. **Doubled Letter Dwells** — the finger lingers on repeated keys, creating the only signal that separates "putt" from "put"
-3. **Corner Cutting** — a moving finger rounds corners toward the inside of the turn
-4. **Structured Spatial Error** — per-gesture systematic bias (hand position) on top of per-point tremor, scaling with speed
+1. **2/3 Power Law**: finger speed falls as curvature rises (v ∝ κ⁻¹ᐟ³)
+2. **Doubled Letter Dwells**: the finger lingers on repeated keys, creating the only signal that separates "putt" from "put"
+3. **Corner Cutting**: a moving finger rounds corners toward the inside of the turn
+4. **Structured Spatial Error**: per-gesture systematic bias (hand position) on top of per-point tremor, scaling with speed
 5. **Centripetal Catmull-Rom** interpolation prevents cusps on close control points
 
 ### On-Device Inference
@@ -497,33 +497,33 @@ The training pipeline includes a physics-based gesture synthesizer ([`ml/swipe/s
 The Kotlin inference engine ([`SwipeNet.kt`](app/src/main/java/io/github/xxparthparekhxx/composekeyboard/input/swipe/nn/SwipeNet.kt)) is a line-by-line transcription of the PyTorch model with performance optimizations:
 
 - **8-wide accumulator unrolling** in the linear projection (~90% of compute) to fill ARM issue slots
-- **Pre-allocated scratch buffers** — zero allocations during a gesture decode
-- **Single-threaded by design** — threading was tested and reverted; on big.LITTLE phones, work landing on efficiency cores made the join 1.5–5× *slower*
+- **Pre-allocated scratch buffers**: zero allocations during a gesture decode
+- **Single-threaded by design**: threading was tested and reverted; on big.LITTLE phones, work landing on efficiency cores made the join 1.5–5× *slower*
 
 ### Compose IME Integration
 
-[`ComposeInputMethodService.kt`](app/src/main/java/io/github/xxparthparekhxx/composekeyboard/service/ComposeInputMethodService.kt) bridges Android's `InputMethodService` with Jetpack Compose by implementing `LifecycleOwner`, `ViewModelStoreOwner`, and `SavedStateRegistryOwner` — allowing full Compose rendering inside a system service window.
+[`ComposeInputMethodService.kt`](app/src/main/java/io/github/xxparthparekhxx/composekeyboard/service/ComposeInputMethodService.kt) bridges Android's `InputMethodService` with Jetpack Compose by implementing `LifecycleOwner`, `ViewModelStoreOwner`, and `SavedStateRegistryOwner`, allowing full Compose rendering inside a system service window.
 
 ---
 
-## 📄 License
+## License
 
 This project is open source under the **MIT License**. See [LICENSE](LICENSE) for details.
 
 ---
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
-- **[FUTO](https://futo.org)** — for the open [Swipe Gesture Dataset](https://huggingface.co/datasets/futo-org/swipe.futo.org) that made training possible
-- **[ConvNeXt V2](https://arxiv.org/abs/2301.00808)** — Global Response Normalization (GRN) inspiration
-- **[SHARK²](https://dl.acm.org/doi/10.1145/1866029.1866043)** — foundational geometric swipe decoding research
+- **[FUTO](https://futo.org)**: for the open [Swipe Gesture Dataset](https://huggingface.co/datasets/futo-org/swipe.futo.org) that made training possible
+- **[ConvNeXt V2](https://arxiv.org/abs/2301.00808)**: Global Response Normalization (GRN) inspiration
+- **[SHARK²](https://dl.acm.org/doi/10.1145/1866029.1866043)**: foundational geometric swipe decoding research
 
 ---
 
 <div align="center">
 
-**Built with ❤️ in Kotlin & Compose**
+**Built with Kotlin & Compose**
 
-*If you find this useful, consider ⭐ starring the repo!*
+*If you find this useful, consider starring the repo!*
 
 </div>
