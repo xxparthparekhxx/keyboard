@@ -33,7 +33,7 @@ jobs:
         run: chmod +x gradlew
 
       - name: Run Unit Tests & Lint
-        run: ./gradlew testDebugUnitTest lintVitalRelease
+        run: ./gradlew testDebugUnitTest lintDebug lintVitalRelease
 
       - name: Upload test & lint reports
         if: always()
@@ -140,7 +140,9 @@ jobs:
       - name: Run instrumented tests on emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 29
+          # API 30+ IME paths (e.g. inline autofill suggestions) must be
+          # exercised; API 29 can never reach them.
+          api-level: 34
           target: default
           arch: x86_64
           script: chmod +x gradlew && ./gradlew connectedCheck
