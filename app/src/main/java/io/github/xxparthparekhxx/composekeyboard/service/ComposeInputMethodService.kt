@@ -50,6 +50,7 @@ import io.github.xxparthparekhxx.composekeyboard.data.SwipeDictionary
 import io.github.xxparthparekhxx.composekeyboard.input.swipe.SwipeConstants
 import io.github.xxparthparekhxx.composekeyboard.input.swipe.nn.SwipeNeuralDecoder
 import io.github.xxparthparekhxx.composekeyboard.input.voice.VoiceInputController
+import io.github.xxparthparekhxx.composekeyboard.data.InlineChipSpec
 import io.github.xxparthparekhxx.composekeyboard.ui.keyboard.KeyboardScreen
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -383,8 +384,21 @@ class ComposeInputMethodService : InputMethodService(),
 
     @androidx.annotation.RequiresApi(30)
     override fun onCreateInlineSuggestionsRequest(uiExtras: Bundle): InlineSuggestionsRequest? {
-        val spec = InlinePresentationSpec.Builder(Size(120, 48), Size(640, 48))
-            .setStyle(uiExtras)
+        // Spec sizes are in pixels and InlineSuggestion.inflate() rejects any
+        // size outside them, so they must match the chip's dp height here.
+        //
+        // No custom style: forwarding `uiExtras` here pins the chip to a style
+        // version the autofill renderer must know, and on devices where the
+        // renderer (Google ExtServices) lags the framework it fails with
+        // "Cannot find a style with the same version as the slice" and the
+        // chip never renders. Omitting setStyle falls back to the platform's
+        // default inline chip style, which is what standard OTP chips use.
+        val density = resources.displayMetrics.density
+        val chipHeight = (InlineChipSpec.HEIGHT_DP * density).toInt()
+        val spec = InlinePresentationSpec.Builder(
+            Size((InlineChipSpec.MIN_WIDTH_DP * density).toInt(), chipHeight),
+            Size((InlineChipSpec.MAX_WIDTH_DP * density).toInt(), chipHeight)
+        )
             .build()
         return InlineSuggestionsRequest.Builder(listOf(spec, spec, spec, spec, spec, spec))
             .setMaxSuggestionCount(6)
@@ -439,7 +453,7 @@ class ComposeInputMethodService : InputMethodService(),
      * caret is sitting right after other text. Whether that space was added is
      * remembered, so backspacing the word takes the space with it.
      */
-    private fun commitSwipeWord(word: String) {
+    internal fun commitSwipeWord(word: String) {
         // Decoding finishes a beat after lift-off; if the keyboard went away
         // in between, the word belongs to a field that no longer has focus.
         if (!inputViewVisible) return
@@ -512,7 +526,7 @@ class ComposeInputMethodService : InputMethodService(),
         typedWord.setLength(0)
     }
 
-    private fun handleDelete() {
+    internal fun handleDelete() {
         val ic = currentInputConnection ?: return
         val swipe = lastSwipeCommit
         if (swipe != null) {

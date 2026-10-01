@@ -1,6 +1,8 @@
 package io.github.xxparthparekhxx.composekeyboard.ui.keyboard
 
+import android.util.Log
 import android.view.HapticFeedbackConstants
+import android.view.ViewGroup
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -10,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -32,6 +35,7 @@ import android.view.inputmethod.InlineSuggestion
 import android.widget.FrameLayout
 import androidx.core.content.ContextCompat
 import io.github.xxparthparekhxx.composekeyboard.R
+import io.github.xxparthparekhxx.composekeyboard.data.InlineChipSpec
 import io.github.xxparthparekhxx.composekeyboard.theme.LocalKeyboardColors
 
 /**
@@ -207,8 +211,8 @@ private fun InlineSuggestionChip(
     if (Build.VERSION.SDK_INT < 30) return
     AndroidView(
         modifier = modifier
-            .height(40.dp)
-            .width(160.dp),
+            .height(InlineChipSpec.HEIGHT_DP.dp)
+            .widthIn(max = InlineChipSpec.MAX_WIDTH_DP.dp),
         factory = { context ->
             FrameLayout(context)
         },
@@ -216,22 +220,36 @@ private fun InlineSuggestionChip(
             if (host.tag === suggestion) return@AndroidView
             host.tag = suggestion
             host.removeAllViews()
-            val height = host.height.coerceAtLeast(40)
-            suggestion.inflate(
-                host.context,
-                Size(host.width.coerceAtLeast(160), height),
-                ContextCompat.getMainExecutor(host.context)
-            ) { content ->
-                host.removeAllViews()
-                if (content != null) {
-                    host.addView(
-                        content,
-                        FrameLayout.LayoutParams(
-                            FrameLayout.LayoutParams.WRAP_CONTENT,
-                            FrameLayout.LayoutParams.MATCH_PARENT
+            // inflate() throws unless the size fits the suggestion's own spec,
+            // which is in pixels and may not be ours (e.g. augmented autofill
+            // after a density change). This runs on attach, before layout, so
+            // the host's own size is still 0. Take the size from the spec.
+            val spec = suggestion.info.inlinePresentationSpec
+            // WRAP_CONTENT is explicitly supported per dimension by inflate();
+            // the chip then fits its content instead of filling the max width.
+            val size = Size(ViewGroup.LayoutParams.WRAP_CONTENT, spec.maxSize.height)
+            try {
+                suggestion.inflate(
+                    host.context,
+                    size,
+                    ContextCompat.getMainExecutor(host.context)
+                ) { content ->
+                    host.removeAllViews()
+                    if (content != null) {
+                        host.addView(
+                            content,
+                            FrameLayout.LayoutParams(
+                                FrameLayout.LayoutParams.WRAP_CONTENT,
+                                FrameLayout.LayoutParams.MATCH_PARENT
+                            )
                         )
-                    )
+                    }
                 }
+            } catch (e: IllegalArgumentException) {
+                // A throw here happens mid-attach and leaves the Compose tree
+                // half-built; the IME then crash-loops on every show. Drop the
+                // chip instead.
+                Log.w("ComposeKeyboard", "Inline suggestion rejected size $size", e)
             }
         }
     )

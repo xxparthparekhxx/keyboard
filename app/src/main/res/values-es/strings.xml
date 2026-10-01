@@ -182,6 +182,7 @@
     <string name="pt_url">URL</string>
     <string name="pt_password">Contraseña</string>
     <string name="pt_pin">PIN</string>
+    <string name="pt_otp">OTP</string>
     <string name="pt_ascii">ASCII</string>
     <string name="pt_datetime">Fecha/hora</string>
 
@@ -255,6 +256,7 @@
     <string name="pt_hint_uri">QWERTY con / y . para direcciones</string>
     <string name="pt_hint_password">QWERTY sin sugerencias ni gestos</string>
     <string name="pt_hint_pin">Numérico sin aprendizaje ni sugerencias</string>
+    <string name="pt_hint_otp">Campo numérico con la pista autofill oneTimeCode; el sistema puede ofrecer el código como chip de pegar</string>
     <string name="pt_hint_ascii">Letras estándar para campos ASCII</string>
     <string name="pt_hint_datetime">Numérico con / y :</string>
     <string name="pt_ph_text">Escribe o desliza una palabra…</string>

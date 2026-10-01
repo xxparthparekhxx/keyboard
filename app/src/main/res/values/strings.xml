@@ -201,6 +201,7 @@
     <string name="pt_url">URL</string>
     <string name="pt_password">Password</string>
     <string name="pt_pin">PIN</string>
+    <string name="pt_otp">OTP</string>
     <string name="pt_ascii">ASCII</string>
     <string name="pt_datetime">Date/time</string>
 
@@ -277,6 +278,7 @@
     <string name="pt_hint_uri">QWERTY with / and . for addresses</string>
     <string name="pt_hint_password">QWERTY without suggestions or swipe</string>
     <string name="pt_hint_pin">Numpad without learning or suggestions</string>
+    <string name="pt_hint_otp">Number field with a one-time-code autofill hint; the system can offer codes as a paste chip</string>
     <string name="pt_hint_ascii">Standard letters, offered for ASCII-capable fields</string>
     <string name="pt_hint_datetime">Number pad with / and :</string>
     <string name="pt_ph_text">Type or swipe a word…</string>

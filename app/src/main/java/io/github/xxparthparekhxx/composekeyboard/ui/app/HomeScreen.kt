@@ -1,8 +1,10 @@
 package io.github.xxparthparekhxx.composekeyboard.ui.app
 
+import android.os.Build
 import android.text.Editable
 import android.text.InputType
 import android.text.TextWatcher
+import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.widget.EditText
 import androidx.compose.foundation.border
@@ -121,6 +123,13 @@ private enum class PlaygroundInputType(
         placeholderRes = R.string.pt_ph_pin,
         hintRes = R.string.pt_hint_pin
     ),
+    OTP(
+        labelRes = R.string.pt_otp,
+        keyboardType = null,
+        placeholder = "123456",
+        placeholderRes = null,
+        hintRes = R.string.pt_hint_otp
+    ),
     ASCII(
         labelRes = R.string.pt_ascii,
         keyboardType = KeyboardType.Ascii,
@@ -136,7 +145,10 @@ private enum class PlaygroundInputType(
         hintRes = R.string.pt_hint_datetime
     );
 
-    val usesPlatformDatetimeField: Boolean
+    /** Datetime and OTP need platform [EditText]s: Compose has no datetime
+     *  keyboard type, and only a platform view can carry the `oneTimeCode`
+     *  autofill hint that makes the framework offer OTP chips. */
+    val usesPlatformField: Boolean
         get() = keyboardType == null
 
     val masksInput: Boolean
@@ -184,6 +196,7 @@ fun HomeScreen(
     var uriValue by rememberSaveable { mutableStateOf("") }
     var passwordValue by rememberSaveable { mutableStateOf("") }
     var pinValue by rememberSaveable { mutableStateOf("") }
+    var otpValue by rememberSaveable { mutableStateOf("") }
     var asciiValue by rememberSaveable { mutableStateOf("") }
     var datetimeValue by rememberSaveable { mutableStateOf("") }
     var nextFieldValue by rememberSaveable { mutableStateOf("") }
@@ -201,6 +214,7 @@ fun HomeScreen(
         PlaygroundInputType.URI -> uriValue
         PlaygroundInputType.PASSWORD -> passwordValue
         PlaygroundInputType.NUMBER_PASSWORD -> pinValue
+        PlaygroundInputType.OTP -> otpValue
         PlaygroundInputType.ASCII -> asciiValue
         PlaygroundInputType.DATETIME -> datetimeValue
     }
@@ -224,6 +238,7 @@ fun HomeScreen(
             PlaygroundInputType.URI -> uriValue = value
             PlaygroundInputType.PASSWORD -> passwordValue = value
             PlaygroundInputType.NUMBER_PASSWORD -> pinValue = value
+            PlaygroundInputType.OTP -> otpValue = value
             PlaygroundInputType.ASCII -> asciiValue = value
             PlaygroundInputType.DATETIME -> datetimeValue = value
         }
@@ -261,7 +276,21 @@ fun HomeScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.height(16.dp))
-                if (inputType.usesPlatformDatetimeField) {
+                if (inputType == PlaygroundInputType.OTP) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        OtpPlaygroundField(
+                            value = fieldValue,
+                            onValueChange = setValue,
+                            placeholder = inputType.placeholder,
+                            modifier = Modifier.weight(1f)
+                        )
+                        if (fieldValue.isNotEmpty()) {
+                            TextButton(onClick = { setValue("") }) {
+                                Text(stringResource(R.string.action_clear))
+                            }
+                        }
+                    }
+                } else if (inputType.usesPlatformField) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         DatetimePlaygroundField(
                             value = fieldValue,
@@ -305,7 +334,7 @@ fun HomeScreen(
                         }
                     )
                 }
-                if (inputType.usesPlatformDatetimeField) {
+                if (inputType.usesPlatformField) {
                     Text(
                         text = stringResource(inputType.hintRes),
                         style = MaterialTheme.typography.bodySmall,
@@ -479,6 +508,66 @@ private fun SetupWizard(
                 }
             )
         }
+    }
+}
+
+/**
+ * A numeric field carrying the `oneTimeCode` autofill hint, so the autofill
+ * framework can offer OTP codes as an inline paste chip above the keyboard.
+ * Compose has no way to set autofill hints on a text field, hence the
+ * platform [EditText].
+ */
+@Composable
+private fun OtpPlaygroundField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String,
+    modifier: Modifier = Modifier
+) {
+    val onValueChangeState = rememberUpdatedState(onValueChange)
+    val outline = MaterialTheme.colorScheme.outline
+    val textColor = MaterialTheme.colorScheme.onSurface
+    val hintColor = MaterialTheme.colorScheme.onSurfaceVariant
+    Box(
+        modifier = modifier
+            .height(56.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .border(1.dp, outline, RoundedCornerShape(14.dp))
+            .padding(horizontal = 16.dp),
+        contentAlignment = Alignment.CenterStart
+    ) {
+        AndroidView(
+            modifier = Modifier.fillMaxWidth(),
+            factory = { context ->
+                EditText(context).apply {
+                    inputType = InputType.TYPE_CLASS_NUMBER
+                    isSingleLine = true
+                    background = null
+                    setPadding(0, 0, 0, 0)
+                    textSize = 16f
+                    hint = placeholder
+                    if (Build.VERSION.SDK_INT >= 26) {
+                        importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_YES
+                        setAutofillHints("oneTimeCode")
+                    }
+                    addTextChangedListener(object : TextWatcher {
+                        override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+                        override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
+                        override fun afterTextChanged(s: Editable?) {
+                            onValueChangeState.value(s?.toString().orEmpty())
+                        }
+                    })
+                }
+            },
+            update = { view ->
+                view.setTextColor(textColor.toArgb())
+                view.setHintTextColor(hintColor.toArgb())
+                if (view.text.toString() != value) {
+                    view.setText(value)
+                    view.setSelection(value.length)
+                }
+            }
+        )
     }
 }
 
