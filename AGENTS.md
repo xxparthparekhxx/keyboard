@@ -42,12 +42,15 @@ keyboard/
 │       │   │   │   ├── EmojiSuggestions.kt          # Emoji predictions for typed words
 │       │   │   │   ├── FieldInputKind.kt            # InputType class/variation → keyboard layout
 │       │   │   │   ├── GraphemeClusters.kt          # User-visible character segmentation for delete
+│       │   │   │   ├── InlineChipSpec.kt            # dp bounds of the inline autofill chip (service + chip composable)
 │       │   │   │   ├── KeyboardData.kt              # Key layouts, symbols, emoji matrices, KeyType
 │       │   │   │   ├── KeyboardPreferences.kt       # SharedPreferences + StateFlow settings
 │       │   │   │   ├── OtpCodes.kt                  # One-time-passcode field & clipboard detection
 │       │   │   │   ├── RecentEmojiManager.kt        # Recently-used emoji tracking
+│       │   │   │   ├── SelectionTracker.kt          # Predicts where our own edits leave the caret (see §3A)
 │       │   │   │   └── SwipeDictionary.kt           # Bucketed word lexicon & user-learning engine
 │       │   │   ├── input/swipe/
+│       │   │   │   ├── SwipeConstants.kt            # Centralized swipe tolerances & scoring weights (key-width units)
 │       │   │   │   ├── SwipeController.kt           # Gesture state coordinator & decode dispatcher
 │       │   │   │   ├── SwipeDecoder.kt              # Geometric fallback decoder (SHARK²-family)
 │       │   │   │   ├── SwipeGestureDetector.kt      # PointerInputScope touch event recognizer
@@ -72,6 +75,14 @@ keyboard/
 │       │   │   │   └── Theme.kt                     # CompositionLocal theme provider
 │       │   │   └── ui/
 │       │   │       ├── app/                         # Companion app screens (Home, Themes, Clipboard, Settings)
+│       │   │   │   ├── AppearanceScreen.kt          # Appearance detail screen (theme presets, custom theme)
+│       │   │   │   ├── ClipboardScreen.kt           # Clipboard history detail screen
+│       │   │   │   ├── CompanionApp.kt              # Bottom-nav host & detail-screen scaffolding
+│       │   │   │   ├── CompanionComponents.kt       # Shared companion components (groups, switches, setup steps)
+│       │   │   │   ├── HomeScreen.kt                # Setup wizard + typing playground
+│       │   │   │   ├── ImeStatus.kt                 # IME enabled/active checks via Settings.Secure
+│       │   │   │   ├── SettingsScreen.kt            # Settings detail screen (toggles, sizes, voice entry)
+│       │   │   │   └── VoiceSetupScreen.kt          # Voice setup (mic permission, model download)
 │       │   │       ├── keyboard/
 │       │   │   │   ├── ClipboardView.kt             # In-keyboard clipboard history panel
 │       │   │   │   ├── EmojiPicker.kt               # Categorized emoji grid panel
@@ -87,25 +98,55 @@ keyboard/
 │       │   │           ├── ColorPicker.kt           # HSV color picker dialog with hex/swatches
 │       │   │           └── CustomThemeEditor.kt     # Live mini-keyboard preview custom theme editor
 │       │   └── res/
+│       │       ├── drawable/                        # Launcher icon layers (background, foreground, monochrome)
+│       │       ├── mipmap-anydpi-v26/               # Adaptive launcher icons (API 26+)
 │       │       ├── xml/method.xml                   # IME subtype & configuration
 │       │       ├── xml/locales_config.xml           # Supported locales (en default, es)
+│       │       ├── xml/backup_rules.xml             # Pre-Android-12 backup exclusions
+│       │       ├── xml/data_extraction_rules.xml    # Android 12+ backup/migration exclusions
 │       │       ├── values/strings.xml               # All user-visible text (English)
+│       │       ├── values/themes.xml                # Companion-app window theme (transparent bars)
 │       │       └── values-es/strings.xml            # Spanish translation
 │       ├── test/                                    # JVM unit tests (JUnit + Robolectric)
 │       │   ├── resources/swipe_reference.bin        # Torch parity fixture (see §5.5)
 │       │   └── java/io/github/xxparthparekhxx/composekeyboard/
 │       └── androidTest/                             # On-device Compose UI tests (emulator)
 ├── ml/                                              # Model training pipeline (not shipped)
+│   ├── MODEL_CARD.md                                # Hugging Face model card for the encoder
 │   ├── requirements.txt / pyproject.toml            # Pinned Python environment + pytest config
+│   ├── run_after_training.sh                        # Post-training tune + eval driver
+│   ├── show_progress.py                             # Live training/pipeline progress dashboard
 │   ├── tests/                                       # CPU-only pytest suite (no dataset/GPU needed)
 │   ├── swipe/                                       # Encoder, training, beam search, preprocessing
-│   └── tools/export_weights.py                      # PyTorch → swipe_encoder.bin (+ parity fixture)
+│   ├── tools/                                       # Lexicon build, evals, scoring tune, weight export
+│   │   ├── build_lexicon.py                         # Builds the shipped word list (log-frequency scores)
+│   │   ├── eval_app_layout.py                       # Checks encoder transfer to this app's key layout
+│   │   ├── eval_baseline.py                         # Geometric baseline eval on the FUTO test split
+│   │   ├── eval_neural.py                           # Neural encoder + beam eval on the FUTO test split
+│   │   ├── export_weights.py                        # PyTorch → swipe_encoder.bin (+ parity fixture)
+│   │   └── tune_scoring.py                          # Two-stage tune of pruning/scoring constants
+│   ├── tools_download.py                            # Downloads the FUTO dataset (~2 GB) from Hugging Face
+│   └── upload_to_hf.sh                              # Uploads model weights & lexicon to Hugging Face
 ├── .github/
 │   ├── workflows/ci.yml                             # unit + python + release + instrumented jobs
 │   ├── dependabot.yml                               # Weekly Gradle/Actions, monthly pip bumps
 │   └── CODEOWNERS
 ├── tools/
 │   └── build_dict.py                                # Lexicon preprocessor & contraction handler
+├── .editorconfig                                  # Shared editor & code-style settings
+├── .gitignore                                     # Keeps keystores, ML artifacts & build output out of git
+├── CHANGELOG.md                                   # Keep-a-Changelog project history
+├── CODE_OF_CONDUCT.md                             # Contributor conduct policy
+├── CONTRIBUTING.md                                # Contribution workflow
+├── LICENSE                                        # MIT license
+├── SECURITY.md                                    # Vulnerability disclosure policy
+├── docs/
+│   └── images/                                    # Screenshots referenced by README.md
+├── gradle.properties                              # Gradle JVM args & project settings
+├── gradle/                                        # Version catalog (libs.versions.toml) & Gradle wrapper
+├── gradlew                                        # Gradle wrapper launcher (Unix)
+├── gradlew.bat                                    # Gradle wrapper launcher (Windows)
+├── keystore.properties.example                    # Release signing config template (keystore.properties is gitignored)
 ├── build.gradle.kts                                 # Root build configuration
 ├── settings.gradle.kts                              # Project & repository settings
 ├── README.md                                        # User-facing project documentation
@@ -120,10 +161,13 @@ keyboard/
 - Located in `ComposeInputMethodService.kt`.
 - Implements `LifecycleOwner`, `ViewModelStoreOwner`, and `SavedStateRegistryOwner` to support Compose within an Android Service window.
 - Renders `ComposeView` with `ViewCompositionStrategy.DisposeOnLifecycleDestroyed`.
+- `onCreateInputView()` builds the `ComposeView` and attaches the service as `LifecycleOwner`, `ViewModelStoreOwner` and `SavedStateRegistryOwner` to both the view and the window `decorView` (`setViewTree*Owner`) — a Service window has no ambient owner, so the Compose view tree must be wired to one explicitly.
+- `onStartInputView()` resets the gesture and typed-word state, seeds `SelectionTracker` from `EditorInfo.initialSel*`, captures the current clipboard, and derives the per-field state: IME action (masked from `imeOptions`, `IME_FLAG_NO_ENTER_ACTION` forces newline), OTP detection via `OtpCodes`, the incognito flag, `Capitalization` allowance, `FieldInputKind`, and a clipboard pre-fill of the OTP code when the field is an OTP field.
+- `onFinishInputView()` and `onWindowHidden()` both cancel any in-flight voice recording, flush the in-progress typed word to the dictionary, and persist learned words immediately. They also call `leaveInputViewLifecycle()`, the counterpart of `enterInputViewLifecycle()` in `onStartInputView()`: the Compose lifecycle is stepped to RESUMED while the input view is visible and back to STOPPED when it is not.
 - Uses `currentInputConnection` to perform batched text commits (`beginBatchEdit()`, `commitText()`, `deleteSurroundingText()`, `endBatchEdit()`).
 - `SelectionTracker` (`data/`) predicts where each of our own edits leaves the caret, so `onUpdateSelection` can tell their echoes (including belated ones during a burst) from external caret moves. It replaced an edit counter that drifted in editors that never report selection changes (Termux, some web views).
 - Opts out of fullscreen extract mode (`onEvaluateFullscreenMode() = false`); the Compose UI has no extract view, so landscape renders the keyboard itself.
-- Inline suggestions are advertised in `method.xml` (`supportsInlineSuggestions`, API 30+) and implemented via `onCreateInlineSuggestionsRequest` / `onInlineSuggestionsResponse`. This is what drives the Gboard-style OTP paste chip. Keep the attribute and the two overrides in lockstep: removing either one disables autofill chips, and advertising the attribute without the overrides means chips never appear.
+- Inline suggestions are advertised in `method.xml` (`supportsInlineSuggestions`, API 30+) and implemented via `onCreateInlineSuggestionsRequest` / `onInlineSuggestionsResponse`. This is what drives the Gboard-style OTP paste chip. Keep the attribute and the two overrides in lockstep: removing either one disables autofill chips, and advertising the attribute without the overrides means chips never appear. The `InlinePresentationSpec` is built from the dp bounds in `data.InlineChipSpec` converted to px, and the `InlineSuggestionChip` composable (`SuggestionBar.kt`) must render within them — `InlineSuggestion.inflate()` rejects any size outside the spec, which is why the bounds live in a shared object rather than in the chip.
 
 ### B. Glide / Swipe Typing Engine (`input/swipe/`, `input/swipe/nn/`)
 Two decode paths share the gesture; the neural path is preferred, the geometric path is the fallback (and always drives the live preview):
