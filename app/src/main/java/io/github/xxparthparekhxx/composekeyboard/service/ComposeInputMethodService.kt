@@ -78,7 +78,7 @@ class ComposeInputMethodService : InputMethodService(),
 
     private lateinit var preferences: KeyboardPreferences
     private lateinit var clipboardHistoryManager: ClipboardHistoryManager
-    private lateinit var swipeDictionary: SwipeDictionary
+    internal lateinit var swipeDictionary: SwipeDictionary
 
     /**
      * The neural swipe decoder, once its weights and lexicon trie are built.
@@ -89,7 +89,8 @@ class ComposeInputMethodService : InputMethodService(),
      */
     private val neuralDecoder = MutableStateFlow<SwipeNeuralDecoder?>(null)
     private var audioManager: AudioManager? = null
-    private var currentImeAction by mutableIntStateOf(EditorInfo.IME_ACTION_UNSPECIFIED)
+    internal var currentImeAction by mutableIntStateOf(EditorInfo.IME_ACTION_UNSPECIFIED)
+        private set
 
     /**
      * Bumped for every input session so the keyboard UI can reset per-field
@@ -206,30 +207,7 @@ class ComposeInputMethodService : InputMethodService(),
                 showLanguageSwitch = showLanguageSwitch,
                 onTextInput = { text ->
                     playKeySound(AudioManager.FX_KEYPRESS_STANDARD)
-                    val ic = currentInputConnection
-                    if (ic != null) {
-                        val wasSwipe = lastSwipeCommit != null
-                        lastSwipeCommit = null
-                        val isPunctuation = text.length == 1 && text[0] in ".,!?:;)]}\"'-"
-                        val isSpace = text == " "
-
-                        if (wasSwipe && !isPunctuation && !isSpace) {
-                            val before = ic.getTextBeforeCursor(1, 0)
-                            val needsSpace = !before.isNullOrEmpty() && !opensAWord(before[0])
-                            if (needsSpace) {
-                                ic.beginBatchEdit()
-                                ic.commitText(" $text", 1)
-                                ic.endBatchEdit()
-                                selection.onCommitText(text.length + 1)
-                                trackTypedText(text)
-                                return@KeyboardScreen
-                            }
-                        }
-
-                        ic.commitText(text, 1)
-                        selection.onCommitText(text.length)
-                        trackTypedText(text)
-                    }
+                    handleTextInput(text)
                 },
                 onDelete = {
                     playKeySound(AudioManager.FX_KEYPRESS_DELETE)
@@ -237,9 +215,7 @@ class ComposeInputMethodService : InputMethodService(),
                 },
                 onAction = { actionId ->
                     playKeySound(AudioManager.FX_KEYPRESS_RETURN)
-                    flushTypedWord()
-                    lastSwipeCommit = null
-                    handleEditorAction(actionId)
+                    handleAction(actionId)
                 },
                 onMoveCursor = { offset ->
                     lastSwipeCommit = null
@@ -472,7 +448,7 @@ class ComposeInputMethodService : InputMethodService(),
     }
 
     /** Swaps the word the last gesture committed for one the user picked instead. */
-    private fun replaceSwipeWord(word: String) {
+    internal fun replaceSwipeWord(word: String) {
         val ic = currentInputConnection ?: return
         val previous = lastSwipeCommit ?: return
 
@@ -495,7 +471,7 @@ class ComposeInputMethodService : InputMethodService(),
     /**
      * Commits a tapped autocompletion word, replacing the typed prefix and adding a trailing space.
      */
-    private fun commitAutocomplete(word: String, prefix: String) {
+    internal fun commitAutocomplete(word: String, prefix: String) {
         val ic = currentInputConnection ?: return
         val deleteLen = prefix.length
         lastSwipeCommit = null
@@ -524,6 +500,37 @@ class ComposeInputMethodService : InputMethodService(),
             learnWord(word)
         }
         typedWord.setLength(0)
+    }
+
+    internal fun handleTextInput(text: String) {
+        val ic = currentInputConnection ?: return
+        val wasSwipe = lastSwipeCommit != null
+        lastSwipeCommit = null
+        val isPunctuation = text.length == 1 && text[0] in ".,!?:;)]}\"'-"
+        val isSpace = text == " "
+
+        if (wasSwipe && !isPunctuation && !isSpace) {
+            val before = ic.getTextBeforeCursor(1, 0)
+            val needsSpace = !before.isNullOrEmpty() && !opensAWord(before[0])
+            if (needsSpace) {
+                ic.beginBatchEdit()
+                ic.commitText(" $text", 1)
+                ic.endBatchEdit()
+                selection.onCommitText(text.length + 1)
+                trackTypedText(text)
+                return
+            }
+        }
+
+        ic.commitText(text, 1)
+        selection.onCommitText(text.length)
+        trackTypedText(text)
+    }
+
+    internal fun handleAction(actionId: Int) {
+        flushTypedWord()
+        lastSwipeCommit = null
+        handleEditorAction(actionId)
     }
 
     internal fun handleDelete() {
@@ -687,7 +694,7 @@ class ComposeInputMethodService : InputMethodService(),
 
     // --- Editing helpers ----------------------------------------------------
 
-    private fun handleEditorAction(actionId: Int) {
+    internal fun handleEditorAction(actionId: Int) {
         val ic = currentInputConnection ?: return
         if (actionId != EditorInfo.IME_ACTION_UNSPECIFIED && actionId != EditorInfo.IME_ACTION_NONE) {
             ic.performEditorAction(actionId)

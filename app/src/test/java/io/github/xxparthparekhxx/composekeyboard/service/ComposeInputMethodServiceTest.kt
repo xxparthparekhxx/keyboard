@@ -223,6 +223,252 @@ class ComposeInputMethodServiceTest {
     }
 
     // ---------------------------------------------------------------------
+    // 7. Action and Enter handling (handleAction / handleEditorAction)
+    // ---------------------------------------------------------------------
+
+    @Test
+    fun action_specificImeAction_callsPerformEditorAction() {
+        val fake = FakeInputConnection()
+        val info = textFieldInfo(caret = 0)
+        attachInput(fake, info)
+        service.onStartInputView(info, false)
+
+        val actions = listOf(
+            EditorInfo.IME_ACTION_SEARCH,
+            EditorInfo.IME_ACTION_GO,
+            EditorInfo.IME_ACTION_SEND,
+            EditorInfo.IME_ACTION_DONE,
+            EditorInfo.IME_ACTION_NEXT
+        )
+        for (action in actions) {
+            service.handleAction(action)
+        }
+
+        assertEquals(actions, fake.performedActions)
+        assertTrue("No raw key events should be sent for handled actions", fake.sentKeyCodes.isEmpty())
+    }
+
+    @Test
+    fun action_unspecifiedOrNone_sendsEnterKeyEvent() {
+        val fake = FakeInputConnection()
+        val info = textFieldInfo(caret = 0)
+        attachInput(fake, info)
+        service.onStartInputView(info, false)
+
+        service.handleAction(EditorInfo.IME_ACTION_UNSPECIFIED)
+        assertEquals(
+            listOf(KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_ENTER),
+            fake.sentKeyCodes
+        )
+        assertTrue(fake.performedActions.isEmpty())
+
+        service.handleAction(EditorInfo.IME_ACTION_NONE)
+        assertEquals(
+            listOf(
+                KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_ENTER,
+                KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_ENTER
+            ),
+            fake.sentKeyCodes
+        )
+        assertTrue(fake.performedActions.isEmpty())
+    }
+
+    @Test
+    fun action_flushesTypedWordAndClearsSwipeState() {
+        val fake = FakeInputConnection()
+        val info = textFieldInfo(caret = 0)
+        attachInput(fake, info)
+        service.onStartInputView(info, false)
+
+        // Commit a swipe word, then type some letters into the typed word tracker.
+        service.commitSwipeWord("hello")
+        service.handleTextInput("c")
+        service.handleTextInput("a")
+        service.handleTextInput("t")
+        assertEquals("hello cat", fake.text)
+
+        // Triggering an action flushes the typed word and resets lastSwipeCommit.
+        service.handleAction(EditorInfo.IME_ACTION_DONE)
+        assertEquals(listOf(EditorInfo.IME_ACTION_DONE), fake.performedActions)
+
+        // Because lastSwipeCommit was cleared, backspace is a single grapheme delete,
+        // not a whole-word delete.
+        service.handleDelete()
+        assertEquals(listOf(1 to 0), fake.deletions)
+        assertEquals("hello ca", fake.text)
+    }
+
+    @Test
+    fun onStartInputView_derivesCurrentImeActionFromImeOptions() {
+        val fake = FakeInputConnection()
+
+        // Standard actions
+        val searchInfo = EditorInfo().apply { imeOptions = EditorInfo.IME_ACTION_SEARCH }
+        attachInput(fake, searchInfo)
+        service.onStartInputView(searchInfo, false)
+        assertEquals(EditorInfo.IME_ACTION_SEARCH, service.currentImeAction)
+
+        val goInfo = EditorInfo().apply { imeOptions = EditorInfo.IME_ACTION_GO }
+        attachInput(fake, goInfo)
+        service.onStartInputView(goInfo, false)
+        assertEquals(EditorInfo.IME_ACTION_GO, service.currentImeAction)
+
+        // Multi-line editor flag suppresses action
+        val multiLineInfo = EditorInfo().apply {
+            imeOptions = EditorInfo.IME_ACTION_DONE or EditorInfo.IME_FLAG_NO_ENTER_ACTION
+        }
+        attachInput(fake, multiLineInfo)
+        service.onStartInputView(multiLineInfo, false)
+        assertEquals(EditorInfo.IME_ACTION_UNSPECIFIED, service.currentImeAction)
+
+        // IME_ACTION_NONE resolves to UNSPECIFIED
+        val noneInfo = EditorInfo().apply { imeOptions = EditorInfo.IME_ACTION_NONE }
+        attachInput(fake, noneInfo)
+        service.onStartInputView(noneInfo, false)
+        assertEquals(EditorInfo.IME_ACTION_UNSPECIFIED, service.currentImeAction)
+
+        // Null info defaults to UNSPECIFIED
+        attachInput(fake, null)
+        service.onStartInputView(null, false)
+        assertEquals(EditorInfo.IME_ACTION_UNSPECIFIED, service.currentImeAction)
+    }
+
+    // ---------------------------------------------------------------------
+    // 8. Swipe commit and follow-up typing flow
+    // ---------------------------------------------------------------------
+
+    @Test
+    fun commitSwipeWord_withoutPrecedingTextOrAfterWordOpening_doesNotInsertSpace() {
+        val fake = FakeInputConnection()
+        val info = textFieldInfo(caret = 0)
+        attachInput(fake, info)
+        service.onStartInputView(info, false)
+
+        // 1. Empty field: no leading space needed
+        service.commitSwipeWord("hello")
+        assertEquals("hello", fake.text)
+        assertEquals(listOf("hello"), fake.committedTexts)
+
+        // 2. After opening bracket: no space
+        fake.seed("(")
+        service.commitSwipeWord("world")
+        assertEquals("(world", fake.text)
+        assertEquals(listOf("hello", "world"), fake.committedTexts)
+
+        // 3. After trailing space: no extra space
+        fake.seed("hi ")
+        service.commitSwipeWord("there")
+        assertEquals("hi there", fake.text)
+        assertEquals(listOf("hello", "world", "there"), fake.committedTexts)
+    }
+
+    @Test
+    fun commitSwipeWord_whenViewHidden_isDropped() {
+        val fake = FakeInputConnection()
+        val info = textFieldInfo(caret = 0)
+        attachInput(fake, info)
+        service.onStartInputView(info, false)
+
+        // Simulate keyboard window closing before late async decode finishes
+        service.onFinishInputView(false)
+
+        service.commitSwipeWord("ghost")
+        assertTrue(fake.committedTexts.isEmpty())
+        assertTrue(fake.text.isEmpty())
+    }
+
+    @Test
+    fun handleTextInput_afterSwipeCommit_insertsSpaceBeforeLettersOnly() {
+        val fake = FakeInputConnection()
+        val info = textFieldInfo(caret = 0)
+        attachInput(fake, info)
+        service.onStartInputView(info, false)
+
+        // Swipe a word
+        service.commitSwipeWord("hello")
+        assertEquals("hello", fake.text)
+
+        // Typing a letter after a swipe automatically inserts a separating space
+        service.handleTextInput("w")
+        assertEquals("hello w", fake.text)
+        assertEquals(listOf("hello", " w"), fake.committedTexts)
+
+        // Subsequent letters in the same word do not insert space
+        service.handleTextInput("o")
+        assertEquals("hello wo", fake.text)
+        assertEquals(listOf("hello", " w", "o"), fake.committedTexts)
+
+        // Swipe another word
+        service.commitSwipeWord("there")
+        assertEquals("hello wo there", fake.text)
+
+        // Typing punctuation attaches directly to the swiped word without space
+        service.handleTextInput(".")
+        assertEquals("hello wo there.", fake.text)
+        assertEquals(listOf("hello", " w", "o", " there", "."), fake.committedTexts)
+
+        // Swipe a third word
+        service.commitSwipeWord("friend")
+        assertEquals("hello wo there. friend", fake.text)
+
+        // Typing a space directly commits a single space without duplication
+        service.handleTextInput(" ")
+        assertEquals("hello wo there. friend ", fake.text)
+    }
+
+    @Test
+    fun replaceSwipeWord_swapsCommittedWordAndUpdatesDeleteState() {
+        val fake = FakeInputConnection()
+        fake.seed("see ")
+        val info = textFieldInfo(caret = 4)
+        attachInput(fake, info)
+        service.onStartInputView(info, false)
+
+        // Initial swipe commit
+        service.commitSwipeWord("helo")
+        assertEquals("see helo", fake.text)
+
+        // User picks "hello" from the suggestion strip
+        service.replaceSwipeWord("hello")
+        assertEquals("see hello", fake.text)
+        assertEquals(listOf(4 to 0), fake.deletions)
+
+        // Backspace after replacement takes the full replaced word
+        service.handleDelete()
+        assertEquals("see ", fake.text)
+        assertEquals(listOf(4 to 0, 5 to 0), fake.deletions)
+    }
+
+    @Test
+    fun commitAutocomplete_replacesPrefixWithWordAndTrailingSpace() {
+        val fake = FakeInputConnection()
+        fake.seed("see comp")
+        val info = textFieldInfo(caret = 8)
+        attachInput(fake, info)
+        service.onStartInputView(info, false)
+
+        service.commitAutocomplete("compose", "comp")
+        assertEquals("see compose ", fake.text)
+        assertEquals(listOf(4 to 0), fake.deletions)
+        assertEquals(listOf("compose "), fake.committedTexts)
+    }
+
+    @Test
+    fun commitAutocomplete_withStalePrefix_isIgnored() {
+        val fake = FakeInputConnection()
+        fake.seed("see other")
+        val info = textFieldInfo(caret = 9)
+        attachInput(fake, info)
+        service.onStartInputView(info, false)
+
+        // Tapping a suggestion whose prefix no longer matches what's before the cursor
+        service.commitAutocomplete("compose", "comp")
+        assertEquals("see other", fake.text)
+        assertTrue(fake.deletions.isEmpty())
+        assertTrue(fake.committedTexts.isEmpty())
+    }
+
+    // ---------------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------------
 
@@ -339,7 +585,12 @@ class ComposeInputMethodServiceTest {
 
         override fun getHandler(): Handler? = null
 
-        override fun performEditorAction(editorAction: Int): Boolean = true
+        val performedActions = mutableListOf<Int>()
+
+        override fun performEditorAction(editorAction: Int): Boolean {
+            performedActions.add(editorAction)
+            return true
+        }
 
         override fun performContextMenuAction(id: Int): Boolean = false
 
