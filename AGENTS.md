@@ -14,7 +14,7 @@ This document provides AI coding agents and developers with essential context, a
 - **Target SDK**: 36 (Android 16) · **Compile SDK**: 37 (required by current AndroidX)
 - **Kotlin Version**: 2.4.20 (AGP built-in Kotlin + Kotlin Compose Compiler Plugin; there is no `kotlin-android` plugin)
 - **Android Gradle Plugin (AGP)**: 9.4.1
-- **Gradle Version**: 9.7.1
+- **Gradle Version**: 9.8.0
 - **JVM Target / Compatibility**: Java 17
 
 ---
