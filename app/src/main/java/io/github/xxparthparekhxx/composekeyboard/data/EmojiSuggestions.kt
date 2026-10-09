@@ -297,6 +297,18 @@ object EmojiSuggestions {
         return results
     }
 
+    /** Emojis hand-picked for exactly [query] ("lol" → 😂 🤣), for search ranking. */
+    fun exactAliases(query: String): List<String> = keywords[query].orEmpty()
+
+    /** Emojis of every keyword that starts with [query], in keyword order. */
+    fun prefixAliases(query: String): List<String> {
+        val results = LinkedHashSet<String>()
+        for ((word, emojis) in keywords) {
+            if (word.startsWith(query)) results.addAll(emojis)
+        }
+        return results.toList()
+    }
+
     /**
      * Searches all emojis matching the query string across keywords and aliases.
      */

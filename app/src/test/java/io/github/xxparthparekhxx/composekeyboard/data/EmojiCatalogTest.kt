@@ -61,6 +61,26 @@ class EmojiCatalogTest {
     }
 
     @Test
+    fun search_matchesWordStartsInsideNamesAndRanksThemByTier() {
+        val asset = java.io.File("src/main/assets/emoji-test.txt")
+        val entries = EmojiCatalog.parse(asset.readText())
+        val snapshot = EmojiCatalog.Snapshot(entries, EmojiCatalog.categoriesFrom(entries))
+
+        // "face" is never a name prefix of 😀 but starts one of its words.
+        assertTrue(EmojiCatalog.search(snapshot, "face").contains("😀"))
+        // Every query word must match, in any order.
+        val redHeart = EmojiCatalog.search(snapshot, "hea red")
+        assertTrue(redHeart.contains("❤️"))
+        assertFalse(redHeart.contains("💙"))
+        // Exact name beats names that merely start with the query.
+        assertEquals("🐱", EmojiCatalog.search(snapshot, "cat face").first())
+        // Hand-picked aliases come first.
+        assertEquals("😂", EmojiCatalog.search(snapshot, "lol").first())
+        // Mid-word letters do not match short queries.
+        assertFalse(EmojiCatalog.search(snapshot, "at").contains("🐱"))
+    }
+
+    @Test
     fun unicodeAsset_coversAFullKeyboardSetWithoutSkinTones() {
         val asset = java.io.File("src/main/assets/emoji-test.txt")
         assertTrue("emoji-test.txt should be shipped as an asset", asset.exists())

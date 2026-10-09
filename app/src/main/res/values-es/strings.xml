@@ -135,11 +135,12 @@
     <string name="desc_pin_clip">Fijar recorte</string>
     <string name="desc_unpin_clip">Soltar recorte</string>
 
-    <string name="emoji_search_hint">Escribe para buscar emojis…</string>
-    <string name="emoji_popular">Búsquedas populares</string>
+    <string name="emoji_search_hint">Buscar emoji</string>
     <string name="emoji_no_results">Sin emojis para «%1$s»</string>
     <string name="emoji_recently_used">Usados recientemente</string>
     <string name="desc_search_emojis">Buscar emojis</string>
+    <string name="desc_close_search">Cerrar búsqueda</string>
+    <string name="emoji_recent_empty">Los emojis que uses aparecerán aquí</string>
     <string name="key_space">Espacio</string>
     <string name="key_abc">ABC</string>
     <string name="desc_shift">Mayús</string>

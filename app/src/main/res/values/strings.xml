@@ -152,11 +152,12 @@
     <string name="desc_unpin_clip">Unpin clip</string>
 
     <!-- Emoji picker -->
-    <string name="emoji_search_hint">Type to search emojis…</string>
-    <string name="emoji_popular">Popular Searches</string>
+    <string name="emoji_search_hint">Search emoji</string>
     <string name="emoji_no_results">No emojis found for \"%1$s\"</string>
     <string name="emoji_recently_used">Recently Used</string>
     <string name="desc_search_emojis">Search Emojis</string>
+    <string name="desc_close_search">Close search</string>
+    <string name="emoji_recent_empty">Emojis you use will show up here</string>
     <string name="key_space">Space</string>
     <string name="key_abc">ABC</string>
     <string name="desc_shift">Shift</string>

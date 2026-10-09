@@ -15,6 +15,8 @@ All notable changes to this project are documented here. Format follows
   outrank the table, gated like dictionary learning (no passwords, terminals
   or incognito fields) and excluded from backups. A swiped word taken back
   with backspace or replaced from the strip unlearns its pair.
+- Emoji search: Enter inserts the top result, which is highlighted. Before
+  typing, the search panel offers popular searches and recent emojis.
 
 ### Changed
 
@@ -27,6 +29,13 @@ All notable changes to this project are documented here. Format follows
   its own copy, so completions and learning can no longer disagree.
 - Dictionary-learning gate reuses `FieldInputKind.allowsLearning` instead of
   repeating the password checks.
+- Emoji picker redesign: evenly spaced monochrome category tabs, a heading
+  per category, press feedback on emojis, an empty-state hint for Recent,
+  and a bottom bar styled like keyboard keys. The search field has a
+  caret, a clear button and a back arrow, and results scroll sideways.
+- Emoji search ranking: every query word must match the start of a word in
+  the emoji's name ("face" finds 😀, "hea red" finds ❤️). Aliases and exact
+  names rank first. Substring matches need 3+ characters.
 
 ### Fixed
 

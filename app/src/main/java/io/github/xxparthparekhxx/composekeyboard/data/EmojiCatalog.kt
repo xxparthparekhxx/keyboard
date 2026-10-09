@@ -21,7 +21,12 @@ object EmojiCatalog {
     data class Snapshot(
         val entries: List<EmojiEntry>,
         val categories: List<EmojiCategory>
-    )
+    ) {
+        /** Each entry's name split into words, parallel to [entries]; built on first search. */
+        internal val nameWords: List<List<String>> by lazy {
+            entries.map { entry -> entry.name.split(WORD_SPLIT).filter { it.isNotEmpty() } }
+        }
+    }
 
     @Volatile
     private var snapshot: Snapshot? = null
@@ -41,26 +46,52 @@ object EmojiCatalog {
         }
     }
 
-    fun search(snapshot: Snapshot, rawQuery: String, maxCount: Int = 80): List<String> {
+    /**
+     * Ranked emoji search. Every query word must match the start of a word in
+     * the emoji's name ("red hea" finds "red heart", "face" finds "grinning
+     * face"), so typing narrows results instead of piling up substring noise.
+     * Results are ordered by tier, then Unicode order within a tier:
+     *
+     * 0. hand-picked aliases for the exact query ("lol" → 😂)
+     * 1. names equal to the query
+     * 2. names starting with the query
+     * 3. aliases starting with the query
+     * 4. every query word prefixes a name word
+     * 5. plain substring of the name (3+ chars, catches "fly" in "butterfly")
+     */
+    fun search(snapshot: Snapshot, rawQuery: String, maxCount: Int = 120): List<String> {
         val query = rawQuery.trim().lowercase()
         if (query.isEmpty()) return emptyList()
+        val queryWords = query.split(WORD_SPLIT).filter { it.isNotEmpty() }
+        if (queryWords.isEmpty()) return emptyList()
+
+        val tiers = Array(TIER_COUNT) { ArrayList<String>() }
+        tiers[0].addAll(EmojiSuggestions.exactAliases(query))
+        tiers[3].addAll(EmojiSuggestions.prefixAliases(query))
+
+        val index = snapshot.nameWords
+        for (i in snapshot.entries.indices) {
+            val entry = snapshot.entries[i]
+            val name = entry.name
+            if (name.isEmpty()) continue
+            val tier = when {
+                name == query -> 1
+                name.startsWith(query) -> 2
+                queryWords.all { q -> index[i].any { it.startsWith(q) } } -> 4
+                query.length >= 3 && name.contains(query) -> 5
+                else -> continue
+            }
+            tiers[tier].add(entry.emoji)
+        }
 
         val results = LinkedHashSet<String>()
-        results.addAll(EmojiSuggestions.searchAll(query, maxCount))
-
-        if (results.size < maxCount) {
-            for (entry in snapshot.entries) {
-                if (results.size >= maxCount) break
-                if (entry.name.startsWith(query)) results.add(entry.emoji)
+        for (tier in tiers) {
+            for (emoji in tier) {
+                if (results.size >= maxCount) return results.toList()
+                results.add(emoji)
             }
         }
-        if (results.size < maxCount && query.length >= 2) {
-            for (entry in snapshot.entries) {
-                if (results.size >= maxCount) break
-                if (entry.name.contains(query)) results.add(entry.emoji)
-            }
-        }
-        return results.take(maxCount)
+        return results.toList()
     }
 
     internal fun parse(text: String): List<EmojiEntry> {
@@ -138,6 +169,8 @@ object EmojiCatalog {
     private const val TAG = "EmojiCatalog"
     private const val SKIN_TONE_START = 0x1F3FB
     private const val SKIN_TONE_END = 0x1F3FF
+    private const val TIER_COUNT = 6
+    private val WORD_SPLIT = Regex("[^\\p{L}\\p{N}]+")
     private val NAME_REGEX = Regex("""E[0-9.]+ (.+)$""")
 
     private val GROUP_ICONS = mapOf(
