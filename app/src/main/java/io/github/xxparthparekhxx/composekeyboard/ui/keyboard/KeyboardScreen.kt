@@ -34,9 +34,9 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -44,6 +44,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.Dp
@@ -51,7 +52,7 @@ import androidx.compose.ui.unit.dp
 import io.github.xxparthparekhxx.composekeyboard.data.Capitalization
 import io.github.xxparthparekhxx.composekeyboard.data.ClipboardHistoryManager
 import io.github.xxparthparekhxx.composekeyboard.data.FieldInputKind
-import io.github.xxparthparekhxx.composekeyboard.data.GraphemeClusters
+import io.github.xxparthparekhxx.composekeyboard.data.EmojiCatalog
 import io.github.xxparthparekhxx.composekeyboard.data.EmojiSuggestions
 import io.github.xxparthparekhxx.composekeyboard.data.KeyModel
 import io.github.xxparthparekhxx.composekeyboard.data.KeyType
@@ -59,6 +60,7 @@ import io.github.xxparthparekhxx.composekeyboard.data.KeyboardLayouts
 import io.github.xxparthparekhxx.composekeyboard.data.KeyboardMode
 import io.github.xxparthparekhxx.composekeyboard.data.KeyboardSettings
 import io.github.xxparthparekhxx.composekeyboard.data.KeyboardThemeType
+import io.github.xxparthparekhxx.composekeyboard.data.RecentEmojiManager
 import io.github.xxparthparekhxx.composekeyboard.data.SwipeDictionary
 import io.github.xxparthparekhxx.composekeyboard.input.swipe.nn.SwipeNeuralDecoder
 import io.github.xxparthparekhxx.composekeyboard.input.swipe.SwipeConstants
@@ -74,6 +76,20 @@ fun KeyboardScreen(
     settings: KeyboardSettings,
     clipboardManager: ClipboardHistoryManager,
     swipeDictionary: SwipeDictionary,
+    onTextInput: (String) -> Unit,
+    onDelete: () -> Unit,
+    onAction: (Int) -> Unit,
+    onMoveCursor: (Int) -> Unit,
+    onSwipeWord: (String) -> Unit,
+    onSwipeWordReplaced: (String) -> Unit,
+    onThemeChanged: (KeyboardThemeType) -> Unit,
+    onHapticToggled: (Boolean) -> Unit,
+    onSoundToggled: (Boolean) -> Unit,
+    onNumberRowToggled: (Boolean) -> Unit,
+    onAutoCapsToggled: (Boolean) -> Unit,
+    onSwipeTypingToggled: (Boolean) -> Unit,
+    onOpenFullSettings: () -> Unit,
+    modifier: Modifier = Modifier,
     neuralDecoder: SwipeNeuralDecoder? = null,
     imeAction: Int = EditorInfo.IME_ACTION_UNSPECIFIED,
     inputSession: Int = 0,
@@ -86,27 +102,16 @@ fun KeyboardScreen(
     otpCode: String? = null,
     inlineSuggestions: List<android.view.inputmethod.InlineSuggestion> = emptyList(),
     showLanguageSwitch: Boolean = false,
-    onTextInput: (String) -> Unit,
-    onDelete: () -> Unit,
-    onAction: (Int) -> Unit,
-    onMoveCursor: (Int) -> Unit,
-    onSwipeWord: (String) -> Unit,
-    onSwipeWordReplaced: (String) -> Unit,
-    onAutocompleteSelected: (word: String, prefix: String) -> Unit = { _, _ -> },
-    onThemeChanged: (KeyboardThemeType) -> Unit,
-    onHapticToggled: (Boolean) -> Unit,
-    onSoundToggled: (Boolean) -> Unit,
-    onNumberRowToggled: (Boolean) -> Unit,
-    onAutoCapsToggled: (Boolean) -> Unit,
-    onSwipeTypingToggled: (Boolean) -> Unit,
+    currentWord: String = "",
+    previousWord: String? = null,
+    predictNextWords: (previous: String) -> List<String> = { emptyList() },
+    onSuggestionPicked: (String) -> Unit = {},
     onHeightMultiplierChanged: (Float) -> Unit = {},
     onFontScaleChanged: (Float) -> Unit = {},
     onEmojiScaleChanged: (Float) -> Unit = {},
-    onOpenFullSettings: () -> Unit,
     onRequestMicPermission: () -> Unit = {},
     onOtpSelected: (String) -> Unit = {},
-    onSwitchIme: () -> Unit = {},
-    modifier: Modifier = Modifier
+    onSwitchIme: () -> Unit = {}
 ) {
     ComposeKeyboardTheme(
         themeType = settings.theme,
@@ -114,12 +119,48 @@ fun KeyboardScreen(
     ) {
         val colors = LocalKeyboardColors.current
         val view = LocalView.current
-        var mode by remember(inputSession) {
-            mutableStateOf(Capitalization.initialMode(fieldInputKind.opensAsNumpad, cursorWantsShift))
+        val context = LocalContext.current
+
+        // Read through rememberUpdatedState so the state machine, which
+        // outlives recompositions, always calls the current callbacks.
+        val currentOnTextInput by rememberUpdatedState(onTextInput)
+        val currentOnDelete by rememberUpdatedState(onDelete)
+        val currentOnAction by rememberUpdatedState(onAction)
+        val currentOnSwitchIme by rememberUpdatedState(onSwitchIme)
+        val currentOnSwipeWord by rememberUpdatedState(onSwipeWord)
+        val currentOnSwipeWordReplaced by rememberUpdatedState(onSwipeWordReplaced)
+        val currentOnSuggestionPicked by rememberUpdatedState(onSuggestionPicked)
+        val typing = remember(inputSession) {
+            TypingState(
+                initialMode = Capitalization.initialMode(fieldInputKind.opensAsNumpad, cursorWantsShift),
+                actions = object : TypingActions {
+                    override fun commitText(text: String) = currentOnTextInput(text)
+                    override fun deleteBackward() = currentOnDelete()
+                    override fun performAction(actionId: Int) = currentOnAction(actionId)
+                    override fun switchIme() = currentOnSwitchIme()
+                    override fun commitSwipeWord(word: String) = currentOnSwipeWord(word)
+                    override fun replaceSwipeWord(word: String) = currentOnSwipeWordReplaced(word)
+                    override fun pickSuggestion(word: String) = currentOnSuggestionPicked(word)
+                }
+            ).apply {
+                // Enter inserts the result EmojiPicker highlights first.
+                onEmojiSearchSubmit = {
+                    val top = EmojiCatalog.peek()
+                        ?.let { EmojiCatalog.search(it, emojiSearchQuery, maxCount = 1) }
+                        ?.firstOrNull()
+                    if (top != null) {
+                        RecentEmojiManager.getInstance(context).recordEmoji(top)
+                        currentOnTextInput(top)
+                    }
+                }
+            }
         }
-        var lastShiftTapTime by remember { mutableLongStateOf(0L) }
-        var lastSpaceTapTime by remember(inputSession) { mutableLongStateOf(0L) }
-        var lastNonSpaceChar by remember(inputSession) { mutableStateOf(' ') }
+        SideEffect {
+            typing.autoCapitalization = settings.autoCapitalization
+            typing.imeAction = imeAction
+        }
+        val mode = typing.mode
+        val isAlphaMode = typing.isAlphaMode
 
         // Keyboard height scale
         val rowHeight = if (mode == KeyboardMode.NUMPAD) (56 * settings.heightMultiplier).dp else (48 * settings.heightMultiplier).dp
@@ -127,49 +168,23 @@ fun KeyboardScreen(
         val numberRowHeight = (40 * settings.heightMultiplier).dp
         val panelHeight = (250 * settings.heightMultiplier).dp
 
-        // --- Swipe typing & Autocomplete ------------------------------------
+        // --- Swipe typing & suggestions -------------------------------------
         val geometry = remember { SwipeKeyGeometry() }
         val scope = rememberCoroutineScope()
         val swipeController = remember(geometry, swipeDictionary) {
             SwipeController(geometry, swipeDictionary, scope)
         }
-        var suggestions by remember(inputSession) { mutableStateOf(emptyList<String>()) }
-        var selectedSuggestion by remember(inputSession) { mutableIntStateOf(-1) }
-        var typedPrefix by remember(inputSession) { mutableStateOf("") }
-        var isSwipeResult by remember(inputSession) { mutableStateOf(false) }
-        var emojiSearching by remember(inputSession) { mutableStateOf(false) }
-        var emojiSearchQuery by remember(inputSession) { mutableStateOf("") }
-
-        /** Last character this keyboard committed, for the double-space period shortcut. */
-        var lastCommitted by remember(inputSession) { mutableStateOf(' ') }
-
-        val isAlphaMode = mode == KeyboardMode.LOWERCASE ||
-                mode == KeyboardMode.UPPERCASE ||
-                mode == KeyboardMode.CAPS_LOCKED
         val swipeEnabled = settings.swipeTypingEnabled && isAlphaMode && fieldInputKind.allowsSwipe
 
-        fun lettersMode(): KeyboardMode = Capitalization.lettersMode(cursorWantsShift)
-
-        /**
-         * Auto-capitalization follows the editor caret, not a one-shot "this
-         * field wants capitals" flag. Re-evaluating on [cursorWantsShift] is
-         * what keeps shift correct after dismiss, backspace, and tapping into
-         * the middle of a sentence. Caps-lock and symbol/emoji layouts are
-         * left alone.
-         */
         LaunchedEffect(inputSession, fieldInputKind) {
-            if (fieldInputKind.opensAsNumpad) {
-                mode = KeyboardMode.NUMPAD
-            } else {
-                mode = Capitalization.applyCursorShift(mode, cursorWantsShift)
-            }
+            typing.onFieldStart(fieldInputKind)
         }
         LaunchedEffect(cursorWantsShift) {
-            mode = Capitalization.applyCursorShift(mode, cursorWantsShift)
+            typing.onCursorWantsShift(cursorWantsShift)
         }
 
         // Reassigned on every recomposition so the handlers always see the
-        // current shift state and the current input callbacks.
+        // current decoder and haptics setting.
         SideEffect {
             swipeController.neural = neuralDecoder
             swipeController.onRecognized = {
@@ -177,18 +192,7 @@ fun KeyboardScreen(
                     view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
                 }
             }
-            swipeController.onResult = { words ->
-                val cased = words.map { applyShift(it, mode) }
-                isSwipeResult = true
-                suggestions = cased
-                selectedSuggestion = 0
-                typedPrefix = ""
-                onSwipeWord(cased.first())
-                lastCommitted = 'a'
-                lastNonSpaceChar = 'a'
-                lastSpaceTapTime = 0L
-                if (mode == KeyboardMode.UPPERCASE) mode = KeyboardMode.LOWERCASE
-            }
+            swipeController.onResult = { words -> typing.onSwipeResult(words) }
         }
 
         // A new field: a gesture decoded for the old one must not land here.
@@ -202,237 +206,35 @@ fun KeyboardScreen(
             if (!isAlphaMode) {
                 swipeController.cancel()
                 geometry.reset()
-                typedPrefix = ""
-                suggestions = emptyList()
+                typing.clearSwipeAlternatives()
             }
         }
 
-        fun clearSuggestions() {
-            if (suggestions.isNotEmpty()) suggestions = emptyList()
-            typedPrefix = ""
-            isSwipeResult = false
-            selectedSuggestion = -1
-        }
-
-        // The caret moved without us (tap elsewhere, app rewrote the field):
-        // the typed prefix is no longer the text before the cursor, so picking
-        // a completion now would delete the wrong characters.
         LaunchedEffect(externalCaretMoves) {
-            if (externalCaretMoves != 0) {
-                clearSuggestions()
-                lastCommitted = ' '
-                lastSpaceTapTime = 0L
-            }
+            if (externalCaretMoves != 0) typing.onExternalCaretMove()
         }
 
-        /** Word completions plus matching emojis, for the suggestion strip. */
-        fun refreshSuggestions(prefix: String) {
-            if (!fieldAllowsSuggestions) {
-                suggestions = emptyList()
-                return
-            }
-            suggestions = swipeDictionary.getCompletions(prefix, maxCount = 4) +
-                    EmojiSuggestions.emojisFor(prefix, maxCount = 2)
+        val swipeAlternatives = typing.swipeAlternatives
+        val suggestions = remember(
+            currentWord, previousWord, mode, swipeAlternatives, fieldAllowsSuggestions
+        ) {
+            typing.suggestions(
+                currentWord = currentWord,
+                previousWord = previousWord,
+                allowsSuggestions = fieldAllowsSuggestions,
+                completions = { prefix ->
+                    swipeDictionary.getCompletions(prefix, maxCount = 4) +
+                        EmojiSuggestions.emojisFor(prefix, maxCount = 2)
+                },
+                predictions = { previous ->
+                    predictNextWords(previous) + EmojiSuggestions.emojisFor(previous, maxCount = 2)
+                }
+            )
         }
 
-        fun dispatchPopup(alt: String) {
-            if (mode == KeyboardMode.EMOJI && emojiSearching) {
-                emojiSearchQuery += alt
-                return
-            }
-            onTextInput(alt)
-            lastCommitted = alt.firstOrNull() ?: lastCommitted
-            lastNonSpaceChar = lastCommitted
-            lastSpaceTapTime = 0L
-            typedPrefix = ""
-            suggestions = emptyList()
-            isSwipeResult = false
-            if (settings.autoCapitalization && isAlphaMode && mode == KeyboardMode.UPPERCASE) {
-                mode = KeyboardMode.LOWERCASE
-            }
-        }
-
-        fun dispatchLongPress(type: KeyType) {
-            if (type is KeyType.Character && type.popup.isNotEmpty()) {
-                dispatchPopup(type.popup.first())
-            }
-        }
-
-        /** Single entry point for every key on every row. */
-        fun dispatchKey(type: KeyType) {
-            if (mode == KeyboardMode.EMOJI && emojiSearching) {
-                when (type) {
-                    is KeyType.Character -> emojiSearchQuery += type.primary
-                    is KeyType.Space -> emojiSearchQuery += " "
-                    is KeyType.Backspace -> {
-                        val drop = GraphemeClusters.utf16LengthOfLastCluster(emojiSearchQuery)
-                        if (drop > 0) emojiSearchQuery = emojiSearchQuery.dropLast(drop)
-                    }
-                    is KeyType.EmojiToggle -> {
-                        emojiSearching = false
-                        emojiSearchQuery = ""
-                    }
-                    is KeyType.AlphabetToggle -> {
-                        emojiSearching = false
-                        emojiSearchQuery = ""
-                        mode = lettersMode()
-                    }
-                    else -> { }
-                }
-                return
-            }
-            if (type is KeyType.Shift) {
-                val now = System.currentTimeMillis()
-                mode = if (now - lastShiftTapTime < 350) {
-                    // Double tap = Caps Lock
-                    if (mode == KeyboardMode.CAPS_LOCKED) KeyboardMode.LOWERCASE
-                    else KeyboardMode.CAPS_LOCKED
-                } else {
-                    when (mode) {
-                        KeyboardMode.LOWERCASE -> KeyboardMode.UPPERCASE
-                        else -> KeyboardMode.LOWERCASE
-                    }
-                }
-                lastShiftTapTime = now
-                if (typedPrefix.isNotEmpty()) {
-                    val casedPrefix = when (mode) {
-                        KeyboardMode.UPPERCASE, KeyboardMode.CAPS_LOCKED -> typedPrefix.uppercase()
-                        else -> typedPrefix.lowercase()
-                    }
-                    refreshSuggestions(casedPrefix)
-                }
-                return
-            }
-
-            when (type) {
-                is KeyType.Character -> {
-                    val char = when (mode) {
-                        KeyboardMode.UPPERCASE, KeyboardMode.CAPS_LOCKED -> type.primary.uppercase()
-                        else -> type.primary
-                    }
-                    onTextInput(char)
-                    lastCommitted = char[0]
-                    lastNonSpaceChar = char[0]
-                    lastSpaceTapTime = 0L
-                    if (mode == KeyboardMode.UPPERCASE) {
-                        mode = KeyboardMode.LOWERCASE
-                    }
-                    if (char.length == 1 && (char[0].isLetter() || char[0] == '\'')) {
-                        isSwipeResult = false
-                        selectedSuggestion = -1
-                        val next = typedPrefix + char
-                        typedPrefix = next
-                        refreshSuggestions(next)
-                    } else {
-                        typedPrefix = ""
-                        suggestions = emptyList()
-                        isSwipeResult = false
-                    }
-                }
-                is KeyType.Backspace -> {
-                    onDelete()
-                    lastSpaceTapTime = 0L
-                    if (isSwipeResult) {
-                        isSwipeResult = false
-                        suggestions = emptyList()
-                        typedPrefix = ""
-                    } else if (typedPrefix.isNotEmpty()) {
-                        val next = typedPrefix.dropLast(1)
-                        typedPrefix = next
-                        if (next.isNotEmpty()) {
-                            refreshSuggestions(next)
-                        } else {
-                            suggestions = emptyList()
-                        }
-                    } else {
-                        suggestions = emptyList()
-                    }
-                }
-                is KeyType.Space -> {
-                    val now = System.currentTimeMillis()
-                    if (now - lastSpaceTapTime < 350L && lastCommitted == ' ' && lastNonSpaceChar !in ".!?\n\t") {
-                        // Double-tap spacebar shortcut: replace trailing space with ". "
-                        onDelete()
-                        onTextInput(". ")
-                        lastCommitted = '.'
-                        lastNonSpaceChar = '.'
-                        if (settings.autoCapitalization && isAlphaMode) {
-                            mode = KeyboardMode.UPPERCASE
-                        }
-                        lastSpaceTapTime = 0L
-                    } else {
-                        onTextInput(" ")
-                        // A space after . ! ? ends the sentence; the next word
-                        // starts with a capital.
-                        if (settings.autoCapitalization && isAlphaMode && lastCommitted in ".!?") {
-                            mode = KeyboardMode.UPPERCASE
-                        }
-                        lastCommitted = ' '
-                        lastSpaceTapTime = now
-                    }
-                    typedPrefix = ""
-                    suggestions = emptyList()
-                    isSwipeResult = false
-                }
-                is KeyType.Enter -> {
-                    onAction(imeAction)
-                    typedPrefix = ""
-                    suggestions = emptyList()
-                    isSwipeResult = false
-                    lastSpaceTapTime = 0L
-                    lastCommitted = '\n'
-                    lastNonSpaceChar = '\n'
-                }
-                is KeyType.SymbolToggle -> {
-                    mode = KeyboardMode.SYMBOLS
-                    typedPrefix = ""
-                    suggestions = emptyList()
-                    isSwipeResult = false
-                    lastSpaceTapTime = 0L
-                }
-                is KeyType.SymbolMoreToggle -> {
-                    mode = KeyboardMode.SYMBOLS_MORE
-                    typedPrefix = ""
-                    suggestions = emptyList()
-                    isSwipeResult = false
-                    lastSpaceTapTime = 0L
-                }
-                is KeyType.AlphabetToggle -> {
-                    mode = lettersMode()
-                    typedPrefix = ""
-                    suggestions = emptyList()
-                    isSwipeResult = false
-                    lastSpaceTapTime = 0L
-                }
-                is KeyType.NumpadToggle -> {
-                    mode = KeyboardMode.NUMPAD
-                    typedPrefix = ""
-                    suggestions = emptyList()
-                    isSwipeResult = false
-                    lastSpaceTapTime = 0L
-                }
-                is KeyType.EmojiToggle -> {
-                    mode = KeyboardMode.EMOJI
-                    typedPrefix = ""
-                    suggestions = emptyList()
-                    isSwipeResult = false
-                    lastSpaceTapTime = 0L
-                }
-                is KeyType.LanguageSwitch -> {
-                    onSwitchIme()
-                }
-            }
-        }
-
-        val keyPressRef = remember { arrayOf<(KeyType) -> Unit>({}) }
-        val keyLongPressRef = remember { arrayOf<(KeyType) -> Unit>({}) }
-        val popupRef = remember { arrayOf<(String) -> Unit>({}) }
-        keyPressRef[0] = { dispatchKey(it) }
-        keyLongPressRef[0] = { dispatchLongPress(it) }
-        popupRef[0] = { dispatchPopup(it) }
-        val stableKeyPress = remember { { type: KeyType -> keyPressRef[0](type) } }
-        val stableKeyLongPress = remember { { type: KeyType -> keyLongPressRef[0](type) } }
-        val stablePopup = remember { { alt: String -> popupRef[0](alt) } }
+        val stableKeyPress = remember(typing) { { type: KeyType -> typing.onKey(type) } }
+        val stableKeyLongPress = remember(typing) { { type: KeyType -> typing.onLongPress(type) } }
+        val stablePopup = remember(typing) { { alt: String -> typing.onPopup(alt) } }
 
         Column(
             modifier = modifier
@@ -446,7 +248,7 @@ fun KeyboardScreen(
             ) {
                 SuggestionBar(
                     suggestions = suggestions,
-                    selectedIndex = selectedSuggestion,
+                    selectedIndex = typing.selectedSuggestion,
                     // Lambda, not value: keeps the ~18 Hz preview updates from
                     // recomposing the whole keyboard (see SuggestionBar doc).
                     previewWord = { swipeController.preview },
@@ -457,52 +259,22 @@ fun KeyboardScreen(
                     inlineSuggestions = inlineSuggestions,
                     onOtpSelected = { code ->
                         onOtpSelected(code)
-                        clearSuggestions()
+                        typing.clearSwipeAlternatives()
                     },
                     onSuggestionSelected = { index ->
-                        val word = suggestions.getOrNull(index) ?: return@SuggestionBar
-                        if (isSwipeResult) {
-                            if (index == selectedSuggestion) {
-                                clearSuggestions()
-                            } else {
-                                selectedSuggestion = index
-                                onSwipeWordReplaced(word)
-                            }
-                        } else {
-                            onAutocompleteSelected(word, typedPrefix)
-                            typedPrefix = ""
-                            suggestions = emptyList()
-                        }
+                        typing.onSuggestionTapped(index, suggestions)
                     }
                 )
             } else {
                 KeyboardHeader(
                     currentMode = mode,
                     isIncognito = isIncognito,
-                    onNumpadClick = {
-                        mode = if (mode == KeyboardMode.NUMPAD) lettersMode() else KeyboardMode.NUMPAD
-                    },
-                    onEmojiClick = {
-                        if (mode == KeyboardMode.EMOJI) {
-                            emojiSearching = false
-                            emojiSearchQuery = ""
-                            mode = lettersMode()
-                        } else {
-                            mode = KeyboardMode.EMOJI
-                        }
-                    },
-                    onClipboardClick = {
-                        mode = if (mode == KeyboardMode.CLIPBOARD) lettersMode() else KeyboardMode.CLIPBOARD
-                    },
-                    onVoiceClick = {
-                        mode = if (mode == KeyboardMode.VOICE) lettersMode() else KeyboardMode.VOICE
-                    },
-                    onThemeClick = {
-                        mode = if (mode == KeyboardMode.THEMES) lettersMode() else KeyboardMode.THEMES
-                    },
-                    onSettingsClick = {
-                        mode = if (mode == KeyboardMode.SETTINGS) lettersMode() else KeyboardMode.SETTINGS
-                    }
+                    onNumpadClick = { typing.togglePanel(KeyboardMode.NUMPAD) },
+                    onEmojiClick = { typing.togglePanel(KeyboardMode.EMOJI) },
+                    onClipboardClick = { typing.togglePanel(KeyboardMode.CLIPBOARD) },
+                    onVoiceClick = { typing.togglePanel(KeyboardMode.VOICE) },
+                    onThemeClick = { typing.togglePanel(KeyboardMode.THEMES) },
+                    onSettingsClick = { typing.togglePanel(KeyboardMode.SETTINGS) }
                 )
             }
 
@@ -513,31 +285,27 @@ fun KeyboardScreen(
                         EmojiPicker(
                             hapticEnabled = settings.hapticFeedback,
                             emojiScale = settings.emojiScale,
-                            isSearching = emojiSearching,
-                            searchQuery = emojiSearchQuery,
+                            isSearching = typing.emojiSearching,
+                            searchQuery = typing.emojiSearchQuery,
                             onSearchingChange = { searching ->
-                                emojiSearching = searching
-                                if (!searching) emojiSearchQuery = ""
+                                if (searching) typing.emojiSearching = true else typing.closeEmojiSearch()
                             },
-                            onSearchQueryChange = { emojiSearchQuery = it },
-                            hideBottomBar = emojiSearching,
+                            onSearchQueryChange = { typing.emojiSearchQuery = it },
+                            hideBottomBar = typing.emojiSearching,
                             onEmojiSelected = { emoji ->
                                 onTextInput(emoji)
                             },
                             onDelete = onDelete,
-                            onSwitchToKeyboard = {
-                                emojiSearching = false
-                                emojiSearchQuery = ""
-                                mode = lettersMode()
-                            },
+                            onSwitchToKeyboard = { typing.showLetters() },
                             modifier = Modifier.height(
-                                if (emojiSearching) searchPanelHeight else panelHeight
+                                if (typing.emojiSearching) searchPanelHeight else panelHeight
                             )
                         )
-                        if (emojiSearching) {
+                        if (typing.emojiSearching) {
                             EmojiSearchKeyboard(
                                 settings = settings,
-                                imeAction = imeAction,
+                                // Enter picks the top result, not the field's action.
+                                imeAction = EditorInfo.IME_ACTION_DONE,
                                 rowHeight = rowHeight,
                                 onKeyPress = stableKeyPress,
                                 onKeyLongPress = stableKeyLongPress,
@@ -553,9 +321,7 @@ fun KeyboardScreen(
                         onClipSelected = { text ->
                             onTextInput(text)
                         },
-                        onClose = {
-                            mode = lettersMode()
-                        },
+                        onClose = { typing.showLetters() },
                         modifier = Modifier.height(panelHeight)
                     )
                 }
@@ -566,9 +332,7 @@ fun KeyboardScreen(
                             onTextInput(text)
                         },
                         onRequestMicPermission = onRequestMicPermission,
-                        onClose = {
-                            mode = lettersMode()
-                        },
+                        onClose = { typing.showLetters() },
                         modifier = Modifier.height(panelHeight)
                     )
                 }
@@ -580,9 +344,7 @@ fun KeyboardScreen(
                         onThemeSelected = { theme ->
                             onThemeChanged(theme)
                         },
-                        onClose = {
-                            mode = lettersMode()
-                        },
+                        onClose = { typing.showLetters() },
                         modifier = Modifier.height(panelHeight)
                     )
                 }
@@ -599,9 +361,7 @@ fun KeyboardScreen(
                         onFontScaleChanged = onFontScaleChanged,
                         onEmojiScaleChanged = onEmojiScaleChanged,
                         onOpenFullSettings = onOpenFullSettings,
-                        onClose = {
-                            mode = lettersMode()
-                        },
+                        onClose = { typing.showLetters() },
                         modifier = Modifier.height(panelHeight)
                     )
                 }
@@ -642,7 +402,7 @@ fun KeyboardScreen(
                                 accumulatedDrag += delta
                                 if (abs(accumulatedDrag) >= dragThreshold) {
                                     val steps = (accumulatedDrag / dragThreshold).toInt()
-                                    clearSuggestions()
+                                    typing.clearSwipeAlternatives()
                                     onMoveCursor(steps)
                                     accumulatedDrag -= steps * dragThreshold
                                 }
@@ -893,9 +653,3 @@ private fun Modifier.trackLetterKey(key: KeyModel, geometry: SwipeKeyGeometry): 
     }
 }
 
-/** Applies the live shift state to a decoded word. */
-private fun applyShift(word: String, mode: KeyboardMode): String = when (mode) {
-    KeyboardMode.CAPS_LOCKED -> word.uppercase()
-    KeyboardMode.UPPERCASE -> word.replaceFirstChar { it.uppercase() }
-    else -> word
-}

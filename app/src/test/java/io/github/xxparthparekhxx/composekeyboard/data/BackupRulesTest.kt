@@ -14,7 +14,7 @@ import javax.xml.parsers.SAXParserFactory
  * Cross-checks the backup exclusion XMLs against the storage paths the code
  * actually persists, so renaming a filename in code can never silently stop
  * excluding the clipboard history (which may hold copied secrets), the learned
- * words or the ~77 MB Whisper model from backups.
+ * words, the learned next-word pairs or the ~77 MB Whisper model from backups.
  *
  * The expected values are derived from the code, not copied from the XML:
  * [WhisperModelStore.FILE_NAME] and [WhisperModelStore.MODELS_DIR] are const
@@ -59,6 +59,8 @@ class BackupRulesTest {
             clipboardFileName + ".tmp",
             userWordsFileName,
             userWordsFileName + ".tmp",
+            NextWordPredictor.USER_FILE,
+            NextWordPredictor.USER_FILE + ".tmp",
             WhisperModelStore.MODELS_DIR + "/",
         )
 

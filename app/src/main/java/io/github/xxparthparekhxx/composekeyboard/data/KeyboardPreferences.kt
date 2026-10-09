@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.core.content.edit
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -94,56 +95,56 @@ class KeyboardPreferences(context: Context) {
     }
 
     fun setTheme(theme: KeyboardThemeType) {
-        prefs.edit().putString(KEY_THEME, theme.name).apply()
+        prefs.edit { putString(KEY_THEME, theme.name) }
     }
 
     fun setCustomColors(colors: CustomThemeColors) {
-        prefs.edit()
-            .putLong(KEY_CUSTOM_BG, colors.background)
-            .putLong(KEY_CUSTOM_KEY_BG, colors.keyBackground)
-            .putLong(KEY_CUSTOM_KEY_TEXT, colors.keyTextColor)
-            .putLong(KEY_CUSTOM_ACCENT_BG, colors.accentKeyBackground)
-            .putLong(KEY_CUSTOM_ACCENT_TEXT, colors.accentKeyTextColor)
-            .putLong(KEY_CUSTOM_ACTION_BG, colors.actionKeyBackground)
-            .putLong(KEY_CUSTOM_ACTION_TEXT, colors.actionKeyTextColor)
-            .putString(KEY_THEME, KeyboardThemeType.CUSTOM.name)
-            .apply()
+        prefs.edit {
+            putLong(KEY_CUSTOM_BG, colors.background)
+            putLong(KEY_CUSTOM_KEY_BG, colors.keyBackground)
+            putLong(KEY_CUSTOM_KEY_TEXT, colors.keyTextColor)
+            putLong(KEY_CUSTOM_ACCENT_BG, colors.accentKeyBackground)
+            putLong(KEY_CUSTOM_ACCENT_TEXT, colors.accentKeyTextColor)
+            putLong(KEY_CUSTOM_ACTION_BG, colors.actionKeyBackground)
+            putLong(KEY_CUSTOM_ACTION_TEXT, colors.actionKeyTextColor)
+            putString(KEY_THEME, KeyboardThemeType.CUSTOM.name)
+        }
     }
 
     fun setHapticFeedback(enabled: Boolean) {
-        prefs.edit().putBoolean(KEY_HAPTIC, enabled).apply()
+        prefs.edit { putBoolean(KEY_HAPTIC, enabled) }
     }
 
     fun setSoundFeedback(enabled: Boolean) {
-        prefs.edit().putBoolean(KEY_SOUND, enabled).apply()
+        prefs.edit { putBoolean(KEY_SOUND, enabled) }
     }
 
     fun setShowNumberRow(enabled: Boolean) {
-        prefs.edit().putBoolean(KEY_NUMBER_ROW, enabled).apply()
+        prefs.edit { putBoolean(KEY_NUMBER_ROW, enabled) }
     }
 
     fun setShowKeyPopups(enabled: Boolean) {
-        prefs.edit().putBoolean(KEY_KEY_POPUPS, enabled).apply()
+        prefs.edit { putBoolean(KEY_KEY_POPUPS, enabled) }
     }
 
     fun setAutoCapitalization(enabled: Boolean) {
-        prefs.edit().putBoolean(KEY_AUTO_CAPS, enabled).apply()
+        prefs.edit { putBoolean(KEY_AUTO_CAPS, enabled) }
     }
 
     fun setSwipeTypingEnabled(enabled: Boolean) {
-        prefs.edit().putBoolean(KEY_SWIPE_TYPING, enabled).apply()
+        prefs.edit { putBoolean(KEY_SWIPE_TYPING, enabled) }
     }
 
     fun setHeightMultiplier(multiplier: Float) {
-        prefs.edit().putFloat(KEY_HEIGHT, multiplier).apply()
+        prefs.edit { putFloat(KEY_HEIGHT, multiplier) }
     }
 
     fun setFontScale(scale: Float) {
-        prefs.edit().putFloat(KEY_FONT_SCALE, scale).apply()
+        prefs.edit { putFloat(KEY_FONT_SCALE, scale) }
     }
 
     fun setEmojiScale(scale: Float) {
-        prefs.edit().putFloat(KEY_EMOJI_SCALE, scale).apply()
+        prefs.edit { putFloat(KEY_EMOJI_SCALE, scale) }
     }
 
     companion object {

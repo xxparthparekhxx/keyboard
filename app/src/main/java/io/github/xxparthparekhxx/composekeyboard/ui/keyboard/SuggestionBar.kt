@@ -58,12 +58,12 @@ fun SuggestionBar(
     previewWord: () -> String?,
     isSwiping: Boolean,
     hapticEnabled: Boolean,
+    onSuggestionSelected: (Int) -> Unit,
+    modifier: Modifier = Modifier,
     fontScale: Float = 1.0f,
     otpCode: String? = null,
     inlineSuggestions: List<InlineSuggestion> = emptyList(),
-    onOtpSelected: (String) -> Unit = {},
-    onSuggestionSelected: (Int) -> Unit,
-    modifier: Modifier = Modifier
+    onOtpSelected: (String) -> Unit = {}
 ) {
     val colors = LocalKeyboardColors.current
     val view = androidx.compose.ui.platform.LocalView.current
@@ -166,9 +166,9 @@ private fun SuggestionCell(
     word: String,
     isSelected: Boolean,
     hapticEnabled: Boolean,
-    fontScale: Float = 1.0f,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    fontScale: Float = 1.0f
 ) {
     val colors = LocalKeyboardColors.current
     val view = androidx.compose.ui.platform.LocalView.current

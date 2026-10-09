@@ -31,7 +31,7 @@ class VoiceInputController(context: Context) {
 
     private val appContext = context.applicationContext
     private val store = WhisperModelStore.getInstance(appContext)
-    private val engine = WhisperCppEngine()
+    private val engine = WhisperCppEngine(appContext, store.modelFile().absolutePath)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     private val _state = MutableStateFlow(initialState())
@@ -157,7 +157,6 @@ class VoiceInputController(context: Context) {
             try {
                 val text = withContext(Dispatchers.Default) {
                     val file = rec.writeWav().also { wav = it }
-                    engine.ensureLoaded(appContext, store.modelFile().absolutePath)
                     engine.transcribe(file.absolutePath)
                 }
                 if (text.isBlank()) {
@@ -198,9 +197,16 @@ class VoiceInputController(context: Context) {
         }
     }
 
+    /**
+     * Stops any recording and frees the model. Cancelling a transcription
+     * does not stop native inference that is already running, so the engine
+     * frees the model only after that call has returned. This happens on a
+     * background thread, so the caller (the service's onDestroy) never waits
+     * for it.
+     */
     fun release() {
         cancelRecording()
-        engine.release()
+        scope.launch(Dispatchers.Default) { engine.release() }
     }
 
     fun hasMicPermission(): Boolean {

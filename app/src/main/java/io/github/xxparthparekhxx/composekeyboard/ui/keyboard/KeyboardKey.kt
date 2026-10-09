@@ -76,13 +76,13 @@ fun KeyboardKey(
     mode: KeyboardMode,
     imeAction: Int,
     hapticEnabled: Boolean,
+    onKeyPress: (KeyType) -> Unit,
+    modifier: Modifier = Modifier,
     fontScale: Float = 1.0f,
     showKeyPopups: Boolean = true,
     showSecondaryHints: Boolean = true,
-    onKeyPress: (KeyType) -> Unit,
     onKeyLongPress: (KeyType) -> Unit = {},
-    onPopupSelected: (String) -> Unit = {},
-    modifier: Modifier = Modifier
+    onPopupSelected: (String) -> Unit = {}
 ) {
     val colors = LocalKeyboardColors.current
     val view = LocalView.current

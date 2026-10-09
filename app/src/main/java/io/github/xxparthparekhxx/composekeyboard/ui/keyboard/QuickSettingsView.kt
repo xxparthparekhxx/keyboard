@@ -61,11 +61,11 @@ fun QuickSettingsView(
     onAutoCapsToggled: (Boolean) -> Unit,
     onSwipeTypingToggled: (Boolean) -> Unit,
     onHeightMultiplierChanged: (Float) -> Unit,
-    onFontScaleChanged: (Float) -> Unit = {},
-    onEmojiScaleChanged: (Float) -> Unit = {},
     onOpenFullSettings: () -> Unit,
     onClose: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onFontScaleChanged: (Float) -> Unit = {},
+    onEmojiScaleChanged: (Float) -> Unit = {}
 ) {
     val colors = LocalKeyboardColors.current
     val view = LocalView.current

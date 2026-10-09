@@ -34,11 +34,23 @@ import io.github.xxparthparekhxx.composekeyboard.input.swipe.SwipeTrace
  * (see [SwipeController.rank]), which provides functional swipe typing
  * at ~73% top-1 accuracy.
  */
-class SwipeNeuralDecoder private constructor(
+class SwipeNeuralDecoder internal constructor(
     private val net: SwipeNet,
     @Volatile private var beam: SwipeBeam,
-    @Volatile private var beamVersion: Int = 0
+    private var beamVersion: Int = 0
 ) {
+
+    /** Serializes rebuilds; guards [beamVersion]. Never taken by [decode] or [bumpScore]. */
+    private val rebuildLock = Any()
+
+    /** Guards the [beam] swap and [pendingBumps]; only ever held for a few map writes. */
+    private val bumpLock = Any()
+
+    /**
+     * Bumps that arrived while a rebuild was in progress, replayed into the new
+     * beam before it goes live. Non-null only during [updateBeam].
+     */
+    private var pendingBumps: HashMap<String, Int>? = null
 
     /**
      * Rebuilds the search beam's lexicon trie when the dictionary has gained
@@ -46,26 +58,40 @@ class SwipeNeuralDecoder private constructor(
      * background threads.
      *
      * Gated on [SwipeDictionary.lexiconVersion] rather than the learned-word
-     * counter: a rebuild walks ~150k words and allocates ~70 MB, so it is worth
-     * doing when the user teaches a genuinely new word and not for the score
-     * boost that every ordinary typed word produces.
+     * counter: a rebuild walks ~150k words, so it is worth doing when the user
+     * teaches a genuinely new word and not for the score boost that every
+     * ordinary typed word produces.
      *
-     * Synchronized with [decode] and [bumpScore]: the check-then-act on
-     * [beamVersion] must be atomic, otherwise two debounced saves racing on
-     * Dispatchers.IO (e.g. onFinishInputView + onWindowHidden) each build a
-     * ~70 MB trie inside an IME process with a tight memory budget. A bump
-     * racing a rebuild is serialized rather than silently lost into the
-     * outgoing beam.
+     * The check-then-act on [beamVersion] runs under [rebuildLock], so two
+     * saves racing on Dispatchers.IO (e.g. onFinishInputView + onWindowHidden)
+     * never both build a trie inside an IME process with a tight memory
+     * budget. The build itself holds neither the decode lock nor [bumpLock]:
+     * gestures keep decoding against the old beam, and [bumpScore] (called on
+     * the main thread) never waits for it. Bumps that land mid-build are
+     * recorded and replayed into the new beam, so none are lost in the swap.
      */
-    @Synchronized
     fun updateBeam(dictionary: SwipeDictionary) {
-        val currentVersion = dictionary.lexiconVersion
-        if (currentVersion == beamVersion) return
-        val (words, scores) = dictionary.allWords()
-        val newBeam = SwipeBeam.build(words, scores)
-        this.beam = newBeam
-        this.beamVersion = currentVersion
-        Log.i(TAG, "rebuilt trie (version $currentVersion) over ${words.size} words")
+        synchronized(rebuildLock) {
+            val currentVersion = dictionary.lexiconVersion
+            if (currentVersion == beamVersion) return
+            // Opened before the snapshot: a bump either happened before it
+            // (and the snapshot has its score) or is recorded here.
+            synchronized(bumpLock) { pendingBumps = HashMap() }
+            val newBeam = try {
+                val (words, scores) = dictionary.allWords()
+                SwipeBeam.build(words, scores)
+            } catch (t: Throwable) {
+                synchronized(bumpLock) { pendingBumps = null }
+                throw t
+            }
+            synchronized(bumpLock) {
+                pendingBumps?.forEach { (word, score) -> newBeam.bumpScore(word, score) }
+                pendingBumps = null
+                beam = newBeam
+            }
+            beamVersion = currentVersion
+            Log.i(TAG, "rebuilt trie (version $currentVersion) over ${newBeam.wordCount} words")
+        }
     }
 
     /**
@@ -73,13 +99,20 @@ class SwipeNeuralDecoder private constructor(
      *
      * Call this on every [SwipeDictionary.learn] that returns a non-null
      * score, right on the calling thread — it is an O(1) map lookup plus an
-     * array write, nothing like the ~70 MB trie rebuild [updateBeam] does, so
-     * there is no reason to let it wait behind that debounce. Without it, a
-     * word the user reuses often only ever wins its ranking boost once
-     * another, genuinely new word happens to trigger the next rebuild.
+     * array write, nothing like the trie rebuild [updateBeam] does, so there
+     * is no reason to let it wait behind that debounce. Without it, a word the
+     * user reuses often only ever wins its ranking boost once another,
+     * genuinely new word happens to trigger the next rebuild.
+     *
+     * Deliberately not synchronized with [decode]: the caller is the main
+     * thread, and a decode holds its lock for tens of milliseconds. A search
+     * racing this write reads either the old or the new score of one word,
+     * both of which are valid.
      */
-    @Synchronized
-    fun bumpScore(word: String, score: Int): Boolean = beam.bumpScore(word, score)
+    fun bumpScore(word: String, score: Int): Boolean = synchronized(bumpLock) {
+        pendingBumps?.put(word, score)
+        beam.bumpScore(word, score)
+    }
 
     private val xy = FloatArray(SwipeNet.T_IN * 2)
     /** 60 Hz intermediate grid from [resampleUniformTime], grown to fit. */

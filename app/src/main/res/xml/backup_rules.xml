@@ -5,6 +5,8 @@
     <exclude domain="file" path="clipboard_history.json.tmp" />
     <exclude domain="file" path="swipe_user_words.txt" />
     <exclude domain="file" path="swipe_user_words.txt.tmp" />
+    <exclude domain="file" path="next_words_user.txt" />
+    <exclude domain="file" path="next_words_user.txt.tmp" />
     <!-- ~77 MB Whisper model: re-downloadable, and alone it blows the 25 MB
          Auto Backup quota, which makes the whole backup (settings too) fail. -->
     <exclude domain="file" path="models/" />

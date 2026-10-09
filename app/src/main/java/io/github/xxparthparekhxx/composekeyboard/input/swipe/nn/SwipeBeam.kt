@@ -51,6 +51,9 @@ class SwipeBeam(
         }
     }
 
+    /** Number of words in the trie. */
+    val wordCount: Int get() = words.size
+
     // Open-addressed map from node id to slot in the frontier being built.
     private var capacity = 1 shl 14
     private var mapKey = IntArray(capacity) { -1 }

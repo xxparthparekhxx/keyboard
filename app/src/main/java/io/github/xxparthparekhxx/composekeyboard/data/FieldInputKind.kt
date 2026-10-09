@@ -41,6 +41,14 @@ enum class FieldInputKind {
     val allowsSwipe: Boolean
         get() = this == TEXT
 
+    /**
+     * Whether typing here may teach the dictionary. Never in password or PIN
+     * fields, and never in terminals, where everything goes to a shell
+     * (including sudo/ssh passwords the editor has no way to mark as such).
+     */
+    val allowsLearning: Boolean
+        get() = this != PASSWORD && this != NUMBER_PASSWORD && this != TERMINAL
+
     companion object {
         /**
          * Word completions / swipe suggestions. Password, PIN, and

@@ -37,12 +37,12 @@ fun KeyboardHeader(
     currentMode: KeyboardMode,
     onEmojiClick: () -> Unit,
     onClipboardClick: () -> Unit,
-    onNumpadClick: () -> Unit = {},
-    onVoiceClick: () -> Unit = {},
     onThemeClick: () -> Unit,
     onSettingsClick: () -> Unit,
-    isIncognito: Boolean = false,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onNumpadClick: () -> Unit = {},
+    onVoiceClick: () -> Unit = {},
+    isIncognito: Boolean = false
 ) {
     val colors = LocalKeyboardColors.current
 

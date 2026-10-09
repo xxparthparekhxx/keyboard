@@ -41,6 +41,11 @@
 - **92% top-1 accuracy** on the FUTO test set (97.7% top-3), with automatic fallback to the geometric (SHARK²-family) decoder if the model asset is unavailable
 - **Dynamic word learning**: learns from your typing and selections, saved persistently
 
+### Next-Word Prediction
+- **Works out of the box**: between words, the suggestion strip offers likely next words from a shipped table of word pairs (20,000 common words, ~1 MB) built from the [C4](https://huggingface.co/datasets/allenai/c4) web-text corpus
+- **Learns how you write**: every word pair you type, swipe or pick is learned on-device and ranks above the generic table; a swiped word deleted straight away is un-learned
+- **Private**: nothing is learned in password, terminal or incognito fields, and learned pairs never leave the device (excluded from backups)
+
 ### Theming & Customization
 
 
@@ -510,11 +515,14 @@ The Kotlin inference engine ([`SwipeNet.kt`](app/src/main/java/io/github/xxparth
 
 This project is open source under the **MIT License**. See [LICENSE](LICENSE) for details.
 
+The next-word table (`app/src/main/assets/next_words.txt`) is derived from [C4](https://huggingface.co/datasets/allenai/c4) by the Allen Institute for AI, licensed under [ODC-BY 1.0](https://opendatacommons.org/licenses/by/1-0/). C4 is built from [Common Crawl](https://commoncrawl.org/) data, which is subject to the [Common Crawl Terms of Use](https://commoncrawl.org/terms-of-use).
+
 ---
 
 ## Acknowledgments
 
 - **[FUTO](https://futo.org)**: for the open [Swipe Gesture Dataset](https://huggingface.co/datasets/futo-org/swipe.futo.org) that made training possible
+- **[Allen Institute for AI](https://allenai.org)**: for [C4](https://huggingface.co/datasets/allenai/c4) (ODC-BY 1.0), the source of the next-word table
 - **[ConvNeXt V2](https://arxiv.org/abs/2301.00808)**: Global Response Normalization (GRN) inspiration
 - **[SHARK²](https://dl.acm.org/doi/10.1145/1866029.1866043)**: foundational geometric swipe decoding research
 

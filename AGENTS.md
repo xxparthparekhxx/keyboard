@@ -32,6 +32,7 @@ keyboard/
 │       │   ├── assets/
 │       │   │   ├── swipe_words.txt                  # 150,289-word lexicon with log-frequency scores
 │       │   │   ├── swipe_encoder.bin                # Trained encoder weights (2.5 MB, fp32)
+│       │   │   ├── next_words.txt                   # Shipped next-word table (C4-derived, ODC-BY); see ml/tools/build_next_words.py
 │       │   │   └── emoji-test.txt                   # Unicode emoji data for the catalog
 │       │   ├── java/io/github/xxparthparekhxx/composekeyboard/
 │       │   │   ├── MainActivity.kt                  # Companion app host (setup, themes, clipboard, settings)
@@ -45,10 +46,12 @@ keyboard/
 │       │   │   │   ├── InlineChipSpec.kt            # dp bounds of the inline autofill chip (service + chip composable)
 │       │   │   │   ├── KeyboardData.kt              # Key layouts, symbols, emoji matrices, KeyType
 │       │   │   │   ├── KeyboardPreferences.kt       # SharedPreferences + StateFlow settings
+│       │   │   │   ├── NextWordPredictor.kt         # On-device learned word pairs for next-word prediction
 │       │   │   │   ├── OtpCodes.kt                  # One-time-passcode field & clipboard detection
 │       │   │   │   ├── RecentEmojiManager.kt        # Recently-used emoji tracking
 │       │   │   │   ├── SelectionTracker.kt          # Predicts where our own edits leave the caret (see §3A)
-│       │   │   │   └── SwipeDictionary.kt           # Bucketed word lexicon & user-learning engine
+│       │   │   │   ├── SwipeDictionary.kt           # Bucketed word lexicon & user-learning engine
+│       │   │   │   └── WordContext.kt               # Current/previous word parsed from text before the caret
 │       │   │   ├── input/swipe/
 │       │   │   │   ├── SwipeConstants.kt            # Centralized swipe tolerances & scoring weights (key-width units)
 │       │   │   │   ├── SwipeController.kt           # Gesture state coordinator & decode dispatcher
@@ -62,6 +65,7 @@ keyboard/
 │       │   │   │       ├── SwipeBeam.kt             # Lexicon trie + CTC beam search
 │       │   │   │       └── SwipeNeuralDecoder.kt    # Time-uniform resampling, layout basis & orchestration
 │       │   │   ├── input/voice/                     # Whisper Tiny on-device dictation (download-on-first-use)
+│       │   │   │   ├── GuardedModel.kt              # Serialized load/use/free of the native model
 │       │   │   │   ├── VoiceInputController.kt      # Recording/transcription state machine
 │       │   │   │   ├── VoiceRecorder.kt             # Audio capture to WAV
 │       │   │   │   ├── WavPcm.kt                    # WAV encode/decode helpers
@@ -93,6 +97,7 @@ keyboard/
 │       │   │   │   ├── SuggestionBar.kt             # Candidate prediction strip & dynamic preview
 │       │   │   │   ├── SwipeTrail.kt                # GPU-rendered gesture trail (draw phase)
 │       │   │   │   ├── ThemePicker.kt               # Visual theme picker sheet
+│       │   │   │   ├── TypingState.kt               # Typing state machine (shift, double-space, strip)
 │       │   │   │   └── VoiceInputView.kt            # In-keyboard voice dictation panel
 │       │   │       └── theme/
 │       │   │           ├── ColorPicker.kt           # HSV color picker dialog with hex/swatches
@@ -120,6 +125,7 @@ keyboard/
 │   ├── swipe/                                       # Encoder, training, beam search, preprocessing
 │   ├── tools/                                       # Lexicon build, evals, scoring tune, weight export
 │   │   ├── build_lexicon.py                         # Builds the shipped word list (log-frequency scores)
+│   │   ├── build_next_words.py                      # Builds the shipped next-word table from C4
 │   │   ├── eval_app_layout.py                       # Checks encoder transfer to this app's key layout
 │   │   ├── eval_baseline.py                         # Geometric baseline eval on the FUTO test split
 │   │   ├── eval_neural.py                           # Neural encoder + beam eval on the FUTO test split
@@ -176,12 +182,13 @@ Two decode paths share the gesture; the neural path is preferred, the geometric 
 2. **Geometry Tracking (`SwipeKeyGeometry.kt`, `SwipeKeyMap.kt`)**: Tracks on-screen letter key centers and bounding boxes. Registered via `.trackLetterKey()` modifier.
 3. **Neural preprocessing (`SwipeNeuralDecoder.kt`)**: Resamples the timestamped trace to **64 points uniform in *time*** (via a 60 Hz intermediate, mirroring `ml/swipe/preprocess.py`), normalized into the keyboard's unit box. Time spacing preserves the dwell/hesitation signal that separates "putt" from "put". Must mirror training exactly — the failure mode is silent (worse predictions, no crash).
 4. **Neural inference (`SwipeNet.kt`)**: Hand-transcribed TCN forward pass over pre-allocated buffers; emits cosine coefficients + intention gate, read out against the layout basis (`basisFor`). Guarded end-to-end by the torch parity test (see §5.5).
-5. **Beam search (`SwipeBeam.kt`)**: Trie-constrained CTC search (width 50). `bumpScore` pushes a reused word's new frequency into the live beam O(1); full trie rebuilds (`updateBeam`) happen only when the lexicon gains a word (~70 MB, debounced, synchronized).
+5. **Beam search (`SwipeBeam.kt`)**: Trie-constrained CTC search (width 50). `bumpScore` pushes a reused word's new frequency into the live beam O(1) without taking the decode lock (it runs on the main thread); full trie rebuilds (`updateBeam`) happen only when the lexicon gains a word, debounced, built outside the decode lock and swapped in with mid-build bumps replayed.
 6. **Geometric fallback (`SwipeDecoder.kt`)**: Corridor walk + pivot coverage + shape silhouette + lexicon prior, strict pass then relaxed pass. Covered by `SwipeDecoderTest` on plain JUnit.
 7. **GPU Trail Rendering (`SwipeTrail.kt`)**: Operates strictly inside Compose's draw phase (`drawWithContent`) without triggering recompositions or relayouts.
 
 ### C. Voice Input (`input/voice/`)
 - **Model**: Whisper Tiny English (~77 MB), kept out of the APK and fetched on first use.
+- **Native lifetime**: `WhisperCppEngine` holds the model in a `GuardedModel`. Cancelling a coroutine does not stop native inference, so release must wait for a transcription in flight; never free the model outside it.
 - **Integrity**: `WhisperModelStore` pins an immutable Hugging Face commit (never `resolve/main`) and verifies SHA-256 before replacing any file; a `.sha256` sidecar avoids re-hashing on every open. To update the model, pin a new commit *and* refresh `EXPECTED_SHA256` / `EXPECTED_BYTES` together.
 - **UX**: callers must surface the ~77 MB size, warn on metered connections (`isActiveNetworkMetered`), and offer cancel (`cancelDownload`) — see `VoiceInputView`.
 - **ABI gate**: `WhisperAbi` — the AAR ships arm64-v8a only; never touch `WhisperCppEngine` on other ABIs. This is also why the app ships a single universal APK instead of ABI splits.
@@ -189,6 +196,7 @@ Two decode paths share the gesture; the neural path is preferred, the geometric 
 ### D. Data Persistence & State Management
 - **`KeyboardPreferences.kt`**: Thread-safe `SharedPreferences` wrapper exposing reactive `StateFlow<KeyboardSettings>`. Supports themes, custom HSV palettes, haptics, audio, number row, and scale multiplier.
 - **`ClipboardHistoryManager.kt`**: Captures clipboard copies across apps, storing up to 50 items in `clipboard_history.json` with item pinning. Excluded from cloud/device-transfer backup (may contain secrets).
+- **Word tracking & prediction**: The service owns the word being typed (`currentWord`) and the finished word before it (`previousWord`); `KeyboardScreen` only reads them. They come from our own edits, and are re-read from the editor (`WordContext.parse`) on field start, external caret moves and backspacing across a word boundary. `TypingState.suggestions` shows swipe alternatives, else completions of `currentWord`, else `NextWordPredictor` predictions for `previousWord`. Predictions merge the shipped `next_words.txt` (P(next|prev) in thousandths) with learned pair counts weighted by `USER_WEIGHT`; only learned pairs are persisted. Rebuilding the table is `ml/tools/build_next_words.py` against the pinned C4 shard, and the asset's ODC-BY attribution in README must stay. Pairs are learned through `learnPair` under the same gate as dictionary learning; `next_words_user.txt` is excluded from backup.
 - **`SwipeDictionary.kt`**: Memory-efficient bucketed word storage indexed by starting character. Dynamically learns new typed/selected words and saves to `swipe_user_words.txt`. Learning is gated on password fields and `IME_FLAG_NO_PERSONALIZED_LEARNING`. `learn()` returns the new score for in-lexicon words so callers can `bumpScore` immediately — never discard the return value (see `ComposeInputMethodService.learnWord`).
 
 ### E. Theming & UI Hierarchy
@@ -290,7 +298,8 @@ python tools/export_weights.py --ckpt runs/encoder/best.pt \
 ### 2. InputConnection & Editing Conventions
 - Always wrap compound edits (e.g. deleting a word and inserting replacement) in `beginBatchEdit()` and `endBatchEdit()`.
 - Report every internal edit to `selection` (`onCommitText(len)` / `onDeleteBefore(len)`), and send key events through `sendKeyEdit()` so the tracker knows their outcome is unpredictable. An unreported edit makes its echo look like a user caret move and clears candidate state.
-- Maintain single-word backspace logic: pressing backspace immediately following a swipe removes the whole committed word and preceding auto-space.
+- Maintain single-word backspace logic: pressing backspace immediately following a swipe removes the whole committed word and preceding auto-space — after checking it is still before the caret (`textBeforeCaretIs`).
+- Keep typing logic in `TypingState`, not in composables, and keep the word at the caret in the service: never track a second copy of it in the UI.
 - Route all dictionary learning through `learnWord()` so the beam gets its immediate `bumpScore`; never call `swipeDictionary.learn()` and drop the return value.
 
 ### 3. Layout & Geometry Updates

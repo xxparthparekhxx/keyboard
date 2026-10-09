@@ -440,32 +440,156 @@ class ComposeInputMethodServiceTest {
     }
 
     @Test
-    fun commitAutocomplete_replacesPrefixWithWordAndTrailingSpace() {
+    fun commitSuggestion_replacesCurrentWordWithWordAndTrailingSpace() {
         val fake = FakeInputConnection()
         fake.seed("see comp")
         val info = textFieldInfo(caret = 8)
         attachInput(fake, info)
         service.onStartInputView(info, false)
 
-        service.commitAutocomplete("compose", "comp")
+        // The word at the caret is read back from the editor on start.
+        assertEquals("comp", service.currentWord)
+        assertEquals("see", service.previousWord)
+
+        service.commitSuggestion("compose")
         assertEquals("see compose ", fake.text)
         assertEquals(listOf(4 to 0), fake.deletions)
         assertEquals(listOf("compose "), fake.committedTexts)
+        assertEquals("", service.currentWord)
+        assertEquals("compose", service.previousWord)
     }
 
     @Test
-    fun commitAutocomplete_withStalePrefix_isIgnored() {
+    fun commitSuggestion_withStalePrefix_isIgnored() {
         val fake = FakeInputConnection()
-        fake.seed("see other")
-        val info = textFieldInfo(caret = 9)
+        fake.seed("see comp")
+        val info = textFieldInfo(caret = 8)
         attachInput(fake, info)
         service.onStartInputView(info, false)
 
-        // Tapping a suggestion whose prefix no longer matches what's before the cursor
-        service.commitAutocomplete("compose", "comp")
+        // The app rewrote the field without reporting a selection change.
+        fake.seed("see other")
+        service.commitSuggestion("compose")
         assertEquals("see other", fake.text)
         assertTrue(fake.deletions.isEmpty())
         assertTrue(fake.committedTexts.isEmpty())
+    }
+
+    @Test
+    fun commitSuggestion_withoutCurrentWord_appendsPrediction() {
+        val fake = FakeInputConnection()
+        fake.seed("good ")
+        val info = textFieldInfo(caret = 5)
+        attachInput(fake, info)
+        service.onStartInputView(info, false)
+        assertEquals("", service.currentWord)
+        assertEquals("good", service.previousWord)
+
+        service.commitSuggestion("morning")
+        assertEquals("good morning ", fake.text)
+        assertTrue(fake.deletions.isEmpty())
+    }
+
+    @Test
+    fun typedWords_trackCurrentAndPreviousWord() {
+        val fake = FakeInputConnection()
+        val info = textFieldInfo(caret = 0)
+        attachInput(fake, info)
+        service.onStartInputView(info, false)
+
+        "hi".forEach { service.handleTextInput(it.toString()) }
+        assertEquals("hi", service.currentWord)
+        service.handleTextInput(" ")
+        assertEquals("", service.currentWord)
+        assertEquals("hi", service.previousWord)
+
+        service.handleTextInput("y")
+        service.handleDelete()
+        assertEquals("", service.currentWord)
+        assertEquals("hi", service.previousWord)
+
+        // Punctuation ends the prediction context.
+        service.handleTextInput(".")
+        assertEquals(null, service.previousWord)
+    }
+
+    // NextWordPredictor is a process-wide singleton that also loads the
+    // shipped table, so the tests below use made-up words that neither the
+    // table nor any other test contains.
+
+    @Test
+    fun typedWordPairs_areLearnedAndPredicted() {
+        val fake = FakeInputConnection()
+        val info = textFieldInfo(caret = 0)
+        attachInput(fake, info)
+        service.onStartInputView(info, false)
+
+        "glorpy snarfle ".forEach { service.handleTextInput(it.toString()) }
+        assertEquals(listOf("snarfle"), service.nextWordPredictor.predict("glorpy"))
+    }
+
+    @Test
+    fun typedWordPairs_areNotLearnedInIncognitoFields() {
+        val fake = FakeInputConnection()
+        val info = textFieldInfo(caret = 0).apply {
+            imeOptions = EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING
+        }
+        attachInput(fake, info)
+        service.onStartInputView(info, false)
+
+        "zibbly plonk ".forEach { service.handleTextInput(it.toString()) }
+        assertTrue(service.nextWordPredictor.predict("zibbly").isEmpty())
+    }
+
+    @Test
+    fun backspace_afterSwipe_restoresPreviousWordAndForgetsPair() {
+        val fake = FakeInputConnection()
+        fake.seed("quazzle ")
+        val info = textFieldInfo(caret = 8)
+        attachInput(fake, info)
+        service.onStartInputView(info, false)
+
+        service.commitSwipeWord("mourning")
+        assertEquals(listOf("mourning"), service.nextWordPredictor.predict("quazzle"))
+
+        service.handleDelete()
+        assertEquals("quazzle ", fake.text)
+        assertEquals("quazzle", service.previousWord)
+        assertTrue(service.nextWordPredictor.predict("quazzle").isEmpty())
+    }
+
+    @Test
+    fun backspace_afterSwipe_whenTextChangedUnreported_deletesOneGraphemeOnly() {
+        val fake = FakeInputConnection()
+        fake.seed("hi")
+        val info = textFieldInfo(caret = 2)
+        attachInput(fake, info)
+        service.onStartInputView(info, false)
+        service.commitSwipeWord("there")
+
+        // The app rewrote the field without ever reporting a selection change
+        // (Termux, some web views): the swiped word is no longer there.
+        fake.seed("ok, sent")
+        service.handleDelete()
+
+        assertEquals("ok, sen", fake.text)
+        assertEquals(listOf(1 to 0), fake.deletions)
+    }
+
+    @Test
+    fun replaceSwipeWord_whenTextChangedUnreported_isIgnored() {
+        val fake = FakeInputConnection()
+        fake.seed("see ")
+        val info = textFieldInfo(caret = 4)
+        attachInput(fake, info)
+        service.onStartInputView(info, false)
+        service.commitSwipeWord("helo")
+
+        fake.seed("something else")
+        service.replaceSwipeWord("hello")
+
+        assertEquals("something else", fake.text)
+        assertTrue(fake.deletions.isEmpty())
     }
 
     // ---------------------------------------------------------------------

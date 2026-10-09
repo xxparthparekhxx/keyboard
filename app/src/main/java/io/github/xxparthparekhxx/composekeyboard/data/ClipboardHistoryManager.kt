@@ -44,12 +44,19 @@ class ClipboardHistoryManager(private val context: Context) {
     /**
      * Serializes every read-modify-write of the history and every disk write,
      * so concurrent copies/pins/deletes can never lose updates and saves can
-     * never interleave. [loadHistory] runs under it too, which guarantees no
-     * mutation lands before the persisted state has been restored.
+     * never interleave. [loadHistory] runs under it too, and takes it
+     * synchronously in `init`, so no mutation can land before the persisted
+     * state has been restored.
      */
     private val mutex = Mutex()
 
     init {
+        // Locked here, on the constructing thread, rather than inside the
+        // launched load. Otherwise a clip captured right after construction
+        // could reach the lock first on another IO thread, save a one-item
+        // history over the file, and the load would then read that back.
+        // Mutex is fair, so every later mutation queues behind the load.
+        check(mutex.tryLock()) { "fresh mutex must be free" }
         loadHistory()
         try {
             clipboardManager?.addPrimaryClipChangedListener(clipListener)
@@ -181,12 +188,13 @@ class ClipboardHistoryManager(private val context: Context) {
     private fun trim(items: List<ClipboardItem>): List<ClipboardItem> =
         trimItems(dropExpired(items, System.currentTimeMillis()))
 
+    /** Restores the history from disk. Caller must hold [mutex]; this releases it. */
     private fun loadHistory() {
         scope.launch {
-            mutex.withLock {
+            try {
                 if (!historyFile.exists()) {
                     _history.value = emptyList()
-                    return@withLock
+                    return@launch
                 }
                 try {
                     val jsonStr = historyFile.readText()
@@ -208,6 +216,8 @@ class ClipboardHistoryManager(private val context: Context) {
                     Log.e(TAG, "Failed to read clipboard history; starting fresh", e)
                     _history.value = emptyList()
                 }
+            } finally {
+                mutex.unlock()
             }
         }
     }

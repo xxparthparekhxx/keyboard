@@ -5,6 +5,44 @@ All notable changes to this project are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+
+- Next-word prediction: between words the suggestion strip offers likely
+  next words. A shipped table (`assets/next_words.txt`, 20k context words,
+  ~1 MB) built by `ml/tools/build_next_words.py` from C4 (ODC-BY 1.0) makes it
+  work out of the box. Pairs the user types, swipes or picks are learned
+  on-device on top of it (`NextWordPredictor`, `next_words_user.txt`) and
+  outrank the table, gated like dictionary learning (no passwords, terminals
+  or incognito fields) and excluded from backups. A swiped word taken back
+  with backspace or replaced from the strip unlearns its pair.
+
+### Changed
+
+- Typing logic (shift/caps lock, double-space period, auto-caps, swipe
+  alternatives, emoji search keys) moved out of the `KeyboardScreen`
+  composable into `TypingState`, a plain state holder with unit tests.
+- The service is now the single owner of the word being typed (`currentWord`)
+  and re-reads it from the editor on field start, external caret moves and
+  backspacing across a word boundary (`WordContext`). The UI no longer keeps
+  its own copy, so completions and learning can no longer disagree.
+- Dictionary-learning gate reuses `FieldInputKind.allowsLearning` instead of
+  repeating the password checks.
+
+### Fixed
+
+- Possible native crash: freeing the Whisper model while a transcription was
+  still running. Model use, load and release are now serialized
+  (`GuardedModel`), and concurrent first uses no longer load it twice.
+- Clipboard history could be overwritten with a single clip if a copy landed
+  before the saved history finished loading.
+- Typing could stall on the main thread behind a gesture decode or a full
+  trie rebuild: `bumpScore` no longer shares the decode lock, and rebuilds
+  build outside it and replay bumps made mid-build.
+- Whole-word backspace after a swipe, and swapping a swiped word from the
+  strip, now check that the word is still before the caret, so editors that
+  never report selection changes cannot lose unrelated text.
+- `SwipeNet.forward` no longer builds weight-name strings per gesture.
+
 ## [1.2.1] - 2026-10-01
 
 ### Added

@@ -46,7 +46,9 @@ import io.github.xxparthparekhxx.composekeyboard.data.EmojiCatalog
 import io.github.xxparthparekhxx.composekeyboard.data.OtpCodes
 import io.github.xxparthparekhxx.composekeyboard.data.SelectionTracker
 import io.github.xxparthparekhxx.composekeyboard.data.KeyboardPreferences
+import io.github.xxparthparekhxx.composekeyboard.data.NextWordPredictor
 import io.github.xxparthparekhxx.composekeyboard.data.SwipeDictionary
+import io.github.xxparthparekhxx.composekeyboard.data.WordContext
 import io.github.xxparthparekhxx.composekeyboard.input.swipe.SwipeConstants
 import io.github.xxparthparekhxx.composekeyboard.input.swipe.nn.SwipeNeuralDecoder
 import io.github.xxparthparekhxx.composekeyboard.input.voice.VoiceInputController
@@ -79,6 +81,7 @@ class ComposeInputMethodService : InputMethodService(),
     private lateinit var preferences: KeyboardPreferences
     private lateinit var clipboardHistoryManager: ClipboardHistoryManager
     internal lateinit var swipeDictionary: SwipeDictionary
+    internal lateinit var nextWordPredictor: NextWordPredictor
 
     /**
      * The neural swipe decoder, once its weights and lexicon trie are built.
@@ -129,8 +132,16 @@ class ComposeInputMethodService : InputMethodService(),
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var dictionarySaveJob: Job? = null
 
-    /** The word the last gesture put in, while it is still the text at the caret. */
-    private data class SwipeCommit(val word: String, val precededBySpace: Boolean)
+    /**
+     * The word the last gesture put in, while it is still the text at the
+     * caret, and the word before it (so taking the word back restores the
+     * prediction context and the learned pair).
+     */
+    private data class SwipeCommit(
+        val word: String,
+        val precededBySpace: Boolean,
+        val previous: String?
+    )
 
     private var lastSwipeCommit: SwipeCommit? = null
 
@@ -141,8 +152,28 @@ class ComposeInputMethodService : InputMethodService(),
      */
     private val selection = SelectionTracker()
 
-    /** Letters tapped since the last word boundary, for dictionary learning. */
-    private val typedWord = StringBuilder()
+    /**
+     * The word at the caret: letters (and apostrophes) since the last word
+     * boundary. The single source of truth for the word being typed — the UI
+     * completes it, [commitSuggestion] replaces it, and a word finished by
+     * hand is offered to the dictionary.
+     */
+    internal var currentWord by mutableStateOf("")
+        private set
+
+    /**
+     * False when [currentWord] was read back from the editor rather than
+     * tapped here, e.g. after the user moved the caret into a word. Only words
+     * typed in full on this keyboard are learned.
+     */
+    private var currentWordTypedHere = true
+
+    /**
+     * The finished word before the caret, for next-word prediction. Null at
+     * the start of a field or sentence and after punctuation.
+     */
+    internal var previousWord by mutableStateOf<String?>(null)
+        private set
 
     override fun onCreate() {
         super.onCreate()
@@ -151,6 +182,7 @@ class ComposeInputMethodService : InputMethodService(),
         preferences = KeyboardPreferences.getInstance(this)
         clipboardHistoryManager = ClipboardHistoryManager.getInstance(this)
         swipeDictionary = SwipeDictionary.getInstance(this)
+        nextWordPredictor = NextWordPredictor.getInstance(this)
         audioManager = getSystemService(Context.AUDIO_SERVICE) as? AudioManager
 
         // ~150k words off the main thread; gestures simply decode to nothing
@@ -159,6 +191,7 @@ class ComposeInputMethodService : InputMethodService(),
         serviceScope.launch {
             withContext(Dispatchers.IO) {
                 swipeDictionary.load()
+                nextWordPredictor.load()
                 EmojiCatalog.preload(this@ComposeInputMethodService)
             }
             // The trie is built from the dictionary, so this has to follow it.
@@ -218,8 +251,7 @@ class ComposeInputMethodService : InputMethodService(),
                     handleAction(actionId)
                 },
                 onMoveCursor = { offset ->
-                    lastSwipeCommit = null
-                    typedWord.setLength(0)
+                    resetInputState()
                     moveCursor(offset)
                 },
                 onSwipeWord = { word ->
@@ -229,9 +261,14 @@ class ComposeInputMethodService : InputMethodService(),
                 onSwipeWordReplaced = { word ->
                     replaceSwipeWord(word)
                 },
-                onAutocompleteSelected = { word, prefix ->
+                currentWord = currentWord,
+                previousWord = previousWord,
+                predictNextWords = { previous ->
+                    nextWordPredictor.predict(previous, maxCount = NEXT_WORD_SUGGESTIONS)
+                },
+                onSuggestionPicked = { word ->
                     playKeySound(AudioManager.FX_KEYPRESS_SPACEBAR)
-                    commitAutocomplete(word, prefix)
+                    commitSuggestion(word)
                 },
                 onThemeChanged = { theme ->
                     preferences.setTheme(theme)
@@ -328,6 +365,7 @@ class ComposeInputMethodService : InputMethodService(),
         if (!restarting) {
             inlineSuggestions = emptyList()
         }
+        syncWordFromEditor()
         refreshCursorCaps()
         inputSession++
     }
@@ -335,7 +373,7 @@ class ComposeInputMethodService : InputMethodService(),
     override fun onFinishInputView(finishingInput: Boolean) {
         super.onFinishInputView(finishingInput)
         VoiceInputController.getInstance(this).cancelRecording()
-        flushTypedWord()
+        finishCurrentWord()
         resetInputState()
         saveLearnedWordsNow()
         leaveInputViewLifecycle()
@@ -344,7 +382,7 @@ class ComposeInputMethodService : InputMethodService(),
     override fun onWindowHidden() {
         super.onWindowHidden()
         VoiceInputController.getInstance(this).cancelRecording()
-        flushTypedWord()
+        finishCurrentWord()
         resetInputState()
         saveLearnedWordsNow()
         leaveInputViewLifecycle()
@@ -407,6 +445,7 @@ class ComposeInputMethodService : InputMethodService(),
         // guaranteed to be sitting at the cursor, so neither whole-word
         // backspace nor suggestion swapping can be trusted any more.
         resetInputState()
+        syncWordFromEditor()
         externalCaretMoves++
     }
 
@@ -416,7 +455,10 @@ class ComposeInputMethodService : InputMethodService(),
         VoiceInputController.getInstance(this).release()
         // Detached on purpose: the service scope is about to be cancelled and
         // this last write must still land.
-        CoroutineScope(Dispatchers.IO).launch { swipeDictionary.persistLearnedWords() }
+        CoroutineScope(Dispatchers.IO).launch {
+            swipeDictionary.persistLearnedWords()
+            nextWordPredictor.persist()
+        }
         serviceScope.cancel()
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)
         store.clear()
@@ -434,7 +476,9 @@ class ComposeInputMethodService : InputMethodService(),
         // in between, the word belongs to a field that no longer has focus.
         if (!inputViewVisible) return
         val ic = currentInputConnection ?: return
-        typedWord.setLength(0)
+        // Letters tapped before the gesture are abandoned, not learned.
+        currentWord = ""
+        currentWordTypedHere = true
 
         val before = ic.getTextBeforeCursor(1, 0)
         val needsSpace = !before.isNullOrEmpty() && !opensAWord(before[0])
@@ -444,22 +488,33 @@ class ComposeInputMethodService : InputMethodService(),
         ic.endBatchEdit()
         selection.onCommitText(word.length + if (needsSpace) 1 else 0)
 
-        lastSwipeCommit = SwipeCommit(word, needsSpace)
+        val previous = previousWord
+        lastSwipeCommit = SwipeCommit(word, needsSpace, previous)
+        learnPair(previous, word)
+        previousWord = word
     }
 
     /** Swaps the word the last gesture committed for one the user picked instead. */
     internal fun replaceSwipeWord(word: String) {
         val ic = currentInputConnection ?: return
-        val previous = lastSwipeCommit ?: return
+        val swiped = lastSwipeCommit ?: return
+        if (!textBeforeCaretIs(ic, swiped.word)) {
+            Log.w(TAG, "Swiped word is no longer before the caret; ignoring replacement")
+            lastSwipeCommit = null
+            return
+        }
 
         ic.beginBatchEdit()
-        ic.deleteSurroundingText(previous.word.length, 0)
+        ic.deleteSurroundingText(swiped.word.length, 0)
         ic.commitText(word, 1)
         ic.endBatchEdit()
-        selection.onDeleteBefore(previous.word.length)
+        selection.onDeleteBefore(swiped.word.length)
         selection.onCommitText(word.length)
 
-        lastSwipeCommit = previous.copy(word = word)
+        lastSwipeCommit = swiped.copy(word = word)
+        unlearnPair(swiped.previous, swiped.word)
+        learnPair(swiped.previous, word)
+        previousWord = word
 
         // The user overruled the decoder, which is the strongest signal we get
         // about what they meant. Weight it straight away if the field allows learning.
@@ -469,37 +524,37 @@ class ComposeInputMethodService : InputMethodService(),
     }
 
     /**
-     * Commits a tapped autocompletion word, replacing the typed prefix and adding a trailing space.
+     * Commits a word tapped on the suggestion strip in place of [currentWord]
+     * (empty for a next-word prediction), followed by a space.
      */
-    internal fun commitAutocomplete(word: String, prefix: String) {
+    internal fun commitSuggestion(word: String) {
         val ic = currentInputConnection ?: return
-        val deleteLen = prefix.length
+        val prefix = currentWord
         lastSwipeCommit = null
 
         // Only replace the prefix if it really is what sits before the caret.
-        // Raw key editors (terminals) report no text, so they are trusted.
-        if (deleteLen > 0 && !FieldInputKind.isRawKeyEditor(currentInputEditorInfo?.inputType ?: 0)) {
-            val before = ic.getTextBeforeCursor(deleteLen, 0)
-            if (before != null && !before.toString().equals(prefix, ignoreCase = true)) {
-                Log.w(TAG, "Stale completion prefix; ignoring suggestion tap")
-                typedWord.setLength(0)
-                return
-            }
+        if (prefix.isNotEmpty() && !textBeforeCaretIs(ic, prefix, ignoreCase = true)) {
+            Log.w(TAG, "Stale completion prefix; ignoring suggestion tap")
+            syncWordFromEditor()
+            return
         }
 
         ic.beginBatchEdit()
-        if (deleteLen > 0) {
-            ic.deleteSurroundingText(deleteLen, 0)
+        if (prefix.isNotEmpty()) {
+            ic.deleteSurroundingText(prefix.length, 0)
         }
         ic.commitText("$word ", 1)
         ic.endBatchEdit()
-        selection.onDeleteBefore(deleteLen)
+        selection.onDeleteBefore(prefix.length)
         selection.onCommitText(word.length + 1)
 
         if (shouldLearnFromField(currentInputEditorInfo)) {
             learnWord(word)
         }
-        typedWord.setLength(0)
+        learnPair(previousWord, word)
+        currentWord = ""
+        currentWordTypedHere = true
+        previousWord = word
     }
 
     internal fun handleTextInput(text: String) {
@@ -517,18 +572,19 @@ class ComposeInputMethodService : InputMethodService(),
                 ic.commitText(" $text", 1)
                 ic.endBatchEdit()
                 selection.onCommitText(text.length + 1)
-                trackTypedText(text)
+                trackInput(text)
                 return
             }
         }
 
         ic.commitText(text, 1)
         selection.onCommitText(text.length)
-        trackTypedText(text)
+        trackInput(text)
     }
 
     internal fun handleAction(actionId: Int) {
-        flushTypedWord()
+        finishCurrentWord()
+        previousWord = null
         lastSwipeCommit = null
         handleEditorAction(actionId)
     }
@@ -536,30 +592,47 @@ class ComposeInputMethodService : InputMethodService(),
     internal fun handleDelete() {
         val ic = currentInputConnection ?: return
         val swipe = lastSwipeCommit
+        lastSwipeCommit = null
         if (swipe != null) {
             // The first backspace after a gesture takes the whole word, along
-            // with the space that was inserted to separate it.
-            val length = swipe.word.length + if (swipe.precededBySpace) 1 else 0
-            ic.deleteSurroundingText(length, 0)
-            selection.onDeleteBefore(length)
-            lastSwipeCommit = null
-            typedWord.setLength(0)
-            return
+            // with the space that was inserted to separate it. Checked first:
+            // editors that never report selection changes give no other sign
+            // that the caret has moved since the commit, and deleting blind
+            // would take out whatever text sits there now.
+            val committed = if (swipe.precededBySpace) " ${swipe.word}" else swipe.word
+            if (textBeforeCaretIs(ic, committed)) {
+                ic.deleteSurroundingText(committed.length, 0)
+                selection.onDeleteBefore(committed.length)
+                // Taken straight back, so the decoder got it wrong: forget
+                // the pair and predict from the word before it again.
+                unlearnPair(swipe.previous, swipe.word)
+                currentWord = ""
+                currentWordTypedHere = true
+                previousWord = swipe.previous
+                return
+            }
+            Log.w(TAG, "Swiped word is no longer before the caret; deleting one character")
         }
-
-        if (typedWord.isNotEmpty()) typedWord.setLength(typedWord.length - 1)
 
         try {
             val selectedText = ic.getSelectedText(0)
             if (!selectedText.isNullOrEmpty()) {
                 ic.commitText("", 1)
                 selection.onCommitText(0)
-            } else {
-                deleteLastGrapheme(ic)
+                syncWordFromEditor()
+                return
             }
+            deleteLastGrapheme(ic)
         } catch (e: Exception) {
             Log.w(TAG, "Delete failed in the editor; falling back to KEYCODE_DEL", e)
             sendKeyEdit(KeyEvent.KEYCODE_DEL)
+        }
+        if (currentWord.isNotEmpty()) {
+            currentWord = currentWord.dropLast(1)
+        } else {
+            // Deleted back across a word boundary: the caret is now at the
+            // end of an older word, which our own edits no longer describe.
+            syncWordFromEditor()
         }
     }
 
@@ -608,38 +681,73 @@ class ComposeInputMethodService : InputMethodService(),
         sendDownUpKeyEvents(keyCode)
     }
 
+    /**
+     * True when [expected] is exactly the text before the caret. Editors that
+     * cannot say (raw-key terminals, or a null from getTextBeforeCursor) are
+     * trusted, since the alternative is never deleting anything there.
+     */
+    private fun textBeforeCaretIs(
+        ic: InputConnection,
+        expected: String,
+        ignoreCase: Boolean = false
+    ): Boolean {
+        if (FieldInputKind.isRawKeyEditor(currentInputEditorInfo?.inputType ?: 0)) return true
+        val before = ic.getTextBeforeCursor(expected.length, 0) ?: return true
+        return before.toString().equals(expected, ignoreCase)
+    }
+
     /** True for characters a new word can follow without a space of its own. */
     private fun opensAWord(c: Char): Boolean =
         c.isWhitespace() || c in "([{<\"'“‘–—-/@#*"
 
-    private fun trackTypedText(text: String) {
-        if (!shouldLearnFromField(currentInputEditorInfo)) {
-            if (typedWord.isNotEmpty()) typedWord.setLength(0)
+    /**
+     * Updates the word tracking for committed [text]: letters extend
+     * [currentWord], a space finishes it and makes it the prediction context,
+     * anything else (punctuation, emoji, pasted or dictated text) finishes it
+     * and ends the context.
+     */
+    private fun trackInput(text: String) {
+        if (text.length == 1 && WordContext.isWordChar(text[0])) {
+            currentWord += text
             return
         }
-        if (text.length == 1) {
-            val c = text[0]
-            if (c.isLetter() || c == '\'') {
-                typedWord.append(c)
-                return
-            }
-        }
-        flushTypedWord()
+        val finished = finishCurrentWord()
+        previousWord = if (text == " ") finished ?: previousWord else null
     }
 
     /**
-     * Ends the run of tapped letters and offers it to the dictionary. Words the
-     * user types by hand are exactly the ones the shipped list is missing —
-     * names, slang, jargon — so learning them is what makes gestures work on
-     * their own vocabulary.
+     * Ends [currentWord] and returns it (null if there was none). A word typed
+     * by hand is offered to the dictionary, and the pair it forms with
+     * [previousWord] to the predictor. Words the user types by hand are
+     * exactly the ones the shipped list is missing — names, slang, jargon —
+     * so learning them is what makes gestures work on their own vocabulary.
      */
-    private fun flushTypedWord() {
-        if (typedWord.isEmpty()) return
-        val word = typedWord.toString()
-        typedWord.setLength(0)
-        if (!shouldLearnFromField(currentInputEditorInfo)) return
-        if (SwipeDictionary.normalize(word) == null) return
-        learnWord(word)
+    private fun finishCurrentWord(): String? {
+        val word = currentWord
+        val typedHere = currentWordTypedHere
+        currentWord = ""
+        currentWordTypedHere = true
+        if (word.isEmpty()) return null
+        if (typedHere) {
+            if (shouldLearnFromField(currentInputEditorInfo) && SwipeDictionary.normalize(word) != null) {
+                learnWord(word)
+            }
+            learnPair(previousWord, word)
+        }
+        return word
+    }
+
+    /** Records [previous] → [word] for next-word prediction, if the field allows learning. */
+    private fun learnPair(previous: String?, word: String) {
+        if (previous == null || !shouldLearnFromField(currentInputEditorInfo)) return
+        nextWordPredictor.learn(previous, word)
+        scheduleLearnedWordSave()
+    }
+
+    private fun unlearnPair(previous: String?, word: String) {
+        if (previous == null || !shouldLearnFromField(currentInputEditorInfo)) return
+        nextWordPredictor.unlearn(previous, word)
+        scheduleLearnedWordSave()
     }
 
     /**
@@ -650,7 +758,7 @@ class ComposeInputMethodService : InputMethodService(),
      * part of the lexicon; forwarding that to
      * [SwipeNeuralDecoder.bumpScore] is an O(1) map write on the calling
      * thread, so a reused word wins its ranking boost immediately instead of
-     * waiting for the next genuinely-new word to trigger a ~70 MB trie
+     * waiting for the next genuinely-new word to trigger a full trie
      * rebuild. A null return means the word is new (or not yet promoted) and
      * only the debounced [updateBeam] path can reflect it.
      */
@@ -669,27 +777,54 @@ class ComposeInputMethodService : InputMethodService(),
         dictionarySaveJob?.cancel()
         dictionarySaveJob = serviceScope.launch {
             delay(SAVE_DEBOUNCE_MS)
-            withContext(Dispatchers.IO) {
-                swipeDictionary.persistLearnedWords()
-                neuralDecoder.value?.updateBeam(swipeDictionary)
-            }
+            persistLearned()
         }
     }
 
     private fun saveLearnedWordsNow() {
         dictionarySaveJob?.cancel()
         dictionarySaveJob = null
-        serviceScope.launch {
-            withContext(Dispatchers.IO) {
-                swipeDictionary.persistLearnedWords()
-                neuralDecoder.value?.updateBeam(swipeDictionary)
-            }
+        serviceScope.launch { persistLearned() }
+    }
+
+    private suspend fun persistLearned() {
+        withContext(Dispatchers.IO) {
+            swipeDictionary.persistLearnedWords()
+            nextWordPredictor.persist()
+            neuralDecoder.value?.updateBeam(swipeDictionary)
         }
     }
 
     private fun resetInputState() {
         lastSwipeCommit = null
-        typedWord.setLength(0)
+        currentWord = ""
+        currentWordTypedHere = true
+        previousWord = null
+    }
+
+    /**
+     * Re-reads the word at the caret, and the one before it, from the editor:
+     * for when our own edits no longer describe the text there (a new field,
+     * the caret moved, a delete back across a word boundary).
+     */
+    private fun syncWordFromEditor() {
+        currentWord = ""
+        currentWordTypedHere = true
+        previousWord = null
+        // Nothing reads them in fields without suggestions, which include
+        // passwords and terminals; don't read those fields' text at all.
+        if (!fieldAllowsSuggestions) return
+        val ic = currentInputConnection ?: return
+        val before = try {
+            ic.getTextBeforeCursor(WORD_CONTEXT_CHARS, 0)
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not read text before the caret", e)
+            null
+        } ?: return
+        val context = WordContext.parse(before, truncated = before.length >= WORD_CONTEXT_CHARS)
+        currentWord = context.current
+        currentWordTypedHere = context.current.isEmpty()
+        previousWord = context.previous
     }
 
     // --- Editing helpers ----------------------------------------------------
@@ -717,31 +852,19 @@ class ComposeInputMethodService : InputMethodService(),
     }
 
     private fun launchSettingsActivity(requestMic: Boolean = false) {
-        try {
-            requestHideSelf(0)
-            val intent = Intent(this, MainActivity::class.java).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                if (requestMic) {
-                    putExtra(MainActivity.EXTRA_REQUEST_MIC, true)
-                }
+        requestHideSelf(0)
+        val intent = Intent(this, MainActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            if (requestMic) {
+                putExtra(MainActivity.EXTRA_REQUEST_MIC, true)
             }
+        }
+        try {
             val flags = PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-            val pendingIntent = PendingIntent.getActivity(
-                this,
-                if (requestMic) 1 else 0,
-                intent,
-                flags
-            )
-            pendingIntent.send()
+            PendingIntent.getActivity(this, if (requestMic) 1 else 0, intent, flags).send()
         } catch (e: Exception) {
             Log.w(TAG, "PendingIntent launch failed; falling back to startActivity", e)
             try {
-                val intent = Intent(this, MainActivity::class.java).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    if (requestMic) {
-                        putExtra(MainActivity.EXTRA_REQUEST_MIC, true)
-                    }
-                }
                 startActivity(intent)
             } catch (e2: Exception) {
                 Log.e(TAG, "Could not launch settings activity", e2)
@@ -765,26 +888,9 @@ class ComposeInputMethodService : InputMethodService(),
         if (info.imeOptions and EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING != 0) {
             return false
         }
-        val inputType = info.inputType
-        // Terminals: everything typed goes to a shell, including sudo/ssh
-        // passwords, which the editor has no way to mark as such.
-        if (FieldInputKind.isRawKeyEditor(inputType)) return false
-        val inputClass = inputType and InputType.TYPE_MASK_CLASS
-        if (inputClass == InputType.TYPE_CLASS_TEXT) {
-            val variation = inputType and InputType.TYPE_MASK_VARIATION
-            if (variation == InputType.TYPE_TEXT_VARIATION_PASSWORD ||
-                variation == InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD ||
-                variation == InputType.TYPE_TEXT_VARIATION_WEB_PASSWORD
-            ) {
-                return false
-            }
-        } else if (inputClass == InputType.TYPE_CLASS_NUMBER) {
-            val variation = inputType and InputType.TYPE_MASK_VARIATION
-            if (variation == InputType.TYPE_NUMBER_VARIATION_PASSWORD) {
-                return false
-            }
-        }
-        return true
+        // Classified without the OTP override, which would hide a
+        // number-password variation behind OTP.
+        return FieldInputKind.from(info.inputType).allowsLearning
     }
 
     private fun enterInputViewLifecycle() {
@@ -851,5 +957,8 @@ class ComposeInputMethodService : InputMethodService(),
         const val SAVE_DEBOUNCE_MS = SwipeConstants.SAVE_DEBOUNCE_MS
         /** Long enough for family ZWJ sequences and subdivision-flag tags. */
         private const val GRAPHEME_LOOKBACK = 64
+        /** Enough text before the caret to hold the current and the previous word. */
+        private const val WORD_CONTEXT_CHARS = 64
+        private const val NEXT_WORD_SUGGESTIONS = 3
     }
 }

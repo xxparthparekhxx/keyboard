@@ -10,6 +10,8 @@
         <exclude domain="file" path="clipboard_history.json.tmp" />
         <exclude domain="file" path="swipe_user_words.txt" />
         <exclude domain="file" path="swipe_user_words.txt.tmp" />
+        <exclude domain="file" path="next_words_user.txt" />
+        <exclude domain="file" path="next_words_user.txt.tmp" />
         <!-- ~77 MB, re-downloadable; exceeds the 25 MB cloud quota. -->
         <exclude domain="file" path="models/" />
     </cloud-backup>
@@ -18,6 +20,8 @@
         <exclude domain="file" path="clipboard_history.json.tmp" />
         <exclude domain="file" path="swipe_user_words.txt" />
         <exclude domain="file" path="swipe_user_words.txt.tmp" />
+        <exclude domain="file" path="next_words_user.txt" />
+        <exclude domain="file" path="next_words_user.txt.tmp" />
         <exclude domain="file" path="models/" />
     </device-transfer>
 </data-extraction-rules>

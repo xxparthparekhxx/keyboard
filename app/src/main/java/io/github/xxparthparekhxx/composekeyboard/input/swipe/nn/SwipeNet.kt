@@ -31,12 +31,40 @@ import kotlin.math.sqrt
  * Activations are kept time-major ([t * channels + c]) because the pointwise
  * projections dominate the arithmetic and want channels contiguous.
  */
-class SwipeNet private constructor(private val w: Map<String, Tensor>) {
+class SwipeNet private constructor(w: Map<String, Tensor>) {
 
     class Tensor(val dims: IntArray, val data: FloatArray) {
         val rows: Int get() = dims[0]
         val cols: Int get() = if (dims.size > 1) dims[1] else 1
     }
+
+    /** One residual block's weights, looked up once so [forward] never builds a key string. */
+    private class BlockWeights(w: Map<String, Tensor>, index: Int) {
+        val dwW = w.getValue("b$index.dw.w")
+        val dwB = w.getValue("b$index.dw.b")
+        val pw1W = w.getValue("b$index.pw1.w")
+        val pw1B = w.getValue("b$index.pw1.b")
+        val grnG = w.getValue("b$index.grn.g")
+        val grnB = w.getValue("b$index.grn.b")
+        val pw2W = w.getValue("b$index.pw2.w")
+        val pw2B = w.getValue("b$index.pw2.b")
+        val se1W = w.getValue("b$index.se1.w")
+        val se1B = w.getValue("b$index.se1.b")
+        val se2W = w.getValue("b$index.se2.w")
+        val se2B = w.getValue("b$index.se2.b")
+    }
+
+    // Resolved at construction; [load] has already checked every name and shape.
+    private val stemW = w.getValue("stem.w")
+    private val stemB = w.getValue("stem.b")
+    private val adapterW = w.getValue("adapter.w")
+    private val adapterB = w.getValue("adapter.b")
+    private val coeffW = w.getValue("coeff.w")
+    private val coeffB = w.getValue("coeff.b")
+    private val gateW = w.getValue("gate.w")
+    private val gateB = w.getValue("gate.b")
+    private val savgol = w.getValue("savgol").data
+    private val blocks = Array(DILATIONS.size) { BlockWeights(w, it) }
 
     // Scratch buffers, sized once. A gesture decode must not allocate.
     private val feat = FloatArray(T_IN * F_IN)
@@ -65,31 +93,29 @@ class SwipeNet private constructor(private val w: Map<String, Tensor>) {
      */
     fun forward(xy: FloatArray, basis: FloatArray) {
         savitzkyGolay(xy)
-        conv1d(feat, bufA, w["stem.w"]!!, w["stem.b"]!!, T_IN, F_IN, DIM, 5, 1, 2)
+        conv1d(feat, bufA, stemW, stemB, T_IN, F_IN, DIM, 5, 1, 2)
 
         for (i in DILATIONS.indices) {
-            block(i, DILATIONS[i])
+            block(blocks[i], DILATIONS[i])
         }
 
         // 2x adapter: halve the time axis, widen into the head
-        conv1d(bufA, head, w["adapter.w"]!!, w["adapter.b"]!!, T_IN, DIM, HEAD_DIM, 2, 1, 0, stride = 2)
+        conv1d(bufA, head, adapterW, adapterB, T_IN, DIM, HEAD_DIM, 2, 1, 0, stride = 2)
 
-        linear(head, coeff, w["coeff.w"]!!, w["coeff.b"]!!, T_OUT, HEAD_DIM, N_COEFF)
-        linear(head, gate, w["gate.w"]!!, w["gate.b"]!!, T_OUT, HEAD_DIM, 1)
+        linear(head, coeff, coeffW, coeffB, T_OUT, HEAD_DIM, N_COEFF)
+        linear(head, gate, gateW, gateB, T_OUT, HEAD_DIM, 1)
 
         emit(basis)
     }
 
     // -- backbone ----------------------------------------------------------
 
-    private fun block(index: Int, dilation: Int) {
-        val dwW = w["b$index.dw.w"]!!
-        val dwB = w["b$index.dw.b"]!!
+    private fun block(b: BlockWeights, dilation: Int) {
         val pad = dilation * (DW_KERNEL - 1) / 2
-        depthwise(bufA, bufB, dwW, dwB, T_IN, DIM, DW_KERNEL, dilation, pad)
+        depthwise(bufA, bufB, b.dwW, b.dwB, T_IN, DIM, DW_KERNEL, dilation, pad)
 
         // 1x1 expansion, then a gated linear unit halves it again
-        linear(bufB, hidden, w["b$index.pw1.w"]!!, w["b$index.pw1.b"]!!, T_IN, DIM, EXPAND)
+        linear(bufB, hidden, b.pw1W, b.pw1B, T_IN, DIM, EXPAND)
         val half = EXPAND / 2
         for (t in 0 until T_IN) {
             val src = t * EXPAND
@@ -99,9 +125,9 @@ class SwipeNet private constructor(private val w: Map<String, Tensor>) {
             }
         }
 
-        grn(gated, w["b$index.grn.g"]!!, w["b$index.grn.b"]!!, T_IN, half)
-        linear(gated, bufB, w["b$index.pw2.w"]!!, w["b$index.pw2.b"]!!, T_IN, half, DIM)
-        squeezeExcite(bufB, index)
+        grn(gated, b.grnG, b.grnB, T_IN, half)
+        linear(gated, bufB, b.pw2W, b.pw2B, T_IN, half, DIM)
+        squeezeExcite(bufB, b)
 
         for (i in 0 until T_IN * DIM) bufA[i] += bufB[i]
     }
@@ -133,7 +159,7 @@ class SwipeNet private constructor(private val w: Map<String, Tensor>) {
     }
 
     /** Channel gating from a global average over time. */
-    private fun squeezeExcite(x: FloatArray, index: Int) {
+    private fun squeezeExcite(x: FloatArray, b: BlockWeights) {
         java.util.Arrays.fill(seVec, 0f)
         for (t in 0 until T_IN) {
             val base = t * DIM
@@ -142,14 +168,14 @@ class SwipeNet private constructor(private val w: Map<String, Tensor>) {
         val inv = 1f / T_IN
         for (c in 0 until DIM) seVec[c] *= inv
 
-        val w1 = w["b$index.se1.w"]!!; val b1 = w["b$index.se1.b"]!!
+        val w1 = b.se1W; val b1 = b.se1B
         for (h in 0 until SE_HIDDEN) {
             var s = b1.data[h]
             val row = h * DIM
             for (c in 0 until DIM) s += w1.data[row + c] * seVec[c]
             seHid[h] = if (s > 0f) s else 0f
         }
-        val w2 = w["b$index.se2.w"]!!; val b2 = w["b$index.se2.b"]!!
+        val w2 = b.se2W; val b2 = b.se2B
         for (c in 0 until DIM) {
             var s = b2.data[c]
             val row = c * SE_HIDDEN
@@ -175,9 +201,8 @@ class SwipeNet private constructor(private val w: Map<String, Tensor>) {
      */
     private fun emit(basis: FloatArray) {
         val keys = basis.size / N_COEFF
+        require(keys == ALPHABET) { "basis covers $keys keys, expected $ALPHABET" }
         val stride = ALPHABET + 1
-        // Reused across forward passes; a non-26-key layout allocates once instead.
-        val z = if (keys == this.z.size) this.z else FloatArray(keys)
         for (t in 0 until T_OUT) {
             val cBase = t * N_COEFF
             var maxZ = Float.NEGATIVE_INFINITY
@@ -211,7 +236,7 @@ class SwipeNet private constructor(private val w: Map<String, Tensor>) {
      * finite differences would.
      */
     private fun savitzkyGolay(xy: FloatArray) {
-        val k = w["savgol"]!!.data          // (3, 7), pre-flipped for correlation
+        val k = savgol                      // (3, 7), pre-flipped for correlation
         val half = SG_WINDOW / 2
         for (t in 0 until T_IN) {
             var px = 0f; var py = 0f

@@ -127,4 +127,28 @@ class FieldInputKindTest {
         assertFalse(FieldInputKind.isRawKeyEditor(InputType.TYPE_CLASS_NUMBER))
         assertFalse(FieldInputKind.isRawKeyEditor(InputType.TYPE_CLASS_PHONE))
     }
+
+    @Test
+    fun allowsLearning_isFalseForSecretsAndTerminals() {
+        val text = InputType.TYPE_CLASS_TEXT
+        val number = InputType.TYPE_CLASS_NUMBER
+        listOf(
+            text or InputType.TYPE_TEXT_VARIATION_PASSWORD,
+            text or InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD,
+            text or InputType.TYPE_TEXT_VARIATION_WEB_PASSWORD,
+            number or InputType.TYPE_NUMBER_VARIATION_PASSWORD,
+            InputType.TYPE_NULL
+        ).forEach { type ->
+            assertFalse("type=$type", FieldInputKind.from(type).allowsLearning)
+        }
+        listOf(
+            text,
+            text or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS,
+            text or InputType.TYPE_TEXT_VARIATION_URI,
+            number,
+            InputType.TYPE_CLASS_PHONE
+        ).forEach { type ->
+            assertTrue("type=$type", FieldInputKind.from(type).allowsLearning)
+        }
+    }
 }
