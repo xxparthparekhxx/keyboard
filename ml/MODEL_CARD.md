@@ -41,7 +41,7 @@ model-index:
 
 # Compose Keyboard — Swipe Encoder
 
-A **634K-parameter temporal convolutional encoder** for swipe/glide typing on Android, trained on ~900,000 real human gesture traces from the [FUTO Swipe Dataset](https://huggingface.co/datasets/futo-org/swipe.futo.org).
+A **633,697-parameter** (634K) temporal convolutional encoder for swipe/glide typing on Android, trained on ~900,000 real human gesture traces from the [FUTO Swipe Dataset](https://huggingface.co/datasets/futo-org/swipe.futo.org). The encoder follows the [FUTO Swipe paper](https://arxiv.org/abs/2606.25247) (Miller & Kostarevas, 2026), whose encoder is 635K parameters.
 
 This model powers the neural swipe decoder in [Compose Keyboard](https://github.com/xxparthparekhxx/keyboard), an open-source Android IME built with Jetpack Compose.
 
@@ -50,7 +50,7 @@ This model powers the neural swipe decoder in [Compose Keyboard](https://github.
 | Property | Value |
 |----------|-------|
 | Architecture | Temporal Convolutional Network (TCN) |
-| Parameters | 634K |
+| Parameters | 633,697 (634K) |
 | Input | 64-point gesture trajectory (resampled uniform in time) |
 | Output | 32 CTC emission frames over 26 letters + blank |
 | Inference | Pure Kotlin, no dependencies (430 LOC) |
@@ -214,7 +214,18 @@ If you use this model or the Compose Keyboard project in your research, please c
   url={https://github.com/xxparthparekhxx/keyboard},
   year={2024}
 }
+
+@article{miller_kostarevas_2026,
+  title={FUTO Swipe: Layout-Agnostic Neural Swipe Decoding},
+  author={David Lee Miller and Aleksandras Kostarevas},
+  year={2026},
+  eprint={2606.25247},
+  archivePrefix={arXiv},
+  primaryClass={cs.LG},
+  url={https://arxiv.org/abs/2606.25247}
+}
 ```
+The encoder architecture follows the FUTO Swipe paper (arXiv:2606.25247): a layout-agnostic TCN that emits a 2D spatial pattern read out via a fixed cosine basis, with CTC blank semantics separating timing-distinct gestures such as "putt" vs "put".
 
 ## License
 

@@ -10,7 +10,7 @@
 [![API](https://img.shields.io/badge/API-24%2B-brightgreen)](https://developer.android.com/about/versions/nougat)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-**Compose Keyboard** is a high-performance Android IME featuring a **custom-trained neural swipe decoder**: a 634K-parameter temporal convolutional network trained on ~900,000 real human swipe gestures, running entirely on-device in hand-written Kotlin with **zero inference dependencies**.
+**Compose Keyboard** is a high-performance Android IME featuring a **custom-trained neural swipe decoder**: a 633,697-parameter (634K) temporal convolutional network trained on ~900,000 real human swipe gestures, running entirely on-device in hand-written Kotlin with **zero inference dependencies**. (The FUTO Swipe paper's encoder is 635K.)
 
 
 [Screenshots](#screenshots) · [Features](#features) · [Neural Engine](#neural-swipe-engine) · [Architecture](#architecture) · [Getting Started](#getting-started) · [Model Weights](#model-weights-hugging-face) · [Training](#training-the-model) · [Contributing](#contributing)
@@ -34,7 +34,7 @@
 ## Features
 
 ### Neural Glide / Swipe Typing
-- **Custom-trained TCN encoder**: 634K parameters, trained from scratch on the [FUTO Swipe Dataset](https://huggingface.co/datasets/futo-org/swipe.futo.org) (~900,000 real human swipes)
+- **Custom-trained TCN encoder**: 633,697 parameters (634K), trained from scratch on the [FUTO Swipe Dataset](https://huggingface.co/datasets/futo-org/swipe.futo.org) (~900,000 real human swipes). The FUTO Swipe paper's encoder is 635K.
 - **Layout-agnostic by design**: the network emits spatial patterns via a 2D cosine basis, not per-key scores. The keyboard geometry is read at runtime, so the same weights serve any layout, screen size, or orientation with zero retraining
 - **CTC + trie-constrained beam search**: resolves doubled letters (*putt* vs *put*) from gesture **timing**, a distinction that is geometrically undecidable
 - **On-device, zero-dependency inference**: the entire forward pass is hand-written Kotlin (~430 lines), with no TFLite, ONNX, or any inference library
@@ -113,7 +113,7 @@ Touch Input (variable length, variable Hz)
 ┌─────────────────────────────┐
 │  TCN Backbone               │   5 ConvNeXt-v2 blocks (dilations 1,2,3,5,8)
 │  (128-dim, 7-wide depthwise)│   GRN + Squeeze-Excite + GLU MLP
-│  634K parameters            │   BatchNorm folded at export → zero norm layers
+│  633,697 (634K) parameters  │   BatchNorm folded at export → zero norm layers
 └─────────────────────────────┘
     │
     ▼
@@ -163,7 +163,7 @@ CTC blank semantics solve this: extending a prefix by the character it already e
 
 *Evaluated on 47,552 test gestures from the FUTO Swipe Dataset.*
 
-*The shipped lexicon has since grown to 150,289 words; re-run `tools/eval_neural.py` to refresh these figures against the current list. The evaluation figures above use the 35K lexicon the model was trained and evaluated against, matching `ml/MODEL_CARD.md`.*
+*The shipped lexicon has since grown to 150,289 words; re-run `tools/eval_neural.py` to refresh these figures against the current list. The evaluation figures above use the 35K lexicon the model was evaluated against, matching `ml/MODEL_CARD.md`. (Training itself is lexicon-free greedy CTC; see `ml/swipe/train.py`.)*
 
 ---
 
@@ -522,6 +522,7 @@ The next-word table (`app/src/main/assets/next_words.txt`) is derived from [C4](
 ## Acknowledgments
 
 - **[FUTO](https://futo.org)**: for the open [Swipe Gesture Dataset](https://huggingface.co/datasets/futo-org/swipe.futo.org) that made training possible
+- **[FUTO Swipe paper](https://arxiv.org/abs/2606.25247)**: David Lee Miller & Aleksandras Kostarevas, "FUTO Swipe: Layout-Agnostic Neural Swipe Decoding", arXiv:2606.25247 (2026) — the encoder architecture this project follows
 - **[Allen Institute for AI](https://allenai.org)**: for [C4](https://huggingface.co/datasets/allenai/c4) (ODC-BY 1.0), the source of the next-word table
 - **[ConvNeXt V2](https://arxiv.org/abs/2301.00808)**: Global Response Normalization (GRN) inspiration
 - **[SHARK²](https://dl.acm.org/doi/10.1145/1866029.1866043)**: foundational geometric swipe decoding research

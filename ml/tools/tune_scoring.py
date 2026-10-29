@@ -4,7 +4,7 @@ Stage 1 (pruning) has to re-run beam search per trial, so it is swept coarsely
 against beam recall. Stage 2 (scoring) is pure arithmetic over cached candidate
 lists, so it gets thousands of trials for free.
 
-The paper's published constants were fit against a 162k AOSP lexicon; this app
+The FUTO Swipe paper's (arXiv:2606.25247) published constants were fit against a 162k AOSP lexicon; this app
 ships 35k with a different frequency scale, so they do not transfer and have to
 be refit here.
 """

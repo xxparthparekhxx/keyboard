@@ -3,7 +3,7 @@
 The model is trained on the dataset's QWERTY, whose three rows all use one key
 width. This app's rows do not: row 2 is inset by 8dp and row 3 spends 1.35
 weight units on Shift and Backspace, so its three rows have three different key
-widths. The paper's claim is that co-augmentation makes the encoder read the
+widths. The FUTO Swipe paper's (arXiv:2606.25247) claim is that co-augmentation makes the encoder read the
 layout it is handed rather than the one it trained on -- this checks that claim
 on the geometry that actually ships.
 

@@ -1,4 +1,4 @@
-"""Layout-agnostic swipe encoder (FUTO-style TCN + spectral spatial head).
+"""Layout-agnostic swipe encoder from the FUTO Swipe paper (arXiv:2606.25247): TCN + spectral spatial head.
 
 The one idea that makes this layout-agnostic: the network never learns a
 parameter per key. It emits a 2D spatial *pattern* as 64 cosine coefficients,
@@ -196,7 +196,7 @@ class SwipeEncoder(nn.Module):
 if __name__ == "__main__":
     m = SwipeEncoder()
     n = sum(p.numel() for p in m.parameters())
-    print(f"encoder parameters: {n:,}   (paper: 635K)")
+    print(f"encoder parameters: {n:,}   (paper encoder: 635K; this build: {n:,} (~{round(n/1000)}K))")
     for name, mod in [("stem", m.stem), ("blocks", m.blocks), ("adapter", m.adapter),
                       ("coeff", m.coeff), ("gate", m.gate)]:
         print(f"   {name:8s} {sum(p.numel() for p in mod.parameters()):>9,}")

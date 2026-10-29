@@ -3,7 +3,7 @@
 Both decoders read the same layout, the same lexicon and the same traces, so the
 comparison is like-for-like. Two lexicon settings are reported: the word list the
 app actually ships, and that list plus the evaluation vocabulary -- the second
-isolates spatial decoding from out-of-vocabulary coverage, as the paper does.
+isolates spatial decoding from out-of-vocabulary coverage, as the FUTO Swipe paper (arXiv:2606.25247) does.
 """
 from __future__ import annotations
 

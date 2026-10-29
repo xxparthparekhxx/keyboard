@@ -6,7 +6,7 @@ layout keys -- before velocity/acceleration/curvature are computed from them.
 Deriving features here would freeze them at the un-augmented geometry and throw
 away the entire point of co-augmentation.
 
-Following the paper: resample to 60 Hz, then to T=64 points evenly spaced *in
+Following the FUTO Swipe paper (arXiv:2606.25247): resample to 60 Hz, then to T=64 points evenly spaced *in
 time* (not arc length). Time spacing is what preserves the dwell-and-hesitate
 signal that separates 'putt' from 'put'.
 """
