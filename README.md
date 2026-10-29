@@ -157,13 +157,13 @@ CTC blank semantics solve this: extending a prefix by the character it already e
 
 | Decoder | Lexicon | Top-1 | Top-3 | Top-10 |
 |---------|---------|-------|-------|--------|
-| **Neural (this project)** | App 150K + eval | **92.09%** | **97.69%** | **98.59%** |
-| Neural | App 150K | 85.78% | 91.05% | 91.88% |
-| Geometric (SHARK²-family) | App 150K | ~73% | - | - |
+| **Neural (this project)** | App 35K + eval | **92.09%** | **97.69%** | **98.59%** |
+| Neural | App 35K only | 85.78% | 91.05% | 91.88% |
+| Geometric (SHARK²-family) | App 35K | ~73% | - | - |
 
 *Evaluated on 47,552 test gestures from the FUTO Swipe Dataset.*
 
-*The shipped lexicon has since grown to 150,289 words; re-run `tools/eval_neural.py` to refresh these figures against the current list.*
+*The shipped lexicon has since grown to 150,289 words; re-run `tools/eval_neural.py` to refresh these figures against the current list. The evaluation figures above use the 35K lexicon the model was trained and evaluated against, matching `ml/MODEL_CARD.md`.*
 
 ---
 
@@ -489,7 +489,7 @@ hf upload xxparthparekhxx/compose-keyboard-swipe-encoder \
 
 ### Synthetic Gesture Generation
 
-The training pipeline includes a physics-based gesture synthesizer ([`ml/swipe/synth.py`](ml/swipe/synth.py)) that generates realistic training data:
+A physics-based gesture synthesizer ([`ml/swipe/synth.py`](ml/swipe/synth.py)) exists in the pipeline, but it is used only for evaluation — [`ml/tools/eval_app_layout.py`](ml/tools/eval_app_layout.py) generates synthetic traces to test whether the encoder transfers to this app's keyboard layout. Training on `ml/swipe/train.py` uses real gestures from the FUTO Swipe Dataset only; `train.py` never consumes synthetic data.
 
 1. **2/3 Power Law**: finger speed falls as curvature rises (v ∝ κ⁻¹ᐟ³)
 2. **Doubled Letter Dwells**: the finger lingers on repeated keys, creating the only signal that separates "putt" from "put"
