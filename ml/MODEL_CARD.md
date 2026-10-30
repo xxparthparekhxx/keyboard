@@ -29,14 +29,17 @@ model-index:
           split: test
         metrics:
           - type: accuracy
-            value: 92.09
-            name: Top-1 Accuracy (extended lexicon)
+            value: 89.07
+            name: Top-1 Accuracy (shipped 150K-word dictionary)
           - type: accuracy
-            value: 97.69
-            name: Top-3 Accuracy (extended lexicon)
+            value: 93.98
+            name: Top-3 Accuracy (shipped 150K-word dictionary)
           - type: accuracy
-            value: 85.78
-            name: Top-1 Accuracy (app lexicon only)
+            value: 92.00
+            name: Top-1 Accuracy (dictionary plus missing test words)
+          - type: accuracy
+            value: 97.07
+            name: Top-3 Accuracy (dictionary plus missing test words)
 ---
 
 # Compose Keyboard — Swipe Encoder
@@ -56,8 +59,8 @@ This model powers the neural swipe decoder in [Compose Keyboard](https://github.
 | Inference | Pure Kotlin, no dependencies (430 LOC) |
 | File Size | 2.5 MB (fp32, BatchNorm folded) |
 | Training Data | ~896K real swipes + co-augmentation |
-| Top-1 Accuracy | **92.09%** (extended lexicon, FUTO test) |
-| Top-3 Accuracy | **97.69%** |
+| Top-1 Accuracy | **89.07%** with the shipped 150K-word dictionary (92.00% with missing test words added), FUTO test |
+| Top-3 Accuracy | **93.98%** (97.07% with missing test words added) |
 
 ### Key Innovation: Layout Agnosticism
 
@@ -197,11 +200,11 @@ Post-training: beam search scoring constants are tuned on the dev set via Bayesi
 
 | Decoder | Lexicon | Top-1 | Top-3 | Top-10 |
 |---------|---------|-------|-------|--------|
-| **Neural** | App 35K + eval | **92.09%** | **97.69%** | **98.59%** |
-| Neural | App 35K only | 85.78% | 91.05% | 91.88% |
-| Geometric (SHARK²) | App 35K | ~73% | — | — |
+| **Neural** | Shipped 150K | **89.07%** | **93.98%** | **95.02%** |
+| Neural | Shipped 150K + missing test words | 92.00% | 97.07% | 98.16% |
+| Geometric (SHARK²) | Shipped 150K | 73.50% | 82.90% | 87.19% |
 
-*Evaluated on 47,552 test gestures from the FUTO Swipe Dataset.*
+*Evaluated on all 47,552 test gestures from the FUTO Swipe Dataset (checkpoint step 92,500, beam 100), re-run on 30 Oct 2026 against the shipped 150,289-word dictionary. "+ missing test words" adds every test word the dictionary lacks at a neutral prior (`--extend`), so it measures the decoder with no out-of-vocabulary misses; the first row is what the app does.*
 
 ## Citation
 

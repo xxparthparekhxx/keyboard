@@ -38,7 +38,7 @@
 - **Layout-agnostic by design**: the network emits spatial patterns via a 2D cosine basis, not per-key scores. The keyboard geometry is read at runtime, so the same weights serve any layout, screen size, or orientation with zero retraining
 - **CTC + trie-constrained beam search**: resolves doubled letters (*putt* vs *put*) from gesture **timing**, a distinction that is geometrically undecidable
 - **On-device, zero-dependency inference**: the entire forward pass is hand-written Kotlin (~430 lines), with no TFLite, ONNX, or any inference library
-- **92% top-1 accuracy** on the FUTO test set (97.7% top-3), with automatic fallback to the geometric (SHARK²-family) decoder if the model asset is unavailable
+- **89.1% top-1 accuracy** on the FUTO test set with the shipped 150K-word dictionary (92.0% when every test word is in the dictionary), with automatic fallback to the geometric (SHARK²-family) decoder if the model asset is unavailable
 - **Dynamic word learning**: learns from your typing and selections, saved persistently
 
 ### Next-Word Prediction
@@ -157,13 +157,13 @@ CTC blank semantics solve this: extending a prefix by the character it already e
 
 | Decoder | Lexicon | Top-1 | Top-3 | Top-10 |
 |---------|---------|-------|-------|--------|
-| **Neural (this project)** | App 35K + eval | **92.09%** | **97.69%** | **98.59%** |
-| Neural | App 35K only | 85.78% | 91.05% | 91.88% |
-| Geometric (SHARK²-family) | App 35K | ~73% | - | - |
+| **Neural (this project)** | Shipped 150K | **89.07%** | **93.98%** | **95.02%** |
+| Neural | Shipped 150K + missing test words | 92.00% | 97.07% | 98.16% |
+| Geometric (SHARK²-family) | Shipped 150K | 73.50% | 82.90% | 87.19% |
 
 *Evaluated on 47,552 test gestures from the FUTO Swipe Dataset.*
 
-*The shipped lexicon has since grown to 150,289 words; re-run `tools/eval_neural.py` to refresh these figures against the current list. The evaluation figures above use the 35K lexicon the model was evaluated against, matching `ml/MODEL_CARD.md`. (Training itself is lexicon-free greedy CTC; see `ml/swipe/train.py`.)*
+*Re-run on 30 Oct 2026 against the shipped 150,289-word dictionary (checkpoint step 92,500, beam 100), matching `ml/MODEL_CARD.md`. "+ missing test words" adds every test word the dictionary lacks (`--extend`), so it measures the decoder with no out-of-vocabulary misses; the first row is what the app does. (Training itself is lexicon-free greedy CTC; see `ml/swipe/train.py`.)*
 
 ---
 
@@ -446,11 +446,11 @@ python tools/tune_scoring.py --ckpt runs/encoder/best.pt --n 12000 --prune-trial
 ```bash
 # With extended lexicon (eval words added to dictionary)
 python tools/eval_neural.py --split test --extend --beam 100
-# → top-1 92.09%  top-3 97.69%  top-10 98.59%
+# → top-1 92.00%  top-3 97.07%  top-10 98.16%
 
 # Without extended lexicon (the shipped 150,289-word dictionary)
 python tools/eval_neural.py --split test --beam 100
-# → top-1 85.78%  top-3 91.05%  top-10 91.88%
+# → top-1 89.07%  top-3 93.98%  top-10 95.02%
 ```
 
 ### 6. Export Weights

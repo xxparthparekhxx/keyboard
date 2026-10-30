@@ -39,7 +39,7 @@ if __name__ == "__main__":
     t3 = sum(w in g[:3] for w, g in out)
     t10 = sum(w in g[:10] for w, g in out)
     none = sum(not g for _, g in out)
-    base = LEXPATH.split("/")[-1] if LEXPATH else "app35k"
+    base = LEXPATH.split("/")[-1] if LEXPATH else "app"
     tag = base + ("+eval" if EXTEND else "")
     print(f"BASELINE  {SPLIT}  lexicon={tag}  n={n:,}")
     print(f"  top-1 {t1/n:7.2%}   top-3 {t3/n:7.2%}   top-10 {t10/n:7.2%}   no-result {none/n:.2%}")

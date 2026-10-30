@@ -74,7 +74,7 @@ if __name__ == "__main__":
     a1 = sum(bool(x) and x[0] == t for x, t in zip(g, tgt)) / n
     a3 = sum(t in x[:3] for x, t in zip(g, tgt)) / n
     a10 = sum(t in x[:10] for x, t in zip(g, tgt)) / n
-    base = A.lexicon.split("/")[-1] if A.lexicon else "app35k"
+    base = A.lexicon.split("/")[-1] if A.lexicon else "app"
     tag = base + ("+eval" if A.extend else "")
     print(f"NEURAL  {A.split}  lexicon={tag}  beam={A.beam}  n={n:,}  step={ck.get('step')}")
     print(f"  top-1 {a1:7.2%}   top-3 {a3:7.2%}   top-10 {a10:7.2%}")
